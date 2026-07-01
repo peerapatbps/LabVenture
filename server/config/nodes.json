@@ -1,0 +1,1527 @@
+{
+    "plant_id": 2,
+    "nodes": [
+        {
+            "id": "RW",
+            "label": "กลุ่มน้ำดิบ",
+            "sort": 3,
+            "parameters": [
+                {
+                    "param_key": "RW.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "4h",
+                    "configparam_id": 887
+                },
+                {
+                    "param_key": "RW.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "12h",
+                    "configparam_id": 888
+                },
+                {
+                    "param_key": "RW.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "4h",
+                    "configparam_id": 889
+                },
+                {
+                    "param_key": "RW.Temp",
+                    "label": "Temperature",
+                    "unit": "°C",
+                    "frequency": "4h",
+                    "configparam_id": 8503
+                },
+                {
+                    "param_key": "RW.Conduct",
+                    "label": "Conductivity",
+                    "unit": "µS/cm",
+                    "frequency": "12h",
+                    "configparam_id": 890
+                },
+                {
+                    "param_key": "RW.DO",
+                    "label": "Dissolved Oxygen",
+                    "unit": "mg/L",
+                    "frequency": "12h",
+                    "configparam_id": 891
+                },
+                {
+                    "param_key": "RW.Hardness",
+                    "label": "Hardness",
+                    "unit": "mg/L",
+                    "frequency": "12h",
+                    "configparam_id": 892
+                },
+                {
+                    "param_key": "RW.OC",
+                    "label": "Organic Compound",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "configparam_id": 893
+                }
+            ]
+        },
+        {
+            "id": "Incoming",
+            "label": "Incoming RW",
+            "sort": 1,
+            "parameters": [
+                {
+                    "param_key": "Incoming.Thamuang.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "daily",
+                    "fixedTime": "08:00",
+                    "subgroup": "จุดรับน้ำดิบท่าม่วง"
+                },
+                {
+                    "param_key": "Incoming.Thamuang.Conduct",
+                    "label": "Conductivity",
+                    "unit": "µS/cm",
+                    "frequency": "daily",
+                    "fixedTime": "08:00",
+                    "subgroup": "จุดรับน้ำดิบท่าม่วง",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Incoming.Thamuang.DO",
+                    "label": "Dissolved Oxygen",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "08:00",
+                    "subgroup": "จุดรับน้ำดิบท่าม่วง",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Incoming.Banglen.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "daily",
+                    "fixedTime": "08:00",
+                    "subgroup": "จุดรับน้ำดิบบางเลน"
+                },
+                {
+                    "param_key": "Incoming.Banglen.Conduct",
+                    "label": "Conductivity",
+                    "unit": "µS/cm",
+                    "frequency": "daily",
+                    "fixedTime": "08:00",
+                    "subgroup": "จุดรับน้ำดิบบางเลน",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Incoming.Banglen.DO",
+                    "label": "Dissolved Oxygen",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "08:00",
+                    "subgroup": "จุดรับน้ำดิบบางเลน",
+                    "skip_progress": true
+                }
+            ]
+        },
+        {
+            "id": "JarTest",
+            "label": "Jar Test",
+            "sort": 2,
+            "parameters": [
+                {
+                    "param_key": "JarTest.Alum.D1.Dose",
+                    "label": "Dosage#1",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D1",
+                    "configparam_id": 954
+                },
+                {
+                    "param_key": "JarTest.Alum.D1.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D1",
+                    "configparam_id": 955
+                },
+                {
+                    "param_key": "JarTest.Alum.D1.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D1",
+                    "configparam_id": 956
+                },
+                {
+                    "param_key": "JarTest.Alum.D1.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D1",
+                    "configparam_id": 957
+                },
+                {
+                    "param_key": "JarTest.Alum.D2.Dose",
+                    "label": "Dosage#2",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D2",
+                    "configparam_id": 959
+                },
+                {
+                    "param_key": "JarTest.Alum.D2.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D2",
+                    "configparam_id": 960
+                },
+                {
+                    "param_key": "JarTest.Alum.D2.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D2",
+                    "configparam_id": 961
+                },
+                {
+                    "param_key": "JarTest.Alum.D2.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D2",
+                    "configparam_id": 962
+                },
+                {
+                    "param_key": "JarTest.Alum.D3.Dose",
+                    "label": "Dosage#3",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D3",
+                    "configparam_id": 964
+                },
+                {
+                    "param_key": "JarTest.Alum.D3.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D3",
+                    "configparam_id": 965
+                },
+                {
+                    "param_key": "JarTest.Alum.D3.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D3",
+                    "configparam_id": 966
+                },
+                {
+                    "param_key": "JarTest.Alum.D3.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D3",
+                    "configparam_id": 967
+                },
+                {
+                    "param_key": "JarTest.Alum.D4.Dose",
+                    "label": "Dosage#4",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D4",
+                    "configparam_id": 969
+                },
+                {
+                    "param_key": "JarTest.Alum.D4.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D4",
+                    "configparam_id": 970
+                },
+                {
+                    "param_key": "JarTest.Alum.D4.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D4",
+                    "configparam_id": 971
+                },
+                {
+                    "param_key": "JarTest.Alum.D4.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D4",
+                    "configparam_id": 972
+                },
+                {
+                    "param_key": "JarTest.Alum.D5.Dose",
+                    "label": "Dosage#5",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D5",
+                    "configparam_id": 974
+                },
+                {
+                    "param_key": "JarTest.Alum.D5.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D5",
+                    "configparam_id": 975
+                },
+                {
+                    "param_key": "JarTest.Alum.D5.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D5",
+                    "configparam_id": 976
+                },
+                {
+                    "param_key": "JarTest.Alum.D5.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D5",
+                    "configparam_id": 977
+                },
+                {
+                    "param_key": "JarTest.Alum.D6.Dose",
+                    "label": "Dosage#6",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D6",
+                    "configparam_id": 979
+                },
+                {
+                    "param_key": "JarTest.Alum.D6.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D6",
+                    "configparam_id": 980
+                },
+                {
+                    "param_key": "JarTest.Alum.D6.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D6",
+                    "configparam_id": 981
+                },
+                {
+                    "param_key": "JarTest.Alum.D6.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Alum D6",
+                    "configparam_id": 982
+                },
+                {
+                    "param_key": "JarTest.PACl.D1.Dose",
+                    "label": "Dosage#1",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D1",
+                    "configparam_id": 8045
+                },
+                {
+                    "param_key": "JarTest.PACl.D1.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D1",
+                    "configparam_id": 8046
+                },
+                {
+                    "param_key": "JarTest.PACl.D1.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D1",
+                    "configparam_id": 8047
+                },
+                {
+                    "param_key": "JarTest.PACl.D1.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D1",
+                    "configparam_id": 8048
+                },
+                {
+                    "param_key": "JarTest.PACl.D2.Dose",
+                    "label": "Dosage#2",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D2",
+                    "configparam_id": 8050
+                },
+                {
+                    "param_key": "JarTest.PACl.D2.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D2",
+                    "configparam_id": 8051
+                },
+                {
+                    "param_key": "JarTest.PACl.D2.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D2",
+                    "configparam_id": 8052
+                },
+                {
+                    "param_key": "JarTest.PACl.D2.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D2",
+                    "configparam_id": 8053
+                },
+                {
+                    "param_key": "JarTest.PACl.D3.Dose",
+                    "label": "Dosage#3",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D3",
+                    "configparam_id": 8055
+                },
+                {
+                    "param_key": "JarTest.PACl.D3.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D3",
+                    "configparam_id": 8056
+                },
+                {
+                    "param_key": "JarTest.PACl.D3.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D3",
+                    "configparam_id": 8057
+                },
+                {
+                    "param_key": "JarTest.PACl.D3.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D3",
+                    "configparam_id": 8058
+                },
+                {
+                    "param_key": "JarTest.PACl.D4.Dose",
+                    "label": "Dosage#4",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D4",
+                    "configparam_id": 8060
+                },
+                {
+                    "param_key": "JarTest.PACl.D4.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D4",
+                    "configparam_id": 8061
+                },
+                {
+                    "param_key": "JarTest.PACl.D4.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D4",
+                    "configparam_id": 8062
+                },
+                {
+                    "param_key": "JarTest.PACl.D4.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D4",
+                    "configparam_id": 8063
+                },
+                {
+                    "param_key": "JarTest.PACl.D5.Dose",
+                    "label": "Dosage#5",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D5",
+                    "configparam_id": 8065
+                },
+                {
+                    "param_key": "JarTest.PACl.D5.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D5",
+                    "configparam_id": 8066
+                },
+                {
+                    "param_key": "JarTest.PACl.D5.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D5",
+                    "configparam_id": 8067
+                },
+                {
+                    "param_key": "JarTest.PACl.D5.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D5",
+                    "configparam_id": 8068
+                },
+                {
+                    "param_key": "JarTest.PACl.D6.Dose",
+                    "label": "Dosage#6",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D6",
+                    "configparam_id": 8070
+                },
+                {
+                    "param_key": "JarTest.PACl.D6.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D6",
+                    "configparam_id": 8071
+                },
+                {
+                    "param_key": "JarTest.PACl.D6.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D6",
+                    "configparam_id": 8072
+                },
+                {
+                    "param_key": "JarTest.PACl.D6.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "PACl D6",
+                    "configparam_id": 8073
+                }
+            ]
+        },
+        {
+            "id": "JarTestSummary",
+            "label": "Recommended Chemical Dosage",
+            "sort": 2.5,
+            "parameters": [
+                {
+                    "param_key": "JarTest.PACl.RW_ref_turb",
+                    "label": "Ref RW property",
+                    "unit": "NTU",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "RW Ref",
+                    "configparam_id": 986
+                },
+                {
+                    "param_key": "JarTest.PACl.RW_ref_pH",
+                    "label": "RW ref pH",
+                    "unit": "",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "RW Ref",
+                    "configparam_id": 987
+                },
+                {
+                    "param_key": "JarTest.PACl.RW_ref_Alkalinity",
+                    "label": "RW ref Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "RW Ref",
+                    "configparam_id": 988
+                },
+                {
+                    "param_key": "JarTest.PACl.RW_ref_Temp",
+                    "label": "RW ref Temp",
+                    "unit": "°C",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "RW Ref",
+                    "configparam_id": 8116
+                },
+                {
+                    "param_key": "JarTest.Alum.RecommendDose1",
+                    "label": "Recommend Dose Phase1",
+                    "unit": "",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Recommend Dose",
+                    "configparam_id": 990
+                },
+                {
+                    "param_key": "JarTest.Alum.RecommendDose2",
+                    "label": "Recommend Dose Phase2",
+                    "unit": "",
+                    "frequency": "daily",
+                    "fixedTime": "05:00",
+                    "subgroup": "Recommend Dose",
+                    "configparam_id": 991
+                },
+                {
+                    "param_key": "JarTest.PACl.RecommendDose1",
+                    "label": "Recommend Dose Phase3",
+                    "unit": "",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "Recommend Dose",
+                    "configparam_id": 8075
+                },
+                {
+                    "param_key": "JarTest.PACl.RecommendDose2",
+                    "label": "Recommend Dose Phase4",
+                    "unit": "",
+                    "frequency": "daily",
+                    "fixedTime": "06:00",
+                    "subgroup": "Recommend Dose",
+                    "configparam_id": 8076
+                }
+            ]
+        },
+        {
+            "id": "CW_Phase1",
+            "label": "ระบบผลิตเฟส 1",
+            "sort": 4,
+            "parameters": [
+                {
+                    "param_key": "CW1_A.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "4h",
+                    "subgroup": "CW1_A",
+                    "configparam_id": 996
+                },
+                {
+                    "param_key": "CW1_A.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "4h",
+                    "subgroup": "CW1_A",
+                    "configparam_id": 997
+                },
+                {
+                    "param_key": "CW1_A.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "4h",
+                    "subgroup": "CW1_A",
+                    "configparam_id": 998
+                },
+                {
+                    "param_key": "CW1_B.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "4h",
+                    "subgroup": "CW1_B",
+                    "configparam_id": 999
+                },
+                {
+                    "param_key": "CW1_B.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "4h",
+                    "subgroup": "CW1_B",
+                    "configparam_id": 1000
+                },
+                {
+                    "param_key": "CW1_B.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "4h",
+                    "subgroup": "CW1_B",
+                    "configparam_id": 1001
+                },
+                {
+                    "param_key": "CW1.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "4h",
+                    "subgroup": "CW1",
+                    "configparam_id": 1002
+                },
+                {
+                    "param_key": "CW1.OC",
+                    "label": "Organic Carbon",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "subgroup": "CW1",
+                    "configparam_id": 1003
+                },
+                {
+                    "param_key": "CW1.ResCl2",
+                    "label": "Residual Chlorine",
+                    "unit": "mg/L",
+                    "frequency": "4h",
+                    "subgroup": "CW1",
+                    "configparam_id": 1004,
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "FW1.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "4h",
+                    "subgroup": "FW1",
+                    "configparam_id": 1005
+                },
+                {
+                    "param_key": "FW1.OC",
+                    "label": "Organic Carbon",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "subgroup": "FW1",
+                    "configparam_id": 1006
+                },
+                {
+                    "param_key": "FW1.ResCl2",
+                    "label": "Residual Chlorine",
+                    "unit": "mg/L",
+                    "frequency": "4h",
+                    "subgroup": "FW1",
+                    "configparam_id": 1007,
+                    "skip_progress": true
+                }
+            ]
+        },
+        {
+            "id": "CW_Phase2",
+            "label": "ระบบผลิตเฟส 2",
+            "sort": 5,
+            "parameters": [
+                {
+                    "param_key": "CW2_A.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "4h",
+                    "subgroup": "CW2_A",
+                    "configparam_id": 1008
+                },
+                {
+                    "param_key": "CW2_A.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "4h",
+                    "subgroup": "CW2_A",
+                    "configparam_id": 1009
+                },
+                {
+                    "param_key": "CW2_A.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "4h",
+                    "subgroup": "CW2_A",
+                    "configparam_id": 1010
+                },
+                {
+                    "param_key": "CW2_B.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "4h",
+                    "subgroup": "CW2_B",
+                    "configparam_id": 1011
+                },
+                {
+                    "param_key": "CW2_B.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "4h",
+                    "subgroup": "CW2_B",
+                    "configparam_id": 1012
+                },
+                {
+                    "param_key": "CW2_B.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "4h",
+                    "subgroup": "CW2_B",
+                    "configparam_id": 1013
+                },
+                {
+                    "param_key": "CW2.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "4h",
+                    "subgroup": "CW2",
+                    "configparam_id": 1014
+                },
+                {
+                    "param_key": "CW2.OC",
+                    "label": "Organic Carbon",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "subgroup": "CW2",
+                    "configparam_id": 1015
+                },
+                {
+                    "param_key": "CW2.ResCl2",
+                    "label": "Residual Chlorine",
+                    "unit": "mg/L",
+                    "frequency": "4h",
+                    "subgroup": "CW2",
+                    "configparam_id": 1016,
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "FW2.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "4h",
+                    "subgroup": "FW2",
+                    "configparam_id": 1017
+                },
+                {
+                    "param_key": "FW2.OC",
+                    "label": "Organic Carbon",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "subgroup": "FW2",
+                    "configparam_id": 1018
+                },
+                {
+                    "param_key": "FW2.ResCl2",
+                    "label": "Residual Chlorine",
+                    "unit": "mg/L",
+                    "frequency": "4h",
+                    "subgroup": "FW2",
+                    "configparam_id": 1019,
+                    "skip_progress": true
+                }
+            ]
+        },
+        {
+            "id": "CW_Phase3",
+            "label": "ระบบผลิตเฟส 3",
+            "sort": 6,
+            "parameters": [
+                {
+                    "param_key": "CW3_A.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "4h",
+                    "subgroup": "CW3_A",
+                    "configparam_id": 1020
+                },
+                {
+                    "param_key": "CW3_A.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "4h",
+                    "subgroup": "CW3_A",
+                    "configparam_id": 1021
+                },
+                {
+                    "param_key": "CW3_A.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "4h",
+                    "subgroup": "CW3_A",
+                    "configparam_id": 1022
+                },
+                {
+                    "param_key": "CW3_B.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "4h",
+                    "subgroup": "CW3_B",
+                    "configparam_id": 1023
+                },
+                {
+                    "param_key": "CW3_B.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "4h",
+                    "subgroup": "CW3_B",
+                    "configparam_id": 1024
+                },
+                {
+                    "param_key": "CW3_B.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "4h",
+                    "subgroup": "CW3_B",
+                    "configparam_id": 1025
+                },
+                {
+                    "param_key": "CW3.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "4h",
+                    "subgroup": "CW3",
+                    "configparam_id": 1026
+                },
+                {
+                    "param_key": "CW3.OC",
+                    "label": "Organic Carbon",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "subgroup": "CW3",
+                    "configparam_id": 1027
+                },
+                {
+                    "param_key": "CW3.ResCl2",
+                    "label": "Residual Chlorine",
+                    "unit": "mg/L",
+                    "frequency": "4h",
+                    "subgroup": "CW3",
+                    "configparam_id": 1028,
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "FW3.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "4h",
+                    "subgroup": "FW3",
+                    "configparam_id": 1029
+                },
+                {
+                    "param_key": "FW3.OC",
+                    "label": "Organic Carbon",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "subgroup": "FW3",
+                    "configparam_id": 1030
+                },
+                {
+                    "param_key": "FW3.ResCl2",
+                    "label": "Residual Chlorine",
+                    "unit": "mg/L",
+                    "frequency": "4h",
+                    "subgroup": "FW3",
+                    "configparam_id": 1031,
+                    "skip_progress": true
+                }
+            ]
+        },
+        {
+            "id": "CW_Phase4",
+            "label": "ระบบผลิตเฟส 4",
+            "sort": 7,
+            "parameters": [
+                {
+                    "param_key": "CW4_A.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "4h",
+                    "subgroup": "CW4_A",
+                    "configparam_id": 1032
+                },
+                {
+                    "param_key": "CW4_A.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "4h",
+                    "subgroup": "CW4_A",
+                    "configparam_id": 1033
+                },
+                {
+                    "param_key": "CW4_A.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "4h",
+                    "subgroup": "CW4_A",
+                    "configparam_id": 1034
+                },
+                {
+                    "param_key": "CW4_B.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "4h",
+                    "subgroup": "CW4_B",
+                    "configparam_id": 1035
+                },
+                {
+                    "param_key": "CW4_B.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "4h",
+                    "subgroup": "CW4_B",
+                    "configparam_id": 1036
+                },
+                {
+                    "param_key": "CW4_B.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "4h",
+                    "subgroup": "CW4_B",
+                    "configparam_id": 1037
+                },
+                {
+                    "param_key": "CW4.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "4h",
+                    "subgroup": "CW4",
+                    "configparam_id": 1038
+                },
+                {
+                    "param_key": "CW4.OC",
+                    "label": "Organic Carbon",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "subgroup": "CW4",
+                    "configparam_id": 1039
+                },
+                {
+                    "param_key": "CW4.ResCl2",
+                    "label": "Residual Chlorine",
+                    "unit": "mg/L",
+                    "frequency": "4h",
+                    "subgroup": "CW4",
+                    "configparam_id": 1040,
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "FW4.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "4h",
+                    "subgroup": "FW4",
+                    "configparam_id": 1041
+                },
+                {
+                    "param_key": "FW4.OC",
+                    "label": "Organic Carbon",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "subgroup": "FW4",
+                    "configparam_id": 1042
+                },
+                {
+                    "param_key": "FW4.ResCl2",
+                    "label": "Residual Chlorine",
+                    "unit": "mg/L",
+                    "frequency": "4h",
+                    "subgroup": "FW4",
+                    "configparam_id": 1043,
+                    "skip_progress": true
+                }
+            ]
+        },
+        {
+            "id": "TW12",
+            "label": "น้ำประปา TW 1-2",
+            "sort": 8,
+            "parameters": [
+                {
+                    "param_key": "TW1.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "4h",
+                    "subgroup": "TW1",
+                    "configparam_id": 1044
+                },
+                {
+                    "param_key": "TW1.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "4h",
+                    "subgroup": "TW1",
+                    "configparam_id": 1045
+                },
+                {
+                    "param_key": "TW1.ResCl2",
+                    "label": "Residual Chlorine",
+                    "unit": "mg/L",
+                    "frequency": "4h",
+                    "subgroup": "TW1",
+                    "configparam_id": 1046
+                },
+                {
+                    "param_key": "TW1.Conduct",
+                    "label": "Conductivity",
+                    "unit": "µS/cm",
+                    "frequency": "12h",
+                    "subgroup": "TW1",
+                    "configparam_id": 1047
+                },
+                {
+                    "param_key": "TW1.OC",
+                    "label": "Organic Carbon",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "subgroup": "TW1",
+                    "configparam_id": 1048
+                },
+                {
+                    "param_key": "TW1.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "12h",
+                    "subgroup": "TW1",
+                    "configparam_id": 1049
+                },
+                {
+                    "param_key": "TW1.Hardness",
+                    "label": "Hardness",
+                    "unit": "mg/L",
+                    "frequency": "12h",
+                    "subgroup": "TW1",
+                    "configparam_id": 1050
+                },
+                {
+                    "param_key": "TW1.Langelier",
+                    "label": "Langelier",
+                    "unit": "Index",
+                    "frequency": "12h",
+                    "subgroup": "TW1",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "TW1.Color",
+                    "label": "App. Color",
+                    "unit": "",
+                    "frequency": "12h",
+                    "subgroup": "TW1",
+                    "configparam_id": 1052,
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "TW2.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "2h",
+                    "subgroup": "TW2",
+                    "configparam_id": 1053
+                },
+                {
+                    "param_key": "TW2.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "4h",
+                    "subgroup": "TW2",
+                    "configparam_id": 1054
+                },
+                {
+                    "param_key": "TW2.ResCl2",
+                    "label": "Residual Chlorine",
+                    "unit": "mg/L",
+                    "frequency": "2h",
+                    "subgroup": "TW2",
+                    "configparam_id": 1055
+                },
+                {
+                    "param_key": "TW2.Conduct",
+                    "label": "Conductivity",
+                    "unit": "µS/cm",
+                    "frequency": "12h",
+                    "subgroup": "TW2",
+                    "configparam_id": 1056
+                },
+                {
+                    "param_key": "TW2.OC",
+                    "label": "Organic Carbon",
+                    "unit": "mg/L",
+                    "frequency": "daily",
+                    "subgroup": "TW2",
+                    "configparam_id": 1057
+                },
+                {
+                    "param_key": "TW2.alk",
+                    "label": "Alkalinity",
+                    "unit": "mg/L",
+                    "frequency": "12h",
+                    "subgroup": "TW2",
+                    "configparam_id": 1058
+                },
+                {
+                    "param_key": "TW2.Hardness",
+                    "label": "Hardness",
+                    "unit": "mg/L",
+                    "frequency": "12h",
+                    "subgroup": "TW2",
+                    "configparam_id": 1059
+                },
+                {
+                    "param_key": "TW2.Langelier",
+                    "label": "Langelier",
+                    "unit": "Index",
+                    "frequency": "12h",
+                    "subgroup": "TW2",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "TW2.Color",
+                    "label": "App. Color",
+                    "unit": "",
+                    "frequency": "12h",
+                    "subgroup": "TW2",
+                    "configparam_id": 1061,
+                    "skip_progress": true
+                }
+            ]
+        },
+        {
+            "id": "TW34",
+            "label": "น้ำประปา TW 3-4",
+            "sort": 9,
+            "parameters": [
+                {
+                    "param_key": "TW3.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "2h",
+                    "subgroup": "TW3",
+                    "configparam_id": 1062
+                },
+                {
+                    "param_key": "TW3.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "4h",
+                    "subgroup": "TW3",
+                    "configparam_id": 1063
+                },
+                {
+                    "param_key": "TW3.ResCl2",
+                    "label": "Residual Chlorine",
+                    "unit": "mg/L",
+                    "frequency": "2h",
+                    "subgroup": "TW3",
+                    "configparam_id": 1064
+                },
+                {
+                    "param_key": "TW4.turb",
+                    "label": "Turbidity",
+                    "unit": "NTU",
+                    "frequency": "2h",
+                    "subgroup": "TW4",
+                    "configparam_id": 1065
+                },
+                {
+                    "param_key": "TW4.pH",
+                    "label": "pH",
+                    "unit": "",
+                    "frequency": "4h",
+                    "subgroup": "TW4",
+                    "configparam_id": 1066
+                },
+                {
+                    "param_key": "TW4.ResCl2",
+                    "label": "Residual Chlorine",
+                    "unit": "mg/L",
+                    "frequency": "2h",
+                    "subgroup": "TW4",
+                    "configparam_id": 1067
+                }
+            ]
+        },
+        {
+            "id": "Chemical",
+            "label": "Chemical Analysis",
+            "sort": 10,
+            "parameters": [
+                {
+                    "param_key": "Chem.RW.Al",
+                    "label": "Aluminium",
+                    "unit": "mg/L",
+                    "frequency": "weekly",
+                    "subgroup": "RW",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Chem.RW.Fe",
+                    "label": "Iron",
+                    "unit": "mg/L",
+                    "frequency": "weekly",
+                    "subgroup": "RW",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Chem.RW.Mn",
+                    "label": "Manganese",
+                    "unit": "mg/L",
+                    "frequency": "weekly",
+                    "subgroup": "RW",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Chem.RW.Cl",
+                    "label": "Chloride",
+                    "unit": "mg/L",
+                    "frequency": "weekly",
+                    "subgroup": "RW",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Chem.TW1.Al",
+                    "label": "Aluminium",
+                    "unit": "mg/L",
+                    "frequency": "weekly",
+                    "subgroup": "TW1",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Chem.TW1.Fe",
+                    "label": "Iron",
+                    "unit": "mg/L",
+                    "frequency": "weekly",
+                    "subgroup": "TW1",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Chem.TW1.Mn",
+                    "label": "Manganese",
+                    "unit": "mg/L",
+                    "frequency": "weekly",
+                    "subgroup": "TW1",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Chem.TW1.Cl",
+                    "label": "Chloride",
+                    "unit": "mg/L",
+                    "frequency": "weekly",
+                    "subgroup": "TW1",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Chem.TW2.Al",
+                    "label": "Aluminium",
+                    "unit": "mg/L",
+                    "frequency": "weekly",
+                    "subgroup": "TW2",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Chem.TW2.Fe",
+                    "label": "Iron",
+                    "unit": "mg/L",
+                    "frequency": "weekly",
+                    "subgroup": "TW2",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Chem.TW2.Mn",
+                    "label": "Manganese",
+                    "unit": "mg/L",
+                    "frequency": "weekly",
+                    "subgroup": "TW2",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Chem.TW2.Cl",
+                    "label": "Chloride",
+                    "unit": "mg/L",
+                    "frequency": "weekly",
+                    "subgroup": "TW2",
+                    "skip_progress": true
+                }
+            ]
+        },
+        {
+            "id": "Biological",
+            "label": "Biological Analysis",
+            "sort": 11,
+            "parameters": [
+                {
+                    "param_key": "Algae.RW.Total",
+                    "label": "Total",
+                    "unit": "cell/mL",
+                    "frequency": "weekly",
+                    "subgroup": "Algae RW",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Algae.RW.ClogFilter",
+                    "label": "Clog.Filter",
+                    "unit": "cell/mL",
+                    "frequency": "weekly",
+                    "subgroup": "Algae RW",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Algae.CW1.Total",
+                    "label": "Total",
+                    "unit": "cell/mL",
+                    "frequency": "weekly",
+                    "subgroup": "Algae CW1",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Algae.CW1.ClogFilter",
+                    "label": "Clog.Filter",
+                    "unit": "cell/mL",
+                    "frequency": "weekly",
+                    "subgroup": "Algae CW1",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Algae.CW2.Total",
+                    "label": "Total",
+                    "unit": "cell/mL",
+                    "frequency": "weekly",
+                    "subgroup": "Algae CW2",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Algae.CW2.ClogFilter",
+                    "label": "Clog.Filter",
+                    "unit": "cell/mL",
+                    "frequency": "weekly",
+                    "subgroup": "Algae CW2",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Algae.CW3.Total",
+                    "label": "Total",
+                    "unit": "cell/mL",
+                    "frequency": "weekly",
+                    "subgroup": "Algae CW3",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Algae.CW3.ClogFilter",
+                    "label": "Clog.Filter",
+                    "unit": "cell/mL",
+                    "frequency": "weekly",
+                    "subgroup": "Algae CW3",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Algae.CW4.Total",
+                    "label": "Total",
+                    "unit": "cell/mL",
+                    "frequency": "weekly",
+                    "subgroup": "Algae CW4",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Algae.CW4.ClogFilter",
+                    "label": "Clog.Filter",
+                    "unit": "cell/mL",
+                    "frequency": "weekly",
+                    "subgroup": "Algae CW4",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Algae.TW1.Total",
+                    "label": "Total",
+                    "unit": "cell/mL",
+                    "frequency": "weekly",
+                    "subgroup": "Algae TW1",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Algae.TW1.ClogFilter",
+                    "label": "Clog.Filter",
+                    "unit": "cell/mL",
+                    "frequency": "weekly",
+                    "subgroup": "Algae TW1",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Algae.TW2.Total",
+                    "label": "Total",
+                    "unit": "cell/mL",
+                    "frequency": "weekly",
+                    "subgroup": "Algae TW2",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Algae.TW2.ClogFilter",
+                    "label": "Clog.Filter",
+                    "unit": "cell/mL",
+                    "frequency": "weekly",
+                    "subgroup": "Algae TW2",
+                    "skip_progress": true
+                },
+                {
+                    "param_key": "Bacteria.TW1.Coliform",
+                    "label": "Total Coliform",
+                    "unit": "CFU/100mL",
+                    "frequency": "daily",
+                    "subgroup": "Bacteria TW1",
+                    "configparam_id": 946
+                },
+                {
+                    "param_key": "Bacteria.TW1.EColi",
+                    "label": "E.Coli",
+                    "unit": "CFU/100mL",
+                    "frequency": "daily",
+                    "subgroup": "Bacteria TW1",
+                    "configparam_id": 948
+                },
+                {
+                    "param_key": "Bacteria.TW2.Coliform",
+                    "label": "Total Coliform",
+                    "unit": "CFU/100mL",
+                    "frequency": "daily",
+                    "subgroup": "Bacteria TW2",
+                    "configparam_id": 950
+                },
+                {
+                    "param_key": "Bacteria.TW2.EColi",
+                    "label": "E.Coli",
+                    "unit": "CFU/100mL",
+                    "frequency": "daily",
+                    "subgroup": "Bacteria TW2",
+                    "configparam_id": 952
+                }
+            ]
+        }
+    ]
+}

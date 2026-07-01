@@ -1,0 +1,377 @@
+[
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Aulacoseira sp.",
+    "category": "FC Algae"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Amphora sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Achnanthes sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Attheya sp.",
+    "category": "FC Algae"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Cyclotella sp.",
+    "category": "FC Algae"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Chaetoceros sp.",
+    "category": "FC , PW Algae"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Cocconeis sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Cymbella sp.",
+    "category": "FC Algae"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Diatom sp.",
+    "category": "FC , TO Algae"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Diploneis sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Fragilaria sp.",
+    "category": "FC , TO Algae"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Gomphonema sp.",
+    "category": "FC Algae"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Gyrosigma sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Melosira sp.",
+    "category": "FC Algae"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Navicula sp.",
+    "category": "FC Algae"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Nitzschia sp.",
+    "category": "FC , PW Algae"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Pinnularia sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Skeletonema sp.",
+    "category": "FC Algae"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Stephanodiscus sp.",
+    "category": "FC Algae"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Synedra sp.",
+    "category": "FC Algae"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Surirella sp.",
+    "category": "PW Algae"
+  },
+  {
+    "division": "Division Bacillariophyceae",
+    "species_name": "Tabellaria sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Actinastrum sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Ankistrodesmus sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Chlamydomonas sp.",
+    "category": "TO, PW Algae"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Chlorella sp.",
+    "category": "FC, PW Algae"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Chodatella sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Closterium sp.",
+    "category": "FC Algae"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Coelastrum sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Cosmarium sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Crucigenia sp.",
+    "category": "TO Algae"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Dictyosphaerium sp.",
+    "category": "FC, TO Algae"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Elakatothrix sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Eudorina sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Gloeocystis sp.",
+    "category": "TO Algae"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Micractinium sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Micrasterias sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Microspora sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Monoraphidium sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Mougeotia sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Nephrocytium sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Oocystis sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Pandorina sp.",
+    "category": "TO, PW Algae"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Pediastrum sp.",
+    "category": "TO Algae"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Planktosperia sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Scenedesmus sp.",
+    "category": "TO, PW Algae"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Schroederia sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Sphaerocystis sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Spirogyra sp.",
+    "category": "FC, PW, TO Algae"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Staurastrum sp.",
+    "category": "TO Algae"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Tetraedon sp.",
+    "category": "PW Algae"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Tetraspora sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Treubaria sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Chlorophyta",
+    "species_name": "Volvox sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Cyanophyta",
+    "species_name": "Anabaena sp.",
+    "category": "FC, TO, PW Algae"
+  },
+  {
+    "division": "Division Cyanophyta",
+    "species_name": "Chroococcus sp.",
+    "category": "PW Algae"
+  },
+  {
+    "division": "Division Cyanophyta",
+    "species_name": "Cylindospermopsis sp.",
+    "category": "PW, TOX Algae"
+  },
+  {
+    "division": "Division Cyanophyta",
+    "species_name": "Lyngbya sp.",
+    "category": "PW Algae"
+  },
+  {
+    "division": "Division Cyanophyta",
+    "species_name": "Merismopedia sp.",
+    "category": "PW Algae"
+  },
+  {
+    "division": "Division Cyanophyta",
+    "species_name": "Microcystis sp.",
+    "category": "TOX Algae"
+  },
+  {
+    "division": "Division Cyanophyta",
+    "species_name": "Nostoc sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Cyanophyta",
+    "species_name": "Oscillatoria sp.",
+    "category": "FC, PW Algae"
+  },
+  {
+    "division": "Division Cyanophyta",
+    "species_name": "Phormedium sp.",
+    "category": "PW Algae"
+  },
+  {
+    "division": "Division Cyanophyta",
+    "species_name": "Pseudanabaena sp.",
+    "category": "FC Algae"
+  },
+  {
+    "division": "Division Cyanophyta",
+    "species_name": "Spirulina sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Euglenophyta",
+    "species_name": "Euglena sp.",
+    "category": "PW Algae"
+  },
+  {
+    "division": "Division Euglenophyta",
+    "species_name": "Lepocinclis sp.",
+    "category": "PW Algae"
+  },
+  {
+    "division": "Division Euglenophyta",
+    "species_name": "Phacus sp.",
+    "category": "PW Algae"
+  },
+  {
+    "division": "Division Euglenophyta",
+    "species_name": "Strombomonas sp.",
+    "category": "not significant"
+  },
+  {
+    "division": "Division Euglenophyta",
+    "species_name": "Trachelomonas sp.",
+    "category": "FC Algae"
+  },
+  {
+    "division": "Division Cryptophyta",
+    "species_name": "Cryptomonas sp.",
+    "category": "TO Algae"
+  },
+  {
+    "division": "Division Pyrrhophyta",
+    "species_name": "Peridinium sp.",
+    "category": "FC, TO Algae"
+  },
+  {
+    "division": "Division Pyrrhophyta",
+    "species_name": "Gymnodinium sp.",
+    "category": "FC, TO Algae"
+  },
+  {
+    "division": "Division Chrysophyta",
+    "species_name": "Dinobryon sp.",
+    "category": "FC, TO Algae"
+  },
+  {
+    "division": "Division Chrysophyta",
+    "species_name": "Mallomonas sp.",
+    "category": "TO Algae"
+  }
+]

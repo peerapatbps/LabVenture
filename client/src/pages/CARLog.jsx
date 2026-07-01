@@ -1,0 +1,1072 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { get, post, patch, del } from '../api.js';
+
+// ─── Status system ─────────────────────────────────────────────────────────
+
+const STATUS = {
+  10: { label: 'ออกใบแล้ว',   color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  20: { label: 'รออนุมัติ',    color: 'bg-orange-100 text-orange-700 border-orange-200' },
+  30: { label: 'รอติดตาม#1', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
+  40: { label: 'รอติดตาม#2', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+  50: { label: 'แก้ไขแล้ว',   color: 'bg-teal-100 text-teal-700 border-teal-200' },
+  60: { label: 'ปิด',         color: 'bg-green-100 text-green-700 border-green-200' },
+  70: { label: 'ตีกลับ',      color: 'bg-red-100 text-red-700 border-red-200' },
+};
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
+function isOverdue(deadline, code) {
+  if (!deadline || code >= 60) return false;
+  return new Date(deadline) < new Date();
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  return String(d).slice(0, 10);
+}
+
+function parseFd(car) {
+  try { return JSON.parse(car.form_data || '{}'); } catch { return {}; }
+}
+
+// ─── Progress stage dots ──────────────────────────────────────────────────
+
+function ProgressStages({ car }) {
+  const code = car.status_code || 10;
+  const stages = [10, 20, 30, 40, 50];
+
+  return (
+    <div className="flex items-center gap-0.5 mt-2">
+      {stages.map((s, i) => {
+        const done = code > s;
+        const active = code === s;
+        return (
+          <React.Fragment key={s}>
+            {i > 0 && <div className={`h-px w-2.5 ${done ? 'bg-brand' : 'bg-gray-200'}`} />}
+            <div title={STATUS[s]?.label}
+              className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border
+                ${done ? 'bg-brand text-white border-brand'
+                  : active ? 'bg-white text-brand border-brand ring-1 ring-brand ring-offset-1'
+                  : 'bg-gray-100 text-gray-400 border-gray-200'}`}>
+              {s / 10}
+            </div>
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Mini calendar ────────────────────────────────────────────────────────
+
+const TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+
+function MiniCalendar({ year, month, events, selectedDate, onDateClick }) {
+  const firstDow = new Date(year, month, 1).getDay();
+  const lastDate = new Date(year, month + 1, 0).getDate();
+  const today = new Date();
+  const isToday = d => today.getFullYear() === year && today.getMonth() === month && today.getDate() === d;
+  const toDateStr = d => `${year}-${String(month + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  const isSelected = d => d && selectedDate === toDateStr(d);
+
+  const byDay = {};
+  for (const ev of events) {
+    if (!ev.date) continue;
+    const dt = new Date(ev.date);
+    if (dt.getFullYear() === year && dt.getMonth() === month) {
+      const d = dt.getDate();
+      if (!byDay[d]) byDay[d] = [];
+      byDay[d].push(ev);
+    }
+  }
+
+  const cells = [];
+  for (let i = 0; i < firstDow; i++) cells.push(null);
+  for (let d = 1; d <= lastDate; d++) cells.push(d);
+  // pad to complete last row
+  while (cells.length % 7 !== 0) cells.push(null);
+  const weekRows = cells.length / 7;
+
+  return (
+    <div className="bg-white rounded-xl px-3 pt-3 pb-2 shadow-sm border border-gray-100 flex flex-col h-full">
+      {/* Month header */}
+      <p className="text-base font-bold text-gray-700 text-center mb-1.5 shrink-0">
+        {TH_MONTHS[month]} {year + 543}
+      </p>
+
+      {/* Day-name row */}
+      <div className="grid grid-cols-7 shrink-0 mb-0.5">
+        {['อา','จ','อ','พ','พฤ','ศ','ส'].map(d => (
+          <div key={d} className="text-center text-xs font-semibold text-gray-400">{d}</div>
+        ))}
+      </div>
+
+      {/* Date grid — fills remaining height */}
+      <div
+        className="grid grid-cols-7 flex-1"
+        style={{ gridTemplateRows: `repeat(${weekRows}, 1fr)` }}
+      >
+        {cells.map((d, i) => {
+          const evs = d ? (byDay[d] || []) : [];
+          return (
+            <div key={i}
+              onClick={() => d && onDateClick?.(isSelected(d) ? null : toDateStr(d))}
+              className={`flex flex-col items-center justify-center rounded-lg mx-0.5 my-0.5 transition-colors
+                ${d ? 'cursor-pointer hover:bg-gray-100' : ''}
+                ${d && isSelected(d) ? 'bg-brand text-white ring-2 ring-brand' : ''}
+                ${d && isToday(d) && !isSelected(d) ? 'bg-brand/10 ring-1 ring-brand/30' : ''}`}>
+              {d && (
+                <>
+                  <span className={`text-sm font-medium leading-none
+                    ${isSelected(d) ? 'text-white font-bold' : isToday(d) ? 'font-extrabold text-brand' : 'text-gray-700'}`}>
+                    {d}
+                  </span>
+                  {evs.length > 0 && (
+                    <div className="flex flex-wrap justify-center gap-0.5 mt-1">
+                      {evs.map((ev, j) => (
+                        <div key={j} title={ev.label}
+                          className={`w-2 h-2 rounded-full ${
+                            ev.type === 'deadline'   ? 'bg-red-500'
+                          : ev.type === 'correction' ? 'bg-orange-400'
+                          : ev.type === 'prevention' ? 'bg-green-500'
+                          : 'bg-purple-400'}`} />
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-x-2 gap-y-0.5 border-t border-gray-100 pt-1 mt-1 shrink-0">
+        {[['bg-red-500','Deadline'],['bg-orange-400','แก้ไข'],['bg-green-500','ป้องกัน'],['bg-purple-400','ติดตาม#2']].map(([c,l]) => (
+          <div key={l} className="flex items-center gap-1.5">
+            <div className={`w-2.5 h-2.5 rounded-full ${c}`} />
+            <span className="text-xs text-gray-500">{l}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Car card ─────────────────────────────────────────────────────────────
+
+function CarCard({ car, onClick }) {
+  const code = car.status_code || 10;
+  const st = STATUS[code] || STATUS[10];
+  const overdue = isOverdue(car.deadline_at, code);
+
+  return (
+    <div onClick={onClick}
+      className={`bg-white rounded-xl px-4 py-3 shadow-sm border cursor-pointer hover:shadow-md transition-shadow
+        ${overdue ? 'border-red-300' : 'border-gray-100'}`}>
+      {/* Row 1: number · dates · key  |  badge */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 flex-wrap text-sm min-w-0">
+          <span className="font-semibold text-gray-900 shrink-0">{car.car_number || '(ยังไม่ระบุเลข)'}</span>
+          <span className="text-gray-400 shrink-0">ออกใบ: {fmtDate(car.issued_at)}</span>
+          {car.deadline_at && (
+            <span className={`shrink-0 ${overdue ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
+              Deadline: {fmtDate(car.deadline_at)}{overdue ? ' ⚠' : ''}
+            </span>
+          )}
+          <span className="text-gray-300 font-mono text-xs shrink-0">({car.unique_key})</span>
+        </div>
+        <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-medium border ${st.color}`}>
+          {st.label}
+        </span>
+      </div>
+      {/* Row 2: description */}
+      {car.parameter_name && (
+        <p className="text-sm text-gray-700 mt-1 line-clamp-1">{car.parameter_name}</p>
+      )}
+      {/* Row 3: progress */}
+      <ProgressStages car={car} />
+    </div>
+  );
+}
+
+// ─── Bucket ───────────────────────────────────────────────────────────────
+
+function Bucket({ title, cars, onSelect, badge }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">{title}</h2>
+        <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full font-medium">{badge}</span>
+      </div>
+      {cars.length === 0
+        ? <div className="text-center py-3 text-gray-300 text-sm border border-dashed border-gray-200 rounded-xl">— ไม่มีรายการ —</div>
+        : <div className="space-y-2">{cars.map(c => <CarCard key={c.id} car={c} onClick={() => onSelect(c)} />)}</div>
+      }
+    </div>
+  );
+}
+
+// ─── Form primitives ──────────────────────────────────────────────────────
+
+function Field({ label, value }) {
+  return (
+    <div>
+      <p className="text-xs text-gray-400 mb-0.5">{label}</p>
+      <p className="text-sm text-gray-800 whitespace-pre-wrap">{value || '—'}</p>
+    </div>
+  );
+}
+
+function Inp({ label, name, value, onChange, type = 'text', required, cls = '', readOnly = false }) {
+  return (
+    <div className={cls}>
+      <label className="block text-xs font-medium text-gray-600 mb-1">
+        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+        {readOnly && <span className="ml-1 text-gray-400 font-normal">(อัตโนมัติ)</span>}
+      </label>
+      <input type={type} name={name} value={value || ''} onChange={readOnly ? undefined : onChange}
+        readOnly={readOnly}
+        className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand
+          ${readOnly ? 'border-gray-200 bg-gray-50 text-gray-500 cursor-default' : 'border-gray-300'}`} />
+    </div>
+  );
+}
+
+function Txt({ label, name, value, onChange, rows = 3, cls = '' }) {
+  return (
+    <div className={cls}>
+      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+      <textarea name={name} value={value || ''} onChange={onChange} rows={rows}
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+    </div>
+  );
+}
+
+function SecHeader({ n, title, active }) {
+  return (
+    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${active ? 'bg-brand/10' : 'bg-gray-50'}`}>
+      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0
+        ${active ? 'bg-brand text-white' : 'bg-gray-200 text-gray-500'}`}>{n}</div>
+      <span className={`text-sm font-semibold ${active ? 'text-brand' : 'text-gray-600'}`}>{title}</span>
+      {active && <span className="ml-auto text-xs text-brand font-medium">รอดำเนินการ</span>}
+    </div>
+  );
+}
+
+function SaveBtn({ onClick, disabled, color = 'bg-brand hover:bg-sky-700', children }) {
+  return (
+    <button onClick={onClick} disabled={disabled}
+      className={`w-full ${color} disabled:opacity-40 text-white font-semibold py-2.5 rounded-xl transition-colors text-sm`}>
+      {children}
+    </button>
+  );
+}
+
+// ─── Slide panel ──────────────────────────────────────────────────────────
+
+function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
+  const code = car.status_code || 10;
+  const fd = parseFd(car);
+
+  const cu = carUser || {};
+  const cuGroups = cu.groups || (cu.group ? [cu.group] : []);
+  const isG1 = cuGroups.includes('1') || cu.isAdmin;
+  const isG2 = cuGroups.includes('2');
+  const isG3a = cuGroups.includes('3a');
+  const isG3b = cuGroups.includes('3b');
+
+  // Section 2 — respondent
+  const [s2, setS2] = useState({
+    s2_meeting_members: fd.s2_meeting_members || '',
+    s2_root_cause: fd.s2_root_cause || '',
+    s2_correction: fd.s2_correction || '',
+    s2_correction_deadline: fd.s2_correction_deadline || '',
+    s2_correction_owner: fd.s2_correction_owner || '',
+    s2_prevention: fd.s2_prevention || '',
+    s2_prevention_deadline: fd.s2_prevention_deadline || '',
+    s2_prevention_owner: fd.s2_prevention_owner || '',
+    s2_respondent: fd.s2_respondent || (isG2 && cu.name ? cu.name : ''),
+    s2_respondent_pos: fd.s2_respondent_pos || (isG2 && cu.deptLabel ? cu.deptLabel : ''),
+    s2_responded_at: fd.s2_responded_at || new Date().toISOString().slice(0, 10),
+  });
+  // Section 2 — approver
+  const [s2a, setS2a] = useState({
+    s2_approver: fd.s2_approver || (isG3a && cu.name ? cu.name : ''),
+    s2_approved_at: fd.s2_approved_at || new Date().toISOString().slice(0, 10),
+  });
+  // Section 4 — check 1
+  const [s4a, setS4a] = useState({
+    s4_check1_result: fd.s4_check1_result || '',
+    s4_check1_notes: fd.s4_check1_notes || '',
+    s4_check1_date: fd.s4_check1_date || new Date().toISOString().slice(0, 10),
+    s4_check1_by: fd.s4_check1_by || (isG1 && cu.name ? cu.name : ''),
+    s4_check1_by_pos: fd.s4_check1_by_pos || (isG1 && cu.deptLabel ? cu.deptLabel : ''),
+    s4_check2_deadline: fd.s4_check2_deadline || '',
+    s4_check2_owner: fd.s4_check2_owner || '',
+  });
+  // Section 4 — check 2
+  const [s4b, setS4b] = useState({
+    s4_check2_result: fd.s4_check2_result || '',
+    s4_check2_notes: fd.s4_check2_notes || '',
+    s4_check2_date: fd.s4_check2_date || new Date().toISOString().slice(0, 10),
+    s4_check2_by: fd.s4_check2_by || (isG1 && cu.name ? cu.name : ''),
+    s4_check2_by_pos: fd.s4_check2_by_pos || (isG1 && cu.deptLabel ? cu.deptLabel : ''),
+  });
+  // Section 5
+  const [s5, setS5] = useState({
+    s5_decision: fd.s5_decision || '',
+    s5_reason: fd.s5_reason || '',
+    s5_action: fd.s5_action || '',
+    s5_approver: fd.s5_approver || (isG3b && cu.name ? cu.name : ''),
+    s5_approved_at: fd.s5_approved_at || new Date().toISOString().slice(0, 10),
+  });
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
+  const direction = car.threshold_direction === 'above' ? '≤' : '≥';
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} />
+      <div className="fixed right-0 top-0 h-full w-3/4 bg-white z-50 shadow-2xl flex flex-col">
+
+        {/* Panel header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-lg font-bold text-gray-900">{car.car_number || '(ยังไม่ระบุเลข)'}</span>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS[code]?.color}`}>
+                {STATUS[code]?.label}
+              </span>
+            </div>
+            <p className="text-xs text-gray-400 font-mono mt-0.5">{car.unique_key}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none px-2">✕</button>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+
+          {/* Key dates */}
+          <div className="grid grid-cols-2 gap-3 bg-gray-50 rounded-xl p-3 text-sm">
+            <Field label="วันที่ออกใบ" value={fmtDate(car.issued_at)} />
+            <Field label="Deadline" value={fmtDate(car.deadline_at)} />
+            {car.correction_deadline && <Field label="กำหนดแก้ไขเสร็จ" value={fmtDate(car.correction_deadline)} />}
+            {car.prevention_deadline && <Field label="กำหนดป้องกันเสร็จ" value={fmtDate(car.prevention_deadline)} />}
+            {car.followup2_deadline && <Field label="กำหนดติดตาม#2" value={fmtDate(car.followup2_deadline)} />}
+          </div>
+
+          {/* ── Section 1 ── */}
+          <SecHeader n="1" title="รายละเอียดสิ่งที่ไม่เป็นไปตามข้อกำหนด" active={false} />
+          <div className="grid grid-cols-2 gap-3 px-1">
+            <Field label="ประเภท" value={`${car.car_type || 'CAR'}${car.system_type ? ` · ${car.system_type}` : ''}`} />
+            <Field label="ประเภทปัญหา" value={car.issue_type} />
+            <div className="col-span-2"><Field label="1.1 เรื่องที่พบ" value={car.parameter_name} /></div>
+            {car.recorded_value != null && (
+              <div className="col-span-2">
+                <Field label="ค่าที่พบ"
+                  value={`${car.recorded_value}${car.threshold_value ? ` (เกณฑ์: ${direction} ${car.threshold_value})` : ''}`} />
+              </div>
+            )}
+            <Field label="1.2 ผู้ออก" value={`${car.issuer_name || '—'}${car.issuer_dept ? ` (${car.issuer_dept})` : ''}`} />
+            <Field label="1.3 ผู้รับ" value={`${car.receiver_name || '—'}${car.receiver_dept ? ` (${car.receiver_dept})` : ''}`} />
+          </div>
+
+          {/* ── Section 2 ── */}
+          <SecHeader n="2" title="วิเคราะห์หาสาเหตุ และกำหนดแผนการแก้ไขและป้องกัน" active={code <= 20} />
+
+          {code === 10 ? (
+            <div className="space-y-3 px-1">
+              <Txt label="ผู้เข้าประชุม" name="s2_meeting_members" value={s2.s2_meeting_members}
+                onChange={e => setS2(p => ({ ...p, s2_meeting_members: e.target.value }))} rows={2} />
+              <Txt label="2.1 สาเหตุของปัญหา *" name="s2_root_cause" value={s2.s2_root_cause}
+                onChange={e => setS2(p => ({ ...p, s2_root_cause: e.target.value }))} />
+              <Txt label="2.2 กำหนดการแก้ไข *" name="s2_correction" value={s2.s2_correction}
+                onChange={e => setS2(p => ({ ...p, s2_correction: e.target.value }))} />
+              <div className="grid grid-cols-2 gap-3">
+                <Inp label="กำหนดเสร็จวันที่" name="s2_correction_deadline" type="date"
+                  value={s2.s2_correction_deadline} onChange={e => setS2(p => ({ ...p, s2_correction_deadline: e.target.value }))} />
+                <Inp label="ผู้รับผิดชอบ" name="s2_correction_owner"
+                  value={s2.s2_correction_owner} onChange={e => setS2(p => ({ ...p, s2_correction_owner: e.target.value }))} />
+              </div>
+              <Txt label="2.3 กำหนดการป้องกัน" name="s2_prevention" value={s2.s2_prevention}
+                onChange={e => setS2(p => ({ ...p, s2_prevention: e.target.value }))} />
+              <div className="grid grid-cols-2 gap-3">
+                <Inp label="กำหนดเสร็จวันที่" name="s2_prevention_deadline" type="date"
+                  value={s2.s2_prevention_deadline} onChange={e => setS2(p => ({ ...p, s2_prevention_deadline: e.target.value }))} />
+                <Inp label="ผู้รับผิดชอบ" name="s2_prevention_owner"
+                  value={s2.s2_prevention_owner} onChange={e => setS2(p => ({ ...p, s2_prevention_owner: e.target.value }))} />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <Inp label="ผู้ตอบ *" name="s2_respondent" value={s2.s2_respondent}
+                  onChange={e => setS2(p => ({ ...p, s2_respondent: e.target.value }))}
+                  cls="col-span-2" readOnly={isG2 && !!cu.name} />
+                <Inp label="ตำแหน่ง" name="s2_respondent_pos" value={s2.s2_respondent_pos}
+                  onChange={e => setS2(p => ({ ...p, s2_respondent_pos: e.target.value }))}
+                  readOnly={isG2 && !!cu.name} />
+              </div>
+              <Inp label="วันที่ตอบ" name="s2_responded_at" type="date"
+                value={s2.s2_responded_at} onChange={e => setS2(p => ({ ...p, s2_responded_at: e.target.value }))} />
+              <SaveBtn onClick={() => onUpdate(car.id, { status_code: 20, form_data: s2 })}
+                disabled={saving || !s2.s2_root_cause || !s2.s2_correction || !s2.s2_respondent}
+                color="bg-orange-500 hover:bg-orange-600">
+                บันทึกคำตอบ → รออนุมัติ
+              </SaveBtn>
+            </div>
+          ) : (
+            <div className="space-y-2 px-1">
+              {fd.s2_root_cause && <Field label="2.1 สาเหตุของปัญหา" value={fd.s2_root_cause} />}
+              {fd.s2_correction && (
+                <>
+                  <Field label="2.2 กำหนดการแก้ไข" value={fd.s2_correction} />
+                  <div className="flex gap-4 text-xs text-gray-400">
+                    {fd.s2_correction_deadline && <span>กำหนดเสร็จ: {fmtDate(fd.s2_correction_deadline)}</span>}
+                    {fd.s2_correction_owner && <span>ผู้รับผิดชอบ: {fd.s2_correction_owner}</span>}
+                  </div>
+                </>
+              )}
+              {fd.s2_prevention && (
+                <>
+                  <Field label="2.3 กำหนดการป้องกัน" value={fd.s2_prevention} />
+                  <div className="flex gap-4 text-xs text-gray-400">
+                    {fd.s2_prevention_deadline && <span>กำหนดเสร็จ: {fmtDate(fd.s2_prevention_deadline)}</span>}
+                    {fd.s2_prevention_owner && <span>ผู้รับผิดชอบ: {fd.s2_prevention_owner}</span>}
+                  </div>
+                </>
+              )}
+              {fd.s2_respondent && (
+                <p className="text-xs text-gray-400">
+                  ผู้ตอบ: {fd.s2_respondent}{fd.s2_respondent_pos ? ` (${fd.s2_respondent_pos})` : ''}{fd.s2_responded_at ? ` · ${fmtDate(fd.s2_responded_at)}` : ''}
+                </p>
+              )}
+
+              {/* Approval action */}
+              {code === 20 && (
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-3 space-y-3 mt-2">
+                  <p className="text-xs font-semibold text-orange-700">ผู้อนุมัติ (หัวหน้า / ผอ.)</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Inp label="ชื่อผู้อนุมัติ *" name="s2_approver" value={s2a.s2_approver}
+                      onChange={e => setS2a(p => ({ ...p, s2_approver: e.target.value }))}
+                      readOnly={isG3a && !!cu.name} />
+                    <Inp label="วันที่อนุมัติ" name="s2_approved_at" type="date"
+                      value={s2a.s2_approved_at} onChange={e => setS2a(p => ({ ...p, s2_approved_at: e.target.value }))} />
+                  </div>
+                  <SaveBtn onClick={() => onUpdate(car.id, { status_code: 30, form_data: s2a })}
+                    disabled={saving || !s2a.s2_approver}>
+                    อนุมัติ → รอติดตามผล#1
+                  </SaveBtn>
+                </div>
+              )}
+
+              {code > 20 && fd.s2_approver && (
+                <p className="text-xs text-gray-400">
+                  ผู้อนุมัติ: {fd.s2_approver}{fd.s2_approved_at ? ` · ${fmtDate(fd.s2_approved_at)}` : ''}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* ── Section 4 ── */}
+          {code >= 30 && (
+            <>
+              <SecHeader n="4" title="ติดตามผลการแก้ไข / ป้องกัน" active={code === 30 || code === 40} />
+              <div className="px-1 space-y-3">
+                <p className="text-xs font-semibold text-gray-500">ติดตามผล ครั้งที่ 1</p>
+
+                {code === 30 ? (
+                  <>
+                    <div className="flex flex-wrap gap-4">
+                      {[['pass','✅ เป็นไปตามที่กำหนด'], ['fail','❌ ไม่เป็นไปตามที่กำหนด']].map(([v, lbl]) => (
+                        <label key={v} className="flex items-center gap-2 text-sm cursor-pointer">
+                          <input type="radio" value={v} checked={s4a.s4_check1_result === v}
+                            onChange={() => setS4a(p => ({ ...p, s4_check1_result: v }))} className="accent-brand" />
+                          {lbl}
+                        </label>
+                      ))}
+                    </div>
+                    <Txt label="ผลการตรวจสอบ" name="s4_check1_notes" value={s4a.s4_check1_notes}
+                      onChange={e => setS4a(p => ({ ...p, s4_check1_notes: e.target.value }))} rows={2} />
+                    <div className="grid grid-cols-3 gap-3">
+                      <Inp label="ผู้ติดตาม *" name="s4_check1_by" value={s4a.s4_check1_by}
+                        onChange={e => setS4a(p => ({ ...p, s4_check1_by: e.target.value }))}
+                        cls="col-span-2" readOnly={isG1 && !!cu.name} />
+                      <Inp label="ตำแหน่ง" name="s4_check1_by_pos" value={s4a.s4_check1_by_pos}
+                        onChange={e => setS4a(p => ({ ...p, s4_check1_by_pos: e.target.value }))}
+                        readOnly={isG1 && !!cu.name} />
+                    </div>
+                    <Inp label="วันที่ตรวจ" name="s4_check1_date" type="date"
+                      value={s4a.s4_check1_date} onChange={e => setS4a(p => ({ ...p, s4_check1_date: e.target.value }))} />
+                    {s4a.s4_check1_result === 'fail' && (
+                      <div className="grid grid-cols-2 gap-3 bg-purple-50 border border-purple-100 rounded-xl p-3">
+                        <Inp label="กำหนดติดตามครั้งที่ 2 *" name="s4_check2_deadline" type="date"
+                          value={s4a.s4_check2_deadline} onChange={e => setS4a(p => ({ ...p, s4_check2_deadline: e.target.value }))} />
+                        <Inp label="ผู้รับผิดชอบ" name="s4_check2_owner"
+                          value={s4a.s4_check2_owner} onChange={e => setS4a(p => ({ ...p, s4_check2_owner: e.target.value }))} />
+                      </div>
+                    )}
+                    <SaveBtn
+                      onClick={() => onUpdate(car.id, {
+                        status_code: s4a.s4_check1_result === 'pass' ? 50 : 40,
+                        form_data: s4a,
+                      })}
+                      disabled={saving || !s4a.s4_check1_result || !s4a.s4_check1_by
+                        || (s4a.s4_check1_result === 'fail' && !s4a.s4_check2_deadline)}
+                      color={s4a.s4_check1_result === 'pass' ? 'bg-teal-600 hover:bg-teal-700' : 'bg-purple-600 hover:bg-purple-700'}>
+                      {s4a.s4_check1_result === 'pass' ? 'บันทึกผลผ่าน → แก้ไขแล้ว'
+                        : s4a.s4_check1_result === 'fail' ? 'บันทึกผลไม่ผ่าน → รอติดตาม#2'
+                        : 'บันทึกผลติดตาม#1'}
+                    </SaveBtn>
+                  </>
+                ) : (
+                  <div className="space-y-1">
+                    <p className={`text-sm font-medium ${fd.s4_check1_result === 'pass' ? 'text-green-700' : 'text-red-700'}`}>
+                      {fd.s4_check1_result === 'pass' ? '✅ เป็นไปตามที่กำหนด' : '❌ ไม่เป็นไปตามที่กำหนด'}
+                    </p>
+                    {fd.s4_check1_notes && <p className="text-xs text-gray-600">{fd.s4_check1_notes}</p>}
+                    <p className="text-xs text-gray-400">
+                      {fd.s4_check1_by}{fd.s4_check1_by_pos ? ` (${fd.s4_check1_by_pos})` : ''}{fd.s4_check1_date ? ` · ${fmtDate(fd.s4_check1_date)}` : ''}
+                    </p>
+                  </div>
+                )}
+
+                {/* Check 2 */}
+                {(code === 40 || fd.s4_check2_result) && (
+                  <>
+                    <p className="text-xs font-semibold text-gray-500 pt-2 border-t border-gray-100">ติดตามผล ครั้งที่ 2</p>
+                    {fd.s4_check2_deadline && <p className="text-xs text-purple-600">กำหนด: {fmtDate(fd.s4_check2_deadline)}</p>}
+
+                    {code === 40 ? (
+                      <>
+                        <div className="flex flex-wrap gap-4">
+                          {[['pass','✅ เป็นไปตามที่กำหนด'], ['fail','❌ ไม่เป็นไปตามที่กำหนด']].map(([v, lbl]) => (
+                            <label key={v} className="flex items-center gap-2 text-sm cursor-pointer">
+                              <input type="radio" value={v} checked={s4b.s4_check2_result === v}
+                                onChange={() => setS4b(p => ({ ...p, s4_check2_result: v }))} className="accent-brand" />
+                              {lbl}
+                            </label>
+                          ))}
+                        </div>
+                        <Txt label="ผลการตรวจสอบ" name="s4_check2_notes" value={s4b.s4_check2_notes}
+                          onChange={e => setS4b(p => ({ ...p, s4_check2_notes: e.target.value }))} rows={2} />
+                        <div className="grid grid-cols-3 gap-3">
+                          <Inp label="ผู้ติดตาม *" name="s4_check2_by" value={s4b.s4_check2_by}
+                            onChange={e => setS4b(p => ({ ...p, s4_check2_by: e.target.value }))}
+                            cls="col-span-2" readOnly={isG1 && !!cu.name} />
+                          <Inp label="ตำแหน่ง" name="s4_check2_by_pos" value={s4b.s4_check2_by_pos}
+                            onChange={e => setS4b(p => ({ ...p, s4_check2_by_pos: e.target.value }))}
+                            readOnly={isG1 && !!cu.name} />
+                        </div>
+                        <Inp label="วันที่ตรวจ" name="s4_check2_date" type="date"
+                          value={s4b.s4_check2_date} onChange={e => setS4b(p => ({ ...p, s4_check2_date: e.target.value }))} />
+                        <SaveBtn
+                          onClick={() => onUpdate(car.id, { status_code: 50, form_data: s4b })}
+                          disabled={saving || !s4b.s4_check2_result || !s4b.s4_check2_by || s4b.s4_check2_result !== 'pass'}
+                          color="bg-teal-600 hover:bg-teal-700">
+                          บันทึกผลผ่าน → แก้ไขแล้ว
+                        </SaveBtn>
+                      </>
+                    ) : (
+                      <div className="space-y-1">
+                        <p className={`text-sm font-medium ${fd.s4_check2_result === 'pass' ? 'text-green-700' : 'text-red-700'}`}>
+                          {fd.s4_check2_result === 'pass' ? '✅ เป็นไปตามที่กำหนด' : '❌ ไม่เป็นไปตามที่กำหนด'}
+                        </p>
+                        {fd.s4_check2_notes && <p className="text-xs text-gray-600">{fd.s4_check2_notes}</p>}
+                        <p className="text-xs text-gray-400">
+                          {fd.s4_check2_by}{fd.s4_check2_by_pos ? ` (${fd.s4_check2_by_pos})` : ''}{fd.s4_check2_date ? ` · ${fmtDate(fd.s4_check2_date)}` : ''}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* ── Section 5 ── */}
+          {code >= 50 && (
+            <>
+              <SecHeader n="5" title="การพิจารณาอนุมัติโดยผู้อำนวยการฝ่าย" active={code === 50} />
+              <div className="px-1 space-y-3">
+                {code === 50 ? (
+                  <>
+                    <div className="flex gap-6">
+                      {[['close','✅ ปิด'], ['reject','❌ ตีกลับ']].map(([v, lbl]) => (
+                        <label key={v} className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                          <input type="radio" value={v} checked={s5.s5_decision === v}
+                            onChange={() => setS5(p => ({ ...p, s5_decision: v }))} className="accent-brand" />
+                          {lbl}
+                        </label>
+                      ))}
+                    </div>
+                    <Txt label="เหตุผล" name="s5_reason" value={s5.s5_reason}
+                      onChange={e => setS5(p => ({ ...p, s5_reason: e.target.value }))} rows={2} />
+                    <Txt label="การดำเนินการ" name="s5_action" value={s5.s5_action}
+                      onChange={e => setS5(p => ({ ...p, s5_action: e.target.value }))} rows={2} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Inp label="ผู้อนุมัติ (ผอ.ฝ.) *" name="s5_approver" value={s5.s5_approver}
+                        onChange={e => setS5(p => ({ ...p, s5_approver: e.target.value }))}
+                        readOnly={isG3b && !!cu.name} />
+                      <Inp label="วันที่" name="s5_approved_at" type="date"
+                        value={s5.s5_approved_at} onChange={e => setS5(p => ({ ...p, s5_approved_at: e.target.value }))} />
+                    </div>
+                    <SaveBtn
+                      onClick={() => onUpdate(car.id, { status_code: s5.s5_decision === 'close' ? 60 : 70, form_data: s5 })}
+                      disabled={saving || !s5.s5_decision || !s5.s5_approver}
+                      color={s5.s5_decision === 'close' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}>
+                      {s5.s5_decision === 'close' ? 'อนุมัติปิด CAR' : s5.s5_decision === 'reject' ? 'ตีกลับ (ต้องออกใบใหม่)' : 'บันทึกการพิจารณา'}
+                    </SaveBtn>
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <p className={`text-sm font-medium ${fd.s5_decision === 'close' ? 'text-green-700' : 'text-red-700'}`}>
+                      {fd.s5_decision === 'close' ? '✅ อนุมัติปิด' : '❌ ตีกลับ'}
+                    </p>
+                    {fd.s5_reason && <Field label="เหตุผล" value={fd.s5_reason} />}
+                    {fd.s5_action && <Field label="การดำเนินการ" value={fd.s5_action} />}
+                    {fd.s5_approver && (
+                      <p className="text-xs text-gray-400">
+                        {fd.s5_approver} (ผอ.ฝ.){fd.s5_approved_at ? ` · ${fmtDate(fd.s5_approved_at)}` : ''}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          <div className="h-4" />
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Create form ──────────────────────────────────────────────────────────
+
+const INIT = {
+  car_type: 'CAR', system_type: '', issue_type: '',
+  car_number: '', parameter_name: '',
+  issuer_name: '', issuer_dept: '', receiver_name: '', receiver_dept: '',
+  recorded_value: '', threshold_value: '', threshold_direction: 'above',
+  record_datetime: new Date().toISOString().slice(0, 16),
+};
+
+// ─── Group labels ─────────────────────────────────────────────────────────
+const GROUP_LABEL = { '1': 'นักวิทยาศาสตร์', '2': 'Operator', '3a': 'ผอ.กผจ.', '3b': 'ผอ.ฝผม.' };
+
+// ─── Admin panel ──────────────────────────────────────────────────────────
+
+function AdminPanel({ onClose }) {
+  const qc = useQueryClient();
+  const { data: whitelist = [], isLoading } = useQuery({
+    queryKey: ['whitelist'],
+    queryFn: () => get('/api/car-admin/whitelist'),
+  });
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState('');
+  const [addForm, setAddForm] = useState({ name: '', group_code: '3a', shift: '', dept_label: '', is_admin: false });
+
+  async function handleSync() {
+    setSyncing(true); setSyncMsg('');
+    try {
+      const r = await post('/api/car-admin/sync', {});
+      setSyncMsg(`✅ Sync สำเร็จ: ${r.synced} รายชื่อ${r.errors?.length ? ` (${r.errors.length} org ล้มเหลว)` : ''}`);
+      qc.invalidateQueries({ queryKey: ['whitelist'] });
+      qc.invalidateQueries({ queryKey: ['myRole'] });
+    } catch (e) {
+      setSyncMsg(`❌ ${e.message}`);
+    } finally { setSyncing(false); }
+  }
+
+  async function handleAdd() {
+    if (!addForm.name || !addForm.group_code) return;
+    await post('/api/car-admin/manual', { ...addForm, shift: addForm.shift ? parseInt(addForm.shift) : null, is_admin: addForm.is_admin ? 1 : 0 });
+    qc.invalidateQueries({ queryKey: ['whitelist'] });
+    setAddForm({ name: '', group_code: '3a', shift: '', dept_label: '', is_admin: false });
+  }
+
+  async function handleToggleAdmin(entry) {
+    await patch(`/api/car-admin/${entry.id}`, { is_admin: entry.is_admin ? 0 : 1 });
+    qc.invalidateQueries({ queryKey: ['whitelist'] });
+  }
+
+  async function handleDelete(id) {
+    if (!confirm('ลบรายชื่อนี้?')) return;
+    await del(`/api/car-admin/${id}`);
+    qc.invalidateQueries({ queryKey: ['whitelist'] });
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
+      <div className="fixed inset-4 md:inset-10 bg-white z-50 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+          <h2 className="font-bold text-gray-900 text-lg">จัดการ Whitelist</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl px-2">✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+
+          {/* Sync EHR */}
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-2">
+            <p className="text-sm font-semibold text-blue-800">Sync จากระบบ EHR (กลุ่ม 1 + Operator ผลัด 1-4)</p>
+            <p className="text-xs text-blue-600">ดึงรายชื่อพนักงานล่าสุดจาก ehr.mwa.co.th โดยอัตโนมัติ</p>
+            <button onClick={handleSync} disabled={syncing}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg">
+              {syncing ? 'กำลัง Sync...' : '🔄 Sync EHR ตอนนี้'}
+            </button>
+            {syncMsg && <p className="text-sm">{syncMsg}</p>}
+          </div>
+
+          {/* Add manual entry (Group 3 / Admin) */}
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+            <p className="text-sm font-semibold text-gray-700">เพิ่มรายชื่อด้วยตนเอง (ผู้บริหาร / Admin)</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1">ชื่อ-สกุล (ต้องตรงกับที่ login)</label>
+                <input value={addForm.name} onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="นาย/นาง/น.ส. ชื่อ สกุล"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">กลุ่ม</label>
+                <select value={addForm.group_code} onChange={e => setAddForm(f => ({ ...f, group_code: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  <option value="1">กลุ่ม 1 — นักวิทยาศาสตร์</option>
+                  <option value="2">กลุ่ม 2 — Operator</option>
+                  <option value="3a">กลุ่ม 3a — ผอ.กผจ.</option>
+                  <option value="3b">กลุ่ม 3b — ผอ.ฝผม.</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">ผลัด (เฉพาะ Operator)</label>
+                <input type="number" min="1" max="4" value={addForm.shift} onChange={e => setAddForm(f => ({ ...f, shift: e.target.value }))}
+                  placeholder="1-4" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">ชื่อหน่วยงาน/ส่วน</label>
+                <input value={addForm.dept_label} onChange={e => setAddForm(f => ({ ...f, dept_label: e.target.value }))}
+                  placeholder="เช่น ผอ.กผจ.ฝผม." className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              </div>
+              <div className="flex items-center gap-2 pt-4">
+                <input type="checkbox" id="isAdminChk" checked={addForm.is_admin}
+                  onChange={e => setAddForm(f => ({ ...f, is_admin: e.target.checked }))} />
+                <label htmlFor="isAdminChk" className="text-sm text-gray-700">ให้สิทธิ์ Admin</label>
+              </div>
+            </div>
+            <button onClick={handleAdd} disabled={!addForm.name}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-medium rounded-lg">
+              + เพิ่มรายชื่อ
+            </button>
+          </div>
+
+          {/* Whitelist table */}
+          {isLoading ? <p className="text-sm text-gray-400">กำลังโหลด...</p> : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-gray-100 text-left text-xs text-gray-600">
+                    <th className="px-3 py-2 rounded-tl-lg">ชื่อ-สกุล</th>
+                    <th className="px-3 py-2">กลุ่ม</th>
+                    <th className="px-3 py-2">ผลัด</th>
+                    <th className="px-3 py-2">หน่วยงาน</th>
+                    <th className="px-3 py-2">Admin</th>
+                    <th className="px-3 py-2 rounded-tr-lg"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {whitelist.map(e => (
+                    <tr key={e.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-3 py-2 font-medium">{e.name}</td>
+                      <td className="px-3 py-2">{GROUP_LABEL[e.group_code] || e.group_code}</td>
+                      <td className="px-3 py-2 text-center">{e.shift || '—'}</td>
+                      <td className="px-3 py-2 text-gray-500 text-xs">{e.dept_label || '—'}</td>
+                      <td className="px-3 py-2 text-center">
+                        <button onClick={() => handleToggleAdmin(e)}
+                          className={`px-2 py-0.5 rounded text-xs font-medium ${e.is_admin ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-400'}`}>
+                          {e.is_admin ? 'Admin' : '—'}
+                        </button>
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <button onClick={() => handleDelete(e.id)} className="text-red-400 hover:text-red-600 text-xs">ลบ</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {whitelist.length === 0 && <p className="text-center py-4 text-gray-400 text-sm">ยังไม่มีรายชื่อ — กด Sync EHR ก่อน</p>}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────
+
+export default function CARLog() {
+  const [tab, setTab] = useState('list');
+  const [selectedCar, setSelectedCar] = useState(null);
+  const [form, setForm] = useState(INIT);
+  const [filterDate, setFilterDate] = useState(null);
+  const [showAdmin, setShowAdmin] = useState(false);
+  const qc = useQueryClient();
+
+  const { data: cars = [], isLoading } = useQuery({
+    queryKey: ['cars'],
+    queryFn: () => get('/api/car'),
+  });
+
+  const { data: myRole } = useQuery({
+    queryKey: ['myRole'],
+    queryFn: () => get('/api/car-admin/my-role'),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Pre-fill locked fields from login identity
+  useEffect(() => {
+    if (myRole?.name) {
+      setForm(f => ({ ...f, issuer_name: myRole.name, issuer_dept: myRole.deptLabel || f.issuer_dept }));
+    }
+  }, [myRole?.name, myRole?.deptLabel]);
+
+  const createMutation = useMutation({
+    mutationFn: () => post('/api/car', {
+      ...form,
+      recorded_value: form.recorded_value ? parseFloat(form.recorded_value) : null,
+      threshold_value: form.threshold_value ? parseFloat(form.threshold_value) : null,
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['cars'] });
+      setTab('list');
+      setForm(INIT);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, ...data }) => patch(`/api/car/${id}`, data),
+    onSuccess: result => {
+      qc.invalidateQueries({ queryKey: ['cars'] });
+      if (result?.car) setSelectedCar(result.car);
+    },
+  });
+
+  function setF(e) { setForm(f => ({ ...f, [e.target.name]: e.target.value })); }
+
+  const sorted = arr => [...arr].sort((a, b) => new Date(b.issued_at) - new Date(a.issued_at));
+
+  const matchesDate = (car, date) => {
+    if (!date) return true;
+    return [car.deadline_at, car.correction_deadline, car.prevention_deadline, car.followup2_deadline]
+      .some(d => d && d.slice(0, 10) === date);
+  };
+
+  const inProgress = useMemo(() => sorted(cars.filter(c => { const x = c.status_code || 10; return x >= 10 && x <= 50; }).filter(c => matchesDate(c, filterDate))), [cars, filterDate]);
+  const rejected   = useMemo(() => sorted(cars.filter(c => (c.status_code || 10) === 70).filter(c => matchesDate(c, filterDate))), [cars, filterDate]);
+  const closed     = useMemo(() => sorted(cars.filter(c => (c.status_code || 10) === 60).filter(c => matchesDate(c, filterDate))), [cars, filterDate]);
+
+  // Calendar events from active CARs
+  const calEvents = useMemo(() => {
+    const evs = [];
+    for (const car of cars) {
+      if ((car.status_code || 10) >= 60) continue;
+      const lbl = car.car_number || car.unique_key;
+      if (car.deadline_at)          evs.push({ date: car.deadline_at,          type: 'deadline',   label: `${lbl} — Deadline` });
+      if (car.correction_deadline)  evs.push({ date: car.correction_deadline,  type: 'correction', label: `${lbl} — แก้ไข` });
+      if (car.prevention_deadline)  evs.push({ date: car.prevention_deadline,  type: 'prevention', label: `${lbl} — ป้องกัน` });
+      if (car.followup2_deadline)   evs.push({ date: car.followup2_deadline,   type: 'followup2',  label: `${lbl} — ติดตาม#2` });
+    }
+    return evs;
+  }, [cars]);
+
+  const now = new Date();
+  const thisYear = now.getFullYear(), thisMonth = now.getMonth();
+  const nextMonth = (thisMonth + 1) % 12, nextYear = thisMonth === 11 ? thisYear + 1 : thisYear;
+
+  return (
+    <div className="flex gap-5 items-start w-full">
+
+      {/* ── 65% left: CAR content ── */}
+      <div className="flex-[13] min-w-0 space-y-5">
+
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="text-2xl font-bold text-gray-900">CAR Log</h1>
+          {(myRole?.groups?.length > 0 || myRole?.group) && (() => {
+            const gs = myRole.groups || [myRole.group];
+            return gs.map(g => (
+              <span key={g} className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                {GROUP_LABEL[g] || g}
+                {g === '2' && myRole.shift ? ` ผลัด ${myRole.shift}` : ''}
+              </span>
+            ));
+          })()}
+          {myRole?.isAdmin && (
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 border border-yellow-200">⭐ Admin</span>
+          )}
+          {filterDate && (
+            <span className="flex items-center gap-1.5 bg-brand/10 text-brand text-sm font-medium px-3 py-1 rounded-full">
+              {filterDate}
+              <button onClick={() => setFilterDate(null)} className="hover:text-brand/60 leading-none">✕</button>
+            </span>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => setTab('list')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium touch-target ${tab === 'list' ? 'bg-brand text-white' : 'bg-gray-100 text-gray-700'}`}>
+            รายการ
+          </button>
+          {(!myRole?.group || (myRole.groups || [myRole.group]).includes('1') || myRole.isAdmin) && (
+            <button onClick={() => setTab('create')}
+              className={`px-4 py-2 rounded-lg text-sm font-medium touch-target ${tab === 'create' ? 'bg-brand text-white' : 'bg-gray-100 text-gray-700'}`}>
+              + สร้าง CAR
+            </button>
+          )}
+          {myRole?.isAdmin && (
+            <button onClick={() => setShowAdmin(true)}
+              className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 touch-target"
+              title="จัดการ Whitelist">
+              ⚙
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* List view */}
+      {tab === 'list' && (
+        <>
+          {isLoading
+            ? <div className="text-center py-8 text-gray-400">กำลังโหลด...</div>
+            : (
+              <div className="space-y-6">
+                <Bucket title="กำลังดำเนินการ" cars={inProgress} onSelect={setSelectedCar} badge={inProgress.length} />
+                <Bucket title="ตีกลับ" cars={rejected} onSelect={setSelectedCar} badge={rejected.length} />
+                <Bucket title="ปิดแล้ว" cars={closed} onSelect={setSelectedCar} badge={closed.length} />
+              </div>
+            )
+          }
+        </>
+      )}
+
+      {/* Create form */}
+      {tab === 'create' && (
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 space-y-4">
+          <h2 className="font-semibold text-gray-900">ส่วนที่ 1 — รายละเอียดสิ่งที่ไม่เป็นไปตามข้อกำหนด</h2>
+          <div className="grid grid-cols-2 gap-4">
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-2">ประเภท</label>
+              <div className="flex gap-4">
+                {['CAR','PAR'].map(t => (
+                  <label key={t} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                    <input type="radio" name="car_type" value={t} checked={form.car_type === t} onChange={setF} className="accent-brand" />
+                    {t}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">ระบบ</label>
+              <select name="system_type" value={form.system_type} onChange={setF}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                <option value="">—</option>
+                <option>HACCP</option>
+                <option>ISO14001:2015</option>
+                <option>ISO45001:2018</option>
+              </select>
+            </div>
+
+            <Inp label="เลข CAR/PAR" name="car_number" value={form.car_number} onChange={setF} />
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">ประเภทของปัญหา</label>
+              <select name="issue_type" value={form.issue_type} onChange={setF}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                <option value="">—</option>
+                <option value="ผลิตภัณฑ์ที่ไม่เป็นไปตามข้อกำหนด">ผลิตภัณฑ์ NC</option>
+                <option value="การตรวจติดตามภายใน">การตรวจติดตามภายใน</option>
+                <option value="ข้อร้องเรียนของลูกค้า">ข้อร้องเรียนของลูกค้า</option>
+                <option value="อื่นๆ">อื่นๆ</option>
+              </select>
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-gray-600 mb-1">1.1 เรื่องที่พบ <span className="text-red-500">*</span></label>
+              <textarea name="parameter_name" value={form.parameter_name} onChange={setF} rows={3} required
+                placeholder="ระบุสิ่งที่ไม่เป็นไปตามข้อกำหนด..."
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+            </div>
+
+            <Inp label="ค่าที่พบ" name="recorded_value" type="number" value={form.recorded_value} onChange={setF} />
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">เกณฑ์</label>
+              <div className="flex gap-2">
+                <select name="threshold_direction" value={form.threshold_direction} onChange={setF}
+                  className="border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                  <option value="above">เกิน (≤)</option>
+                  <option value="below">ต่ำกว่า (≥)</option>
+                </select>
+                <input type="number" step="any" name="threshold_value" value={form.threshold_value} onChange={setF}
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+              </div>
+            </div>
+
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-gray-600 mb-1">วันที่-เวลาที่พบ <span className="text-red-500">*</span></label>
+              <input type="datetime-local" name="record_datetime" value={form.record_datetime} onChange={setF}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+            </div>
+
+            <Inp label="1.2 ผู้ออก *" name="issuer_name" value={form.issuer_name} onChange={setF} readOnly={!!myRole?.name} />
+            <Inp label="ส่วน/กอง" name="issuer_dept" value={form.issuer_dept} onChange={setF} readOnly={!!myRole?.name} />
+            <Inp label="1.3 ผู้รับ *" name="receiver_name" value={form.receiver_name} onChange={setF} />
+            <Inp label="ส่วน/กอง" name="receiver_dept" value={form.receiver_dept} onChange={setF} />
+          </div>
+
+          {createMutation.isError && (
+            <p className="text-sm text-red-600">เกิดข้อผิดพลาด: {createMutation.error?.message}</p>
+          )}
+          <button onClick={() => createMutation.mutate()}
+            disabled={createMutation.isPending || !form.parameter_name || !form.record_datetime}
+            className="w-full bg-brand hover:bg-sky-700 disabled:opacity-40 text-white font-semibold py-3 rounded-xl touch-target transition-colors">
+            {createMutation.isPending ? 'กำลังสร้าง...' : 'ออกใบ CAR และส่ง LINE'}
+          </button>
+        </div>
+      )}
+
+      </div>{/* end 75% left */}
+
+      {/* ── 40% right: calendar sidebar ── */}
+      <div className="flex-[7] sticky top-0 h-[78vh] flex flex-col gap-2 py-1 overflow-hidden">
+        <div className="flex-1 min-h-0">
+          <MiniCalendar year={thisYear} month={thisMonth} events={calEvents} selectedDate={filterDate} onDateClick={setFilterDate} />
+        </div>
+        <div className="flex-1 min-h-0">
+          <MiniCalendar year={nextYear} month={nextMonth} events={calEvents} selectedDate={filterDate} onDateClick={setFilterDate} />
+        </div>
+      </div>
+
+      {/* Slide panel (outside flow) */}
+      {selectedCar && (
+        <CarSlidePanel
+          car={selectedCar}
+          carUser={myRole}
+          onClose={() => setSelectedCar(null)}
+          saving={updateMutation.isPending}
+          onUpdate={(id, data) => updateMutation.mutate({ id, ...data })}
+        />
+      )}
+
+      {/* Admin panel */}
+      {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
+    </div>
+  );
+}

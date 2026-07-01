@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chemical Intake Daily Log</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --surface: #ffffff;
+      --surface-soft: #f8fafc;
+      --line: #dbe3ee;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #0f766e;
+      --primary-soft: #ccfbf1;
+      --warning: #b45309;
+      --warning-soft: #fef3c7;
+      --danger: #b91c1c;
+      --danger-soft: #fee2e2;
+      --shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --radius-sm: 10px;
+      --sans: "Segoe UI", Tahoma, sans-serif;
+      --mono: "Consolas", "SFMono-Regular", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      color: var(--text);
+      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    }
+
+    .app {
+      width: min(1440px, calc(100% - 24px));
+      margin: 14px auto 24px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 18px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .header p {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .header-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .chip strong {
+      color: var(--text);
+    }
+
+    .stack {
+      display: grid;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .panel-header h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .panel-header p {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .status.sync {
+      background: var(--primary-soft);
+      color: var(--primary);
+    }
+
+    .status.pending {
+      background: var(--warning-soft);
+      color: var(--warning);
+    }
+
+    .top-form {
+      padding: 20px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+    }
+
+    .field.wide {
+      grid-column: span 2;
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #334155;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid #cbd5e1;
+      border-radius: var(--radius-sm);
+      background: #fff;
+      padding: 12px 14px;
+      font: inherit;
+      color: var(--text);
+    }
+
+    input:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #14b8a6;
+      box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.12);
+    }
+
+    .matrix-wrap {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    .matrix-title {
+      padding: 12px 14px;
+      background: var(--surface-soft);
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+      font-weight: 600;
+      color: #334155;
+    }
+
+    .matrix {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    .matrix th,
+    .matrix td {
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      padding: 10px;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    .matrix th:last-child,
+    .matrix td:last-child {
+      border-right: 0;
+    }
+
+    .matrix tr:last-child th,
+    .matrix tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .matrix thead th {
+      background: #f8fafc;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .matrix tbody th {
+      background: #fcfdff;
+      font-weight: 700;
+      width: 120px;
+    }
+
+    .matrix input {
+      min-width: 0;
+      padding: 10px 12px;
+    }
+
+    .top-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding-top: 4px;
+    }
+
+    .top-actions small {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 11px 16px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-light {
+      background: #e2e8f0;
+      color: #334155;
+    }
+
+    .btn-dark {
+      background: #0f172a;
+      color: #fff;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .filters {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--line);
+      background: #fcfdff;
+    }
+
+    .filters-left,
+    .filters-right {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .pill strong {
+      color: var(--text);
+    }
+
+    .table-wrap {
+      overflow: auto;
+    }
+
+    table.records {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1450px;
+    }
+
+    .records th,
+    .records td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 13px;
+    }
+
+    .records thead th {
+      position: sticky;
+      top: 0;
+      background: #f8fafc;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      z-index: 1;
+    }
+
+    .records tbody tr:hover {
+      background: #fafcff;
+    }
+
+    .plate {
+      font-family: var(--mono);
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .subtext {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .tag.sync {
+      background: var(--primary-soft);
+      color: var(--primary);
+    }
+
+    .tag.unsync {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .weight {
+      font-family: var(--mono);
+      white-space: nowrap;
+    }
+
+    .footer-note {
+      padding: 12px 20px 16px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 1100px) {
+      .form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .field.wide {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .app {
+        width: min(100% - 12px, 100%);
+      }
+
+      .header,
+      .panel-header,
+      .filters,
+      .top-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .button-row button {
+        flex: 1 1 auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <div>
+        <h1>Chemical Intake Daily Log</h1>
+        <p>ใช้ทะเบียนรถเป็นตัวอ้างอิงหลักสำหรับรายการรับสารเคมี</p>
+      </div>
+      <div class="header-meta">
+        <div class="chip"><strong>Date</strong> 24/06/2026</div>
+        <div class="chip"><strong>Operator</strong> Somchai P.</div>
+        <div class="chip"><strong>Shift</strong> B</div>
+      </div>
+    </header>
+
+    <section class="stack">
+      <article class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Top · บันทึกข้อมูล</h2>
+            <p>กรอกข้อมูลจากหน้างานโดยใช้ทะเบียนรถเป็นรายการหลัก</p>
+          </div>
+          <div class="status pending">Entry Form</div>
+        </div>
+
+        <div class="top-form">
+          <div class="form-grid">
+            <div class="field">
+              <label for="truck">ทะเบียนรถ</label>
+              <input id="truck" type="text" value="93-6790" placeholder="เช่น 93-6790">
+            </div>
+            <div class="field">
+              <label for="sg">ค่า ถ.พ.</label>
+              <input id="sg" type="text" placeholder="0.000">
+            </div>
+            <div class="field">
+              <label for="temp">อุณหภูมิ</label>
+              <input id="temp" type="text" placeholder="0.0 °C">
+            </div>
+            <div class="field wide">
+              <label for="delivery">ใบนำส่ง</label>
+              <input id="delivery" type="text" value="DN-260624-014" placeholder="เลขที่ใบนำส่ง">
+            </div>
+          </div>
+
+          <div class="matrix-wrap">
+            <div class="matrix-title">เติมถัง</div>
+            <table class="matrix">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>ก่อนเติม</th>
+                  <th>หลังเติม</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th>Tank A</th>
+                  <td><input type="text" placeholder="0.0"></td>
+                  <td><input type="text" placeholder="0.0"></td>
+                </tr>
+                <tr>
+                  <th>Tank B</th>
+                  <td><input type="text" placeholder="0.0"></td>
+                  <td><input type="text" placeholder="0.0"></td>
+                </tr>
+                <tr>
+                  <th>Tank C</th>
+                  <td><input type="text" placeholder="0.0"></td>
+                  <td><input type="text" placeholder="0.0"></td>
+                </tr>
+                <tr>
+                  <th>Tank D</th>
+                  <td><input type="text" placeholder="0.0"></td>
+                  <td><input type="text" placeholder="0.0"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="top-actions">
+            <small>บันทึกเฉพาะข้อมูลหน้างาน ส่วนข้อมูลน้ำหนักจะไปแสดงที่ record ด้านล่างเมื่อ sync กับ WDATA ได้</small>
+            <div class="button-row">
+              <button class="btn-light" type="button">ล้างข้อมูล</button>
+              <button class="btn-dark" type="button">บันทึก Top Only</button>
+              <button class="btn-primary" type="button">บันทึกและรอ Sync</button>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Bottom · Record ประจำวัน</h2>
+            <p>แสดงทั้งรายการที่ sync กับ WDATA แล้ว และรายการ Top ที่ยังไม่พบข้อมูลใน DB</p>
+          </div>
+          <div class="status sync">Daily Records</div>
+        </div>
+
+        <div class="filters">
+          <div class="filters-left">
+            <div class="pill"><strong>Date</strong> 24/06/2026</div>
+            <div class="pill"><strong>Sync</strong> 8 รายการ</div>
+            <div class="pill"><strong>Unsync</strong> 2 รายการ</div>
+          </div>
+          <div class="filters-right">
+            <div class="pill"><strong>PK</strong> TRUCK</div>
+            <div class="pill"><strong>Source</strong> Top + WDATA</div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="records">
+            <thead>
+              <tr>
+                <th>สถานะ</th>
+                <th>ทะเบียนรถ</th>
+                <th>ใบนำส่ง</th>
+                <th>ถ.พ.</th>
+                <th>อุณหภูมิ</th>
+                <th>Tank A</th>
+                <th>Tank B</th>
+                <th>Tank C</th>
+                <th>Tank D</th>
+                <th>DAYIN / TMIN</th>
+                <th>W1</th>
+                <th>DAYOUT / TMOUT</th>
+                <th>W2</th>
+                <th>สุทธิ</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="tag sync">SYNC</span></td>
+                <td>
+                  <span class="plate">93-6790</span>
+                  <span class="subtext">Top + WDATA matched</span>
+                </td>
+                <td>DN-260624-014</td>
+                <td>1.328</td>
+                <td>32.4 °C</td>
+                <td>12.0 / 68.0</td>
+                <td>10.5 / 10.5</td>
+                <td>0.0 / 0.0</td>
+                <td>0.0 / 0.0</td>
+                <td>
+                  2018-02-06
+                  <span class="subtext">11:27:10</span>
+                </td>
+                <td class="weight">21,535.0</td>
+                <td>
+                  2018-02-06
+                  <span class="subtext">12:02:55</span>
+                </td>
+                <td class="weight">8,400.0</td>
+                <td class="weight">13,135.0</td>
+              </tr>
+              <tr>
+                <td><span class="tag sync">SYNC</span></td>
+                <td>
+                  <span class="plate">91-6444</span>
+                  <span class="subtext">Top + WDATA matched</span>
+                </td>
+                <td>DN-260624-015</td>
+                <td>1.317</td>
+                <td>31.8 °C</td>
+                <td>18.0 / 74.0</td>
+                <td>0.0 / 0.0</td>
+                <td>0.0 / 0.0</td>
+                <td>0.0 / 0.0</td>
+                <td>
+                  2018-02-06
+                  <span class="subtext">11:36:37</span>
+                </td>
+                <td class="weight">22,110.0</td>
+                <td>
+                  2018-02-06
+                  <span class="subtext">13:10:06</span>
+                </td>
+                <td class="weight">8,960.0</td>
+                <td class="weight">13,150.0</td>
+              </tr>
+              <tr>
+                <td><span class="tag sync">SYNC</span></td>
+                <td>
+                  <span class="plate">93-6794</span>
+                  <span class="subtext">Top + WDATA matched</span>
+                </td>
+                <td>DN-260624-016</td>
+                <td>1.322</td>
+                <td>32.1 °C</td>
+                <td>0.0 / 0.0</td>
+                <td>15.0 / 63.0</td>
+                <td>0.0 / 0.0</td>
+                <td>0.0 / 0.0</td>
+                <td>
+                  2018-02-06
+                  <span class="subtext">11:58:41</span>
+                </td>
+                <td class="weight">21,700.0</td>
+                <td>
+                  2018-02-06
+                  <span class="subtext">12:37:23</span>
+                </td>
+                <td class="weight">8,665.0</td>
+                <td class="weight">13,035.0</td>
+              </tr>
+              <tr>
+                <td><span class="tag unsync">UNSYNC</span></td>
+                <td>
+                  <span class="plate">91-64444</span>
+                  <span class="subtext">ยังไม่พบใน WDATA วันนี้</span>
+                </td>
+                <td>DN-260624-017</td>
+                <td>1.310</td>
+                <td>31.2 °C</td>
+                <td>16.0 / 70.0</td>
+                <td>0.0 / 0.0</td>
+                <td>0.0 / 0.0</td>
+                <td>0.0 / 0.0</td>
+                <td>-</td>
+                <td class="weight">-</td>
+                <td>-</td>
+                <td class="weight">-</td>
+                <td class="weight">-</td>
+              </tr>
+              <tr>
+                <td><span class="tag unsync">UNSYNC</span></td>
+                <td>
+                  <span class="plate">936790</span>
+                  <span class="subtext">รูปแบบทะเบียนไม่ตรงกับ DB</span>
+                </td>
+                <td>DN-260624-018</td>
+                <td>1.325</td>
+                <td>32.0 °C</td>
+                <td>11.0 / 66.0</td>
+                <td>0.0 / 0.0</td>
+                <td>0.0 / 0.0</td>
+                <td>0.0 / 0.0</td>
+                <td>-</td>
+                <td class="weight">-</td>
+                <td>-</td>
+                <td class="weight">-</td>
+                <td class="weight">-</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="footer-note">
+          ตารางด้านล่างควรดึงจากข้อมูล Top ของวันนั้น แล้ว merge กับ WDATA ตามทะเบียนรถ เพื่อแยกสถานะ SYNC และ UNSYNC
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

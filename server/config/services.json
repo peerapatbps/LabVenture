@@ -1,0 +1,8 @@
+{
+  "uroboros": {
+    "base_url": "http://localhost:5000",
+    "endpoints": {
+      "wdata": "/api/wdata"
+    }
+  }
+}

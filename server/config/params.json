@@ -1,0 +1,1014 @@
+{
+  "plant_id": 2,
+  "station": "QWS",
+  "parameters": [
+    {
+      "configparam_id": 887,
+      "label": "RW - Turb",
+      "unit": "NTU",
+      "frequency": "2h",
+      "online_configparam_id": 887
+    },
+    {
+      "configparam_id": 888,
+      "label": "RW - pH",
+      "unit": "",
+      "frequency": "4h",
+      "online_configparam_id": 888
+    },
+    {
+      "configparam_id": 889,
+      "label": "RW - Alk",
+      "unit": "mg/L",
+      "frequency": "4h",
+      "online_configparam_id": 889
+    },
+    {
+      "configparam_id": 890,
+      "label": "RW - Conduct",
+      "unit": "uS/cm",
+      "frequency": "12h",
+      "online_configparam_id": 890
+    },
+    {
+      "configparam_id": 891,
+      "label": "RW - DO",
+      "unit": "mg/L",
+      "frequency": "12h",
+      "online_configparam_id": 891
+    },
+    {
+      "configparam_id": 892,
+      "label": "RW - Hardness",
+      "unit": "mg/L",
+      "frequency": "12h",
+      "online_configparam_id": 892
+    },
+    {
+      "configparam_id": 893,
+      "label": "RW - OC",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 893
+    },
+    {
+      "configparam_id": 8503,
+      "label": "RW - Temp",
+      "unit": "degC",
+      "frequency": "4h",
+      "online_configparam_id": 8503
+    },
+    {
+      "configparam_id": 984,
+      "label": "Jar test - Alum - RW_ref_Turb",
+      "unit": "NTU",
+      "frequency": "daily",
+      "online_configparam_id": 984
+    },
+    {
+      "configparam_id": 986,
+      "label": "Jar test - Alum - RW_ref_pH",
+      "unit": "",
+      "frequency": "daily",
+      "online_configparam_id": 986
+    },
+    {
+      "configparam_id": 987,
+      "label": "Jar test - Alum - RW_ref_Alk",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 987
+    },
+    {
+      "configparam_id": 988,
+      "label": "Jar test - Alum - RW_ref_Temp",
+      "unit": "degC",
+      "frequency": "daily",
+      "online_configparam_id": 988
+    },
+    {
+      "configparam_id": 954,
+      "label": "Jar test - Alum - Alum Dose1",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 954
+    },
+    {
+      "configparam_id": 955,
+      "label": "Jar test - Alum - Alum Turb1",
+      "unit": "NTU",
+      "frequency": "daily",
+      "online_configparam_id": 955
+    },
+    {
+      "configparam_id": 956,
+      "label": "Jar test - Alum - Alum pH1",
+      "unit": "",
+      "frequency": "daily",
+      "online_configparam_id": 956
+    },
+    {
+      "configparam_id": 957,
+      "label": "Jar test - Alum - Alum Alk1",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 957
+    },
+    {
+      "configparam_id": 959,
+      "label": "Jar test - Alum - Alum Dose2",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 959
+    },
+    {
+      "configparam_id": 960,
+      "label": "Jar test - Alum - Alum Turb2",
+      "unit": "NTU",
+      "frequency": "daily",
+      "online_configparam_id": 960
+    },
+    {
+      "configparam_id": 961,
+      "label": "Jar test - Alum - Alum pH2",
+      "unit": "",
+      "frequency": "daily",
+      "online_configparam_id": 961
+    },
+    {
+      "configparam_id": 962,
+      "label": "Jar test - Alum - Alum Alk2",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 962
+    },
+    {
+      "configparam_id": 964,
+      "label": "Jar test - Alum - Alum Dose3",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 964
+    },
+    {
+      "configparam_id": 965,
+      "label": "Jar test - Alum - Alum Turb3",
+      "unit": "NTU",
+      "frequency": "daily",
+      "online_configparam_id": 965
+    },
+    {
+      "configparam_id": 966,
+      "label": "Jar test - Alum - Alum pH3",
+      "unit": "",
+      "frequency": "daily",
+      "online_configparam_id": 966
+    },
+    {
+      "configparam_id": 967,
+      "label": "Jar test - Alum - Alum Alk3",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 967
+    },
+    {
+      "configparam_id": 969,
+      "label": "Jar test - Alum - Alum Dose4",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 969
+    },
+    {
+      "configparam_id": 970,
+      "label": "Jar test - Alum - Alum Turb4",
+      "unit": "NTU",
+      "frequency": "daily",
+      "online_configparam_id": 970
+    },
+    {
+      "configparam_id": 971,
+      "label": "Jar test - Alum - Alum pH4",
+      "unit": "",
+      "frequency": "daily",
+      "online_configparam_id": 971
+    },
+    {
+      "configparam_id": 972,
+      "label": "Jar test - Alum - Alum Alk4",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 972
+    },
+    {
+      "configparam_id": 974,
+      "label": "Jar test - Alum - Alum Dose5",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 974
+    },
+    {
+      "configparam_id": 975,
+      "label": "Jar test - Alum - Alum Turb5",
+      "unit": "NTU",
+      "frequency": "daily",
+      "online_configparam_id": 975
+    },
+    {
+      "configparam_id": 976,
+      "label": "Jar test - Alum - Alum pH5",
+      "unit": "",
+      "frequency": "daily",
+      "online_configparam_id": 976
+    },
+    {
+      "configparam_id": 977,
+      "label": "Jar test - Alum - Alum Alk5",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 977
+    },
+    {
+      "configparam_id": 979,
+      "label": "Jar test - Alum - Alum Dose6",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 979
+    },
+    {
+      "configparam_id": 980,
+      "label": "Jar test - Alum - Alum Turb6",
+      "unit": "NTU",
+      "frequency": "daily",
+      "online_configparam_id": 980
+    },
+    {
+      "configparam_id": 981,
+      "label": "Jar test - Alum - Alum pH6",
+      "unit": "",
+      "frequency": "daily",
+      "online_configparam_id": 981
+    },
+    {
+      "configparam_id": 982,
+      "label": "Jar test - Alum - Alum Alk6",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 982
+    },
+    {
+      "configparam_id": 986,
+      "label": "Jar test - PACl - RW_ref_Turb",
+      "unit": "NTU",
+      "frequency": "daily",
+      "online_configparam_id": 986
+    },
+    {
+      "configparam_id": 987,
+      "label": "Jar test - PACl - RW_ref_pH",
+      "unit": "",
+      "frequency": "daily",
+      "online_configparam_id": 987
+    },
+    {
+      "configparam_id": 988,
+      "label": "Jar test - PACl - RW_ref_Alk",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 988
+    },
+    {
+      "configparam_id": 8116,
+      "label": "Jar test - PACl - RW_ref_Temp",
+      "unit": "degC",
+      "frequency": "daily",
+      "online_configparam_id": 8116
+    },
+    {
+      "configparam_id": 8045,
+      "label": "Jar test - PACl - PACl Dose1",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 8045
+    },
+    {
+      "configparam_id": 8046,
+      "label": "Jar test - PACl - PACl Turb1",
+      "unit": "NTU",
+      "frequency": "daily",
+      "online_configparam_id": 8046
+    },
+    {
+      "configparam_id": 8047,
+      "label": "Jar test - PACl - PACl pH1",
+      "unit": "",
+      "frequency": "daily",
+      "online_configparam_id": 8047
+    },
+    {
+      "configparam_id": 8048,
+      "label": "Jar test - PACl - PACl Alk1",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 8048
+    },
+    {
+      "configparam_id": 8050,
+      "label": "Jar test - PACl - PACl Dose2",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 8050
+    },
+    {
+      "configparam_id": 8051,
+      "label": "Jar test - PACl - PACl Turb2",
+      "unit": "NTU",
+      "frequency": "daily",
+      "online_configparam_id": 8051
+    },
+    {
+      "configparam_id": 8052,
+      "label": "Jar test - PACl - PACl pH2",
+      "unit": "",
+      "frequency": "daily",
+      "online_configparam_id": 8052
+    },
+    {
+      "configparam_id": 8053,
+      "label": "Jar test - PACl - PACl Alk2",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 8053
+    },
+    {
+      "configparam_id": 8055,
+      "label": "Jar test - PACl - PACl Dose3",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 8055
+    },
+    {
+      "configparam_id": 8056,
+      "label": "Jar test - PACl - PACl Turb3",
+      "unit": "NTU",
+      "frequency": "daily",
+      "online_configparam_id": 8056
+    },
+    {
+      "configparam_id": 8057,
+      "label": "Jar test - PACl - PACl pH3",
+      "unit": "",
+      "frequency": "daily",
+      "online_configparam_id": 8057
+    },
+    {
+      "configparam_id": 8058,
+      "label": "Jar test - PACl - PACl Alk3",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 8058
+    },
+    {
+      "configparam_id": 8060,
+      "label": "Jar test - PACl - PACl Dose4",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 8060
+    },
+    {
+      "configparam_id": 8061,
+      "label": "Jar test - PACl - PACl Turb4",
+      "unit": "NTU",
+      "frequency": "daily",
+      "online_configparam_id": 8061
+    },
+    {
+      "configparam_id": 8062,
+      "label": "Jar test - PACl - PACl pH4",
+      "unit": "",
+      "frequency": "daily",
+      "online_configparam_id": 8062
+    },
+    {
+      "configparam_id": 8063,
+      "label": "Jar test - PACl - PACl Alk4",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 8063
+    },
+    {
+      "configparam_id": 8065,
+      "label": "Jar test - PACl - PACl Dose5",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 8065
+    },
+    {
+      "configparam_id": 8066,
+      "label": "Jar test - PACl - PACl Turb5",
+      "unit": "NTU",
+      "frequency": "daily",
+      "online_configparam_id": 8066
+    },
+    {
+      "configparam_id": 8067,
+      "label": "Jar test - PACl - PACl pH5",
+      "unit": "",
+      "frequency": "daily",
+      "online_configparam_id": 8067
+    },
+    {
+      "configparam_id": 8068,
+      "label": "Jar test - PACl - PACl Alk5",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 8068
+    },
+    {
+      "configparam_id": 8070,
+      "label": "Jar test - PACl - PACl Dose6",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 8070
+    },
+    {
+      "configparam_id": 8071,
+      "label": "Jar test - PACl - PACl Turb6",
+      "unit": "NTU",
+      "frequency": "daily",
+      "online_configparam_id": 8071
+    },
+    {
+      "configparam_id": 8072,
+      "label": "Jar test - PACl - PACl pH6",
+      "unit": "",
+      "frequency": "daily",
+      "online_configparam_id": 8072
+    },
+    {
+      "configparam_id": 8073,
+      "label": "Jar test - PACl - PACl Alk6",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 8073
+    },
+    {
+      "configparam_id": 990,
+      "label": "Jar test - Alum - Recommend dose",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 990
+    },
+    {
+      "configparam_id": 991,
+      "label": "Jar test - Alum - Recommend dose",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 991
+    },
+    {
+      "configparam_id": 8075,
+      "label": "Jar test - PACl - Recommend dose",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 8075
+    },
+    {
+      "configparam_id": 8076,
+      "label": "Jar test - PACl - Recommend dose",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 8076
+    },
+    {
+      "configparam_id": 996,
+      "label": "Phase1 - CW_1A - Turb",
+      "unit": "NTU",
+      "frequency": "4h",
+      "online_configparam_id": 996
+    },
+    {
+      "configparam_id": 997,
+      "label": "Phase1 - CW_1A - pH",
+      "unit": "",
+      "frequency": "4h",
+      "online_configparam_id": 997
+    },
+    {
+      "configparam_id": 998,
+      "label": "Phase1 - CW_1A - Alk",
+      "unit": "mg/L",
+      "frequency": "4h",
+      "online_configparam_id": 998
+    },
+    {
+      "configparam_id": 999,
+      "label": "Phase1 - CW_1B - Turb",
+      "unit": "NTU",
+      "frequency": "4h",
+      "online_configparam_id": 999
+    },
+    {
+      "configparam_id": 1000,
+      "label": "Phase1 - CW_1B - pH",
+      "unit": "",
+      "frequency": "4h",
+      "online_configparam_id": 1000
+    },
+    {
+      "configparam_id": 1001,
+      "label": "Phase1 - CW_1B - Alk",
+      "unit": "mg/L",
+      "frequency": "4h",
+      "online_configparam_id": 1001
+    },
+    {
+      "configparam_id": 1002,
+      "label": "Phase1 - CW1 - Turb",
+      "unit": "NTU",
+      "frequency": "4h",
+      "online_configparam_id": 1002
+    },
+    {
+      "configparam_id": 1003,
+      "label": "Phase1 - CW1 - OC",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 1003
+    },
+    {
+      "configparam_id": 1004,
+      "label": "Phase1 - CW1 - Pre. Res Cl2",
+      "unit": "mg/L",
+      "frequency": "4h",
+      "online_configparam_id": 1004
+    },
+    {
+      "configparam_id": 1005,
+      "label": "Phase1 - FW1 - Turb",
+      "unit": "NTU",
+      "frequency": "4h",
+      "online_configparam_id": 1005
+    },
+    {
+      "configparam_id": 1006,
+      "label": "Phase1 - FW1 - OC",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 1006
+    },
+    {
+      "configparam_id": 1007,
+      "label": "Phase1 - FW1 - Int. Res Cl2",
+      "unit": "mg/L",
+      "frequency": "4h",
+      "online_configparam_id": 1007
+    },
+    {
+      "configparam_id": 1008,
+      "label": "Phase2 - CW_2A - Turb",
+      "unit": "NTU",
+      "frequency": "4h",
+      "online_configparam_id": 1008
+    },
+    {
+      "configparam_id": 1009,
+      "label": "Phase2 - CW_2A - pH",
+      "unit": "",
+      "frequency": "4h",
+      "online_configparam_id": 1009
+    },
+    {
+      "configparam_id": 1010,
+      "label": "Phase2 - CW_2A - Alk",
+      "unit": "mg/L",
+      "frequency": "4h",
+      "online_configparam_id": 1010
+    },
+    {
+      "configparam_id": 1011,
+      "label": "Phase2 - CW_2B - Turb",
+      "unit": "NTU",
+      "frequency": "4h",
+      "online_configparam_id": 1011
+    },
+    {
+      "configparam_id": 1012,
+      "label": "Phase2 - CW_2B - pH",
+      "unit": "",
+      "frequency": "4h",
+      "online_configparam_id": 1012
+    },
+    {
+      "configparam_id": 1013,
+      "label": "Phase2 - CW_2B - Alk",
+      "unit": "mg/L",
+      "frequency": "4h",
+      "online_configparam_id": 1013
+    },
+    {
+      "configparam_id": 1014,
+      "label": "Phase2 - CW2 - Turb",
+      "unit": "NTU",
+      "frequency": "4h",
+      "online_configparam_id": 1014
+    },
+    {
+      "configparam_id": 1015,
+      "label": "Phase2 - CW2 - OC",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 1015
+    },
+    {
+      "configparam_id": 1016,
+      "label": "Phase2 - CW2 - Pre. Res Cl2",
+      "unit": "mg/L",
+      "frequency": "4h",
+      "online_configparam_id": 1016
+    },
+    {
+      "configparam_id": 1017,
+      "label": "Phase2 - FW2 - Turb",
+      "unit": "NTU",
+      "frequency": "4h",
+      "online_configparam_id": 1017
+    },
+    {
+      "configparam_id": 1018,
+      "label": "Phase2 - FW2 - OC",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 1018
+    },
+    {
+      "configparam_id": 1019,
+      "label": "Phase2 - FW2 - Int. Res Cl2",
+      "unit": "mg/L",
+      "frequency": "4h",
+      "online_configparam_id": 1019
+    },
+    {
+      "configparam_id": 1020,
+      "label": "Phase3 - CW_3A - Turb",
+      "unit": "NTU",
+      "frequency": "4h",
+      "online_configparam_id": 1020
+    },
+    {
+      "configparam_id": 1021,
+      "label": "Phase3 - CW_3A - pH",
+      "unit": "",
+      "frequency": "4h",
+      "online_configparam_id": 1021
+    },
+    {
+      "configparam_id": 1022,
+      "label": "Phase3 - CW_3A - Alk",
+      "unit": "mg/L",
+      "frequency": "4h",
+      "online_configparam_id": 1022
+    },
+    {
+      "configparam_id": 1023,
+      "label": "Phase3 - CW_3B - Turb",
+      "unit": "NTU",
+      "frequency": "4h",
+      "online_configparam_id": 1023
+    },
+    {
+      "configparam_id": 1024,
+      "label": "Phase3 - CW_3B - pH",
+      "unit": "",
+      "frequency": "4h",
+      "online_configparam_id": 1024
+    },
+    {
+      "configparam_id": 1025,
+      "label": "Phase3 - CW_3B - Alk",
+      "unit": "mg/L",
+      "frequency": "4h",
+      "online_configparam_id": 1025
+    },
+    {
+      "configparam_id": 1026,
+      "label": "Phase3 - CW3 - Turb",
+      "unit": "NTU",
+      "frequency": "4h",
+      "online_configparam_id": 1026
+    },
+    {
+      "configparam_id": 1027,
+      "label": "Phase3 - CW3 - OC",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 1027
+    },
+    {
+      "configparam_id": 1028,
+      "label": "Phase3 - CW3 - Pre. Res Cl2",
+      "unit": "mg/L",
+      "frequency": "4h",
+      "online_configparam_id": 1028
+    },
+    {
+      "configparam_id": 1029,
+      "label": "Phase3 - FW3 - Turb",
+      "unit": "NTU",
+      "frequency": "4h",
+      "online_configparam_id": 1029
+    },
+    {
+      "configparam_id": 1030,
+      "label": "Phase3 - FW3 - OC",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 1030
+    },
+    {
+      "configparam_id": 1031,
+      "label": "Phase3 - FW3 - Int. Res Cl2",
+      "unit": "mg/L",
+      "frequency": "4h",
+      "online_configparam_id": 1031
+    },
+    {
+      "configparam_id": 1032,
+      "label": "Phase4 - CW_4A - Turb",
+      "unit": "NTU",
+      "frequency": "4h",
+      "online_configparam_id": 1032
+    },
+    {
+      "configparam_id": 1033,
+      "label": "Phase4 - CW_4A - pH",
+      "unit": "",
+      "frequency": "4h",
+      "online_configparam_id": 1033
+    },
+    {
+      "configparam_id": 1034,
+      "label": "Phase4 - CW_4A - Alk",
+      "unit": "mg/L",
+      "frequency": "4h",
+      "online_configparam_id": 1034
+    },
+    {
+      "configparam_id": 1035,
+      "label": "Phase4 - CW_4B - Turb",
+      "unit": "NTU",
+      "frequency": "4h",
+      "online_configparam_id": 1035
+    },
+    {
+      "configparam_id": 1036,
+      "label": "Phase4 - CW_4B - pH",
+      "unit": "",
+      "frequency": "4h",
+      "online_configparam_id": 1036
+    },
+    {
+      "configparam_id": 1037,
+      "label": "Phase4 - CW_4B - Alk",
+      "unit": "mg/L",
+      "frequency": "4h",
+      "online_configparam_id": 1037
+    },
+    {
+      "configparam_id": 1038,
+      "label": "Phase4 - CW4 - Turb",
+      "unit": "NTU",
+      "frequency": "4h",
+      "online_configparam_id": 1038
+    },
+    {
+      "configparam_id": 1039,
+      "label": "Phase4 - CW4 - OC",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 1039
+    },
+    {
+      "configparam_id": 1040,
+      "label": "Phase4 - CW4 - Pre. Res Cl2",
+      "unit": "mg/L",
+      "frequency": "4h",
+      "online_configparam_id": 1040
+    },
+    {
+      "configparam_id": 1041,
+      "label": "Phase4 - FW4 - Turb",
+      "unit": "NTU",
+      "frequency": "4h",
+      "online_configparam_id": 1041
+    },
+    {
+      "configparam_id": 1042,
+      "label": "Phase4 - FW4 - OC",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 1042
+    },
+    {
+      "configparam_id": 1043,
+      "label": "Phase4 - FW4 - Int. Res Cl2",
+      "unit": "mg/L",
+      "frequency": "4h",
+      "online_configparam_id": 1043
+    },
+    {
+      "configparam_id": 1044,
+      "label": "Tap water - TW1 - Turb",
+      "unit": "NTU",
+      "frequency": "2h",
+      "online_configparam_id": 1044
+    },
+    {
+      "configparam_id": 1045,
+      "label": "Tap water - TW1 - pH",
+      "unit": "",
+      "frequency": "4h",
+      "online_configparam_id": 1045
+    },
+    {
+      "configparam_id": 1046,
+      "label": "Tap water - TW1 - Pos. Res Cl2",
+      "unit": "mg/L",
+      "frequency": "2h",
+      "online_configparam_id": 1046
+    },
+    {
+      "configparam_id": 1047,
+      "label": "Tap water - TW1 - Cond",
+      "unit": "uS/cm",
+      "frequency": "12h",
+      "online_configparam_id": 1047
+    },
+    {
+      "configparam_id": 1048,
+      "label": "Tap water - TW1 - OC",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 1048
+    },
+    {
+      "configparam_id": 1049,
+      "label": "Tap water - TW1 - Alk",
+      "unit": "mg/L",
+      "frequency": "12h",
+      "online_configparam_id": 1049
+    },
+    {
+      "configparam_id": 1050,
+      "label": "Tap water - TW1 - Hardness",
+      "unit": "mg/L",
+      "frequency": "12h",
+      "online_configparam_id": 1050
+    },
+    {
+      "configparam_id": 1052,
+      "label": "Tap water - TW1 - App color",
+      "unit": "",
+      "frequency": "12h",
+      "online_configparam_id": 1052
+    },
+    {
+      "configparam_id": 4345,
+      "label": "Tap water - TW1 - Temp",
+      "unit": "degC",
+      "frequency": "12h",
+      "online_configparam_id": 4345
+    },
+    {
+      "configparam_id": 1053,
+      "label": "Tap water - TW2 - Turb",
+      "unit": "NTU",
+      "frequency": "2h",
+      "online_configparam_id": 1053
+    },
+    {
+      "configparam_id": 1054,
+      "label": "Tap water - TW2 - pH",
+      "unit": "",
+      "frequency": "4h",
+      "online_configparam_id": 1054
+    },
+    {
+      "configparam_id": 1055,
+      "label": "Tap water - TW2 - Pos. Res Cl2",
+      "unit": "mg/L",
+      "frequency": "2h",
+      "online_configparam_id": 1055
+    },
+    {
+      "configparam_id": 1056,
+      "label": "Tap water - TW2 - Cond",
+      "unit": "uS/cm",
+      "frequency": "12h",
+      "online_configparam_id": 1056
+    },
+    {
+      "configparam_id": 1057,
+      "label": "Tap water - TW2 - OC",
+      "unit": "mg/L",
+      "frequency": "daily",
+      "online_configparam_id": 1057
+    },
+    {
+      "configparam_id": 1058,
+      "label": "Tap water - TW2 - Alk",
+      "unit": "mg/L",
+      "frequency": "12h",
+      "online_configparam_id": 1058
+    },
+    {
+      "configparam_id": 1059,
+      "label": "Tap water - TW2 - Hardness",
+      "unit": "mg/L",
+      "frequency": "12h",
+      "online_configparam_id": 1059
+    },
+    {
+      "configparam_id": 1061,
+      "label": "Tap water - TW2 - App color",
+      "unit": "",
+      "frequency": "12h",
+      "online_configparam_id": 1061
+    },
+    {
+      "configparam_id": 4346,
+      "label": "Tap water - TW2 - Temp",
+      "unit": "degC",
+      "frequency": "12h",
+      "online_configparam_id": 4346
+    },
+    {
+      "configparam_id": 1062,
+      "label": "Tap water - TW3 - Turb",
+      "unit": "NTU",
+      "frequency": "2h",
+      "online_configparam_id": 1062
+    },
+    {
+      "configparam_id": 1063,
+      "label": "Tap water - TW3 - pH",
+      "unit": "",
+      "frequency": "4h",
+      "online_configparam_id": 1063
+    },
+    {
+      "configparam_id": 1064,
+      "label": "Tap water - TW3 - Pos. Res Cl2",
+      "unit": "mg/L",
+      "frequency": "2h",
+      "online_configparam_id": 1064
+    },
+    {
+      "configparam_id": 1065,
+      "label": "Tap water - TW4 - Turb",
+      "unit": "NTU",
+      "frequency": "2h",
+      "online_configparam_id": 1065
+    },
+    {
+      "configparam_id": 1066,
+      "label": "Tap water - TW4 - pH",
+      "unit": "",
+      "frequency": "4h",
+      "online_configparam_id": 1066
+    },
+    {
+      "configparam_id": 1067,
+      "label": "Tap water - TW4 - Pos. Res Cl2",
+      "unit": "mg/L",
+      "frequency": "2h",
+      "online_configparam_id": 1067
+    },
+    {
+      "configparam_id": 946,
+      "label": "Bacteria - TW1 - Total Coliform",
+      "unit": "CFU/100mL",
+      "frequency": "daily",
+      "online_configparam_id": 946
+    },
+    {
+      "configparam_id": 948,
+      "label": "Bacteria - TW1 - E.Coli",
+      "unit": "CFU/100mL",
+      "frequency": "daily",
+      "online_configparam_id": 948
+    },
+    {
+      "configparam_id": 950,
+      "label": "Bacteria - TW2 - Total Coliform",
+      "unit": "CFU/100mL",
+      "frequency": "daily",
+      "online_configparam_id": 950
+    },
+    {
+      "configparam_id": 952,
+      "label": "Bacteria - TW2 - E.Coli",
+      "unit": "CFU/100mL",
+      "frequency": "daily",
+      "online_configparam_id": 952
+    }
+  ]
+}

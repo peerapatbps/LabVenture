@@ -1,0 +1,431 @@
+{
+  "plant": "MS",
+  "station": "QWS",
+  "groups": [
+    {
+      "key": "raw",
+      "label": "กลุ่มน้ำดิบ",
+      "subgroups": [
+        {
+          "key": "RW",
+          "label": "RW",
+          "params": [
+            { "key": "RW.turb",     "label": "Turb",      "configID": "887"  },
+            { "key": "RW.pH",       "label": "pH",         "configID": "888"  },
+            { "key": "RW.alk",      "label": "Alk",        "configID": "889"  },
+            { "key": "RW.Conduct",  "label": "Conduct",    "configID": "890"  },
+            { "key": "RW.DO",       "label": "DO",         "configID": "891"  },
+            { "key": "RW.Hardness", "label": "Hardness",   "configID": "892"  },
+            { "key": "RW.OC",       "label": "OC",         "configID": "893"  },
+            { "key": "RW.Temp",     "label": "Temp",       "configID": "8503" },
+            { "key": "RW.TSS",      "label": "TSS of RW",  "configID": "4334" }
+          ]
+        },
+        {
+          "key": "Incoming.Thamuang",
+          "label": "Incoming RW — ท่าม่วง",
+          "params": [
+            { "key": "Incoming.Thamuang.turb",    "label": "Turb",    "configID": "894" },
+            { "key": "Incoming.Thamuang.Conduct",  "label": "Conduct", "configID": "895" },
+            { "key": "Incoming.Thamuang.DO",       "label": "DO",      "configID": "896" }
+          ]
+        },
+        {
+          "key": "Incoming.Banglen",
+          "label": "Incoming RW — บางเลน",
+          "params": [
+            { "key": "Incoming.Banglen.turb",    "label": "Turb",    "configID": "897" },
+            { "key": "Incoming.Banglen.Conduct",  "label": "Conduct", "configID": "898" },
+            { "key": "Incoming.Banglen.DO",       "label": "DO",      "configID": "899" }
+          ]
+        },
+        {
+          "key": "JarTest.Alum",
+          "label": "Jar Test — Alum",
+          "params": [
+            { "key": "JarTest.Alum.RW_ref_Turb", "label": "RW ref Turb",  "configID": "984" },
+            { "key": "JarTest.Alum.RW_ref_pH",   "label": "RW ref pH",    "configID": "986" },
+            { "key": "JarTest.Alum.RW_ref_Alk",  "label": "RW ref Alk",   "configID": "987" },
+            { "key": "JarTest.Alum.RW_ref_Temp", "label": "RW ref Temp",  "configID": "988" },
+            { "key": "JarTest.Alum.Dose1",  "label": "Alum Dose1", "configID": "954" },
+            { "key": "JarTest.Alum.D1.turb",  "label": "Alum Turb1", "configID": "955" },
+            { "key": "JarTest.Alum.pH1",    "label": "Alum pH1",   "configID": "956" },
+            { "key": "JarTest.Alum.D1.alk",   "label": "Alum Alk1",  "configID": "957" },
+            { "key": "JarTest.Alum.Dose2",  "label": "Alum Dose2", "configID": "959" },
+            { "key": "JarTest.Alum.D2.turb",  "label": "Alum Turb2", "configID": "960" },
+            { "key": "JarTest.Alum.pH2",    "label": "Alum pH2",   "configID": "961" },
+            { "key": "JarTest.Alum.D2.alk",   "label": "Alum Alk2",  "configID": "962" },
+            { "key": "JarTest.Alum.Dose3",  "label": "Alum Dose3", "configID": "964" },
+            { "key": "JarTest.Alum.D3.turb",  "label": "Alum Turb3", "configID": "965" },
+            { "key": "JarTest.Alum.pH3",    "label": "Alum pH3",   "configID": "966" },
+            { "key": "JarTest.Alum.D3.alk",   "label": "Alum Alk3",  "configID": "967" },
+            { "key": "JarTest.Alum.Dose4",  "label": "Alum Dose4", "configID": "969" },
+            { "key": "JarTest.Alum.D4.turb",  "label": "Alum Turb4", "configID": "970" },
+            { "key": "JarTest.Alum.pH4",    "label": "Alum pH4",   "configID": "971" },
+            { "key": "JarTest.Alum.D4.alk",   "label": "Alum Alk4",  "configID": "972" },
+            { "key": "JarTest.Alum.Dose5",  "label": "Alum Dose5", "configID": "974" },
+            { "key": "JarTest.Alum.D5.turb",  "label": "Alum Turb5", "configID": "975" },
+            { "key": "JarTest.Alum.pH5",    "label": "Alum pH5",   "configID": "976" },
+            { "key": "JarTest.Alum.D5.alk",   "label": "Alum Alk5",  "configID": "977" },
+            { "key": "JarTest.Alum.Dose6",  "label": "Alum Dose6", "configID": "979" },
+            { "key": "JarTest.Alum.D6.turb",  "label": "Alum Turb6", "configID": "980" },
+            { "key": "JarTest.Alum.pH6",    "label": "Alum pH6",   "configID": "981" },
+            { "key": "JarTest.Alum.D6.alk",   "label": "Alum Alk6",  "configID": "982" },
+            { "key": "JarTest.Alum.RecommendDose1", "label": "Recommend Dose (1)", "configID": "990" },
+            { "key": "JarTest.Alum.RecommendDose2", "label": "Recommend Dose (2)", "configID": "991" }
+          ]
+        },
+        {
+          "key": "JarTest.PACl",
+          "label": "Jar Test — PACl",
+          "params": [
+            { "key": "JarTest.PACl.RW_ref_turb", "label": "RW ref Turb",  "configID": "986"  },
+            { "key": "JarTest.PACl.RW_ref_pH",   "label": "RW ref pH",    "configID": "987"  },
+            { "key": "JarTest.PACl.RW_ref_Alkalinity",  "label": "RW ref Alk",   "configID": "988"  },
+            { "key": "JarTest.PACl.RW_ref_Temp", "label": "RW ref Temp",  "configID": "8116" },
+            { "key": "JarTest.PACl.Dose1",  "label": "PACl Dose1", "configID": "8045" },
+            { "key": "JarTest.PACl.D1.turb",  "label": "PACl Turb1", "configID": "8046" },
+            { "key": "JarTest.PACl.pH1",    "label": "PACl pH1",   "configID": "8047" },
+            { "key": "JarTest.PACl.D1.alk",   "label": "PACl Alk1",  "configID": "8048" },
+            { "key": "JarTest.PACl.Dose2",  "label": "PACl Dose2", "configID": "8050" },
+            { "key": "JarTest.PACl.D2.turb",  "label": "PACl Turb2", "configID": "8051" },
+            { "key": "JarTest.PACl.pH2",    "label": "PACl pH2",   "configID": "8052" },
+            { "key": "JarTest.PACl.D2.alk",   "label": "PACl Alk2",  "configID": "8053" },
+            { "key": "JarTest.PACl.Dose3",  "label": "PACl Dose3", "configID": "8055" },
+            { "key": "JarTest.PACl.D3.turb",  "label": "PACl Turb3", "configID": "8056" },
+            { "key": "JarTest.PACl.pH3",    "label": "PACl pH3",   "configID": "8057" },
+            { "key": "JarTest.PACl.D3.alk",   "label": "PACl Alk3",  "configID": "8058" },
+            { "key": "JarTest.PACl.Dose4",  "label": "PACl Dose4", "configID": "8060" },
+            { "key": "JarTest.PACl.D4.turb",  "label": "PACl Turb4", "configID": "8061" },
+            { "key": "JarTest.PACl.pH4",    "label": "PACl pH4",   "configID": "8062" },
+            { "key": "JarTest.PACl.D4.alk",   "label": "PACl Alk4",  "configID": "8063" },
+            { "key": "JarTest.PACl.Dose5",  "label": "PACl Dose5", "configID": "8065" },
+            { "key": "JarTest.PACl.D5.turb",  "label": "PACl Turb5", "configID": "8066" },
+            { "key": "JarTest.PACl.pH5",    "label": "PACl pH5",   "configID": "8067" },
+            { "key": "JarTest.PACl.D5.alk",   "label": "PACl Alk5",  "configID": "8068" },
+            { "key": "JarTest.PACl.Dose6",  "label": "PACl Dose6", "configID": "8070" },
+            { "key": "JarTest.PACl.D6.turb",  "label": "PACl Turb6", "configID": "8071" },
+            { "key": "JarTest.PACl.pH6",    "label": "PACl pH6",   "configID": "8072" },
+            { "key": "JarTest.PACl.D6.alk",   "label": "PACl Alk6",  "configID": "8073" },
+            { "key": "JarTest.PACl.RecommendDose1", "label": "Recommend Dose (1)", "configID": "8075" },
+            { "key": "JarTest.PACl.RecommendDose2", "label": "Recommend Dose (2)", "configID": "8076" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "prod",
+      "label": "กลุ่มน้ำระบบผลิต",
+      "subgroups": [
+        {
+          "key": "Phase1.CW_1A",
+          "label": "Phase 1 — CW_1A",
+          "params": [
+            { "key": "CW1_A.turb", "label": "Turb", "configID": "996"  },
+            { "key": "CW1_A.pH",   "label": "pH",   "configID": "997"  },
+            { "key": "CW1_A.alk",  "label": "Alk",  "configID": "998"  }
+          ]
+        },
+        {
+          "key": "Phase1.CW_1B",
+          "label": "Phase 1 — CW_1B",
+          "params": [
+            { "key": "CW1_B.turb", "label": "Turb", "configID": "999"  },
+            { "key": "CW1_B.pH",   "label": "pH",   "configID": "1000" },
+            { "key": "CW1_B.alk",  "label": "Alk",  "configID": "1001" }
+          ]
+        },
+        {
+          "key": "Phase1.CW1",
+          "label": "Phase 1 — CW1",
+          "params": [
+            { "key": "CW1.turb",   "label": "Turb",         "configID": "1002" },
+            { "key": "CW1.OC",     "label": "OC",           "configID": "1003" },
+            { "key": "CW1.ResCl2", "label": "Pre. Res Cl2", "configID": "1004" }
+          ]
+        },
+        {
+          "key": "Phase1.FW1",
+          "label": "Phase 1 — FW1",
+          "params": [
+            { "key": "FW1.turb",   "label": "Turb",         "configID": "1005" },
+            { "key": "FW1.OC",     "label": "OC",           "configID": "1006" },
+            { "key": "FW1.ResCl2", "label": "Int. Res Cl2", "configID": "1007" }
+          ]
+        },
+        {
+          "key": "Phase2.CW_2A",
+          "label": "Phase 2 — CW_2A",
+          "params": [
+            { "key": "CW2_A.turb", "label": "Turb", "configID": "1008" },
+            { "key": "CW2_A.pH",   "label": "pH",   "configID": "1009" },
+            { "key": "CW2_A.alk",  "label": "Alk",  "configID": "1010" }
+          ]
+        },
+        {
+          "key": "Phase2.CW_2B",
+          "label": "Phase 2 — CW_2B",
+          "params": [
+            { "key": "CW2_B.turb", "label": "Turb", "configID": "1011" },
+            { "key": "CW2_B.pH",   "label": "pH",   "configID": "1012" },
+            { "key": "CW2_B.alk",  "label": "Alk",  "configID": "1013" }
+          ]
+        },
+        {
+          "key": "Phase2.CW2",
+          "label": "Phase 2 — CW2",
+          "params": [
+            { "key": "CW2.turb",   "label": "Turb",         "configID": "1014" },
+            { "key": "CW2.OC",     "label": "OC",           "configID": "1015" },
+            { "key": "CW2.ResCl2", "label": "Pre. Res Cl2", "configID": "1016" }
+          ]
+        },
+        {
+          "key": "Phase2.FW2",
+          "label": "Phase 2 — FW2",
+          "params": [
+            { "key": "FW2.turb",   "label": "Turb",         "configID": "1017" },
+            { "key": "FW2.OC",     "label": "OC",           "configID": "1018" },
+            { "key": "FW2.ResCl2", "label": "Int. Res Cl2", "configID": "1019" }
+          ]
+        },
+        {
+          "key": "Phase3.CW_3A",
+          "label": "Phase 3 — CW_3A",
+          "params": [
+            { "key": "CW3_A.turb", "label": "Turb", "configID": "1020" },
+            { "key": "CW3_A.pH",   "label": "pH",   "configID": "1021" },
+            { "key": "CW3_A.alk",  "label": "Alk",  "configID": "1022" }
+          ]
+        },
+        {
+          "key": "Phase3.CW_3B",
+          "label": "Phase 3 — CW_3B",
+          "params": [
+            { "key": "CW3_B.turb", "label": "Turb", "configID": "1023" },
+            { "key": "CW3_B.pH",   "label": "pH",   "configID": "1024" },
+            { "key": "CW3_B.alk",  "label": "Alk",  "configID": "1025" }
+          ]
+        },
+        {
+          "key": "Phase3.CW3",
+          "label": "Phase 3 — CW3",
+          "params": [
+            { "key": "CW3.turb",   "label": "Turb",         "configID": "1026" },
+            { "key": "CW3.OC",     "label": "OC",           "configID": "1027" },
+            { "key": "CW3.ResCl2", "label": "Pre. Res Cl2", "configID": "1028" }
+          ]
+        },
+        {
+          "key": "Phase3.FW3",
+          "label": "Phase 3 — FW3",
+          "params": [
+            { "key": "FW3.turb",   "label": "Turb",         "configID": "1029" },
+            { "key": "FW3.OC",     "label": "OC",           "configID": "1030" },
+            { "key": "FW3.ResCl2", "label": "Int. Res Cl2", "configID": "1031" }
+          ]
+        },
+        {
+          "key": "Phase4.CW_4A",
+          "label": "Phase 4 — CW_4A",
+          "params": [
+            { "key": "CW4_A.turb", "label": "Turb", "configID": "1032" },
+            { "key": "CW4_A.pH",   "label": "pH",   "configID": "1033" },
+            { "key": "CW4_A.alk",  "label": "Alk",  "configID": "1034" }
+          ]
+        },
+        {
+          "key": "Phase4.CW_4B",
+          "label": "Phase 4 — CW_4B",
+          "params": [
+            { "key": "CW4_B.turb", "label": "Turb", "configID": "1035" },
+            { "key": "CW4_B.pH",   "label": "pH",   "configID": "1036" },
+            { "key": "CW4_B.alk",  "label": "Alk",  "configID": "1037" }
+          ]
+        },
+        {
+          "key": "Phase4.CW4",
+          "label": "Phase 4 — CW4",
+          "params": [
+            { "key": "CW4.turb",   "label": "Turb",         "configID": "1038" },
+            { "key": "CW4.OC",     "label": "OC",           "configID": "1039" },
+            { "key": "CW4.ResCl2", "label": "Pre. Res Cl2", "configID": "1040" }
+          ]
+        },
+        {
+          "key": "Phase4.FW4",
+          "label": "Phase 4 — FW4",
+          "params": [
+            { "key": "FW4.turb",   "label": "Turb",         "configID": "1041" },
+            { "key": "FW4.OC",     "label": "OC",           "configID": "1042" },
+            { "key": "FW4.ResCl2", "label": "Int. Res Cl2", "configID": "1043" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "tap",
+      "label": "กลุ่มน้ำประปา",
+      "subgroups": [
+        {
+          "key": "TW1",
+          "label": "Tap Water — TW1",
+          "params": [
+            { "key": "TW1.turb",      "label": "Turb",          "configID": "1044" },
+            { "key": "TW1.pH",        "label": "pH",            "configID": "1045" },
+            { "key": "TW1.ResCl2",    "label": "Pos. Res Cl2",  "configID": "1046" },
+            { "key": "TW1.Conduct",   "label": "Cond",          "configID": "1047" },
+            { "key": "TW1.OC",        "label": "OC",            "configID": "1048" },
+            { "key": "TW1.alk",       "label": "Alk",           "configID": "1049" },
+            { "key": "TW1.Hardness",  "label": "Hardness",      "configID": "1050" },
+            { "key": "TW1.Langelier", "label": "Langelier ind.", "configID": "1051" },
+            { "key": "TW1.Color",     "label": "App color",     "configID": "1052" },
+            { "key": "TW1.Temp",      "label": "Temp",          "configID": "4345" }
+          ]
+        },
+        {
+          "key": "TW2",
+          "label": "Tap Water — TW2",
+          "params": [
+            { "key": "TW2.turb",      "label": "Turb",          "configID": "1053" },
+            { "key": "TW2.pH",        "label": "pH",            "configID": "1054" },
+            { "key": "TW2.ResCl2",    "label": "Pos. Res Cl2",  "configID": "1055" },
+            { "key": "TW2.Conduct",   "label": "Cond",          "configID": "1056" },
+            { "key": "TW2.OC",        "label": "OC",            "configID": "1057" },
+            { "key": "TW2.alk",       "label": "Alk",           "configID": "1058" },
+            { "key": "TW2.Hardness",  "label": "Hardness",      "configID": "1059" },
+            { "key": "TW2.Langelier", "label": "Langelier ind.", "configID": "1060" },
+            { "key": "TW2.Color",     "label": "App color",     "configID": "1061" },
+            { "key": "TW2.Temp",      "label": "Temp",          "configID": "4346" }
+          ]
+        },
+        {
+          "key": "TW3",
+          "label": "Tap Water — TW3",
+          "params": [
+            { "key": "TW3.turb",   "label": "Turb",         "configID": "1062" },
+            { "key": "TW3.pH",     "label": "pH",           "configID": "1063" },
+            { "key": "TW3.ResCl2", "label": "Pos. Res Cl2", "configID": "1064" }
+          ]
+        },
+        {
+          "key": "TW4",
+          "label": "Tap Water — TW4",
+          "params": [
+            { "key": "TW4.turb",   "label": "Turb",         "configID": "1065" },
+            { "key": "TW4.pH",     "label": "pH",           "configID": "1066" },
+            { "key": "TW4.ResCl2", "label": "Pos. Res Cl2", "configID": "1067" }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "special",
+      "label": "กลุ่มพิเศษ",
+      "subgroups": [
+        {
+          "key": "Chemical.RW",
+          "label": "Chemical — RW",
+          "params": [
+            { "key": "Chem.RW.Al", "label": "Al", "configID": "1068" },
+            { "key": "Chem.RW.Fe", "label": "Fe", "configID": "1069" },
+            { "key": "Chem.RW.Mn", "label": "Mn", "configID": "1070" },
+            { "key": "Chem.RW.Cl", "label": "Cl", "configID": "1071" }
+          ]
+        },
+        {
+          "key": "Chemical.TW1",
+          "label": "Chemical — TW1",
+          "params": [
+            { "key": "Chem.TW1.Al", "label": "Al", "configID": "1072" },
+            { "key": "Chem.TW1.Fe", "label": "Fe", "configID": "1073" },
+            { "key": "Chem.TW1.Mn", "label": "Mn", "configID": "1074" },
+            { "key": "Chem.TW1.Cl", "label": "Cl", "configID": "1075" }
+          ]
+        },
+        {
+          "key": "Chemical.TW2",
+          "label": "Chemical — TW2",
+          "params": [
+            { "key": "Chem.TW2.Al", "label": "Al", "configID": "1076" },
+            { "key": "Chem.TW2.Fe", "label": "Fe", "configID": "1077" },
+            { "key": "Chem.TW2.Mn", "label": "Mn", "configID": "1078" },
+            { "key": "Chem.TW2.Cl", "label": "Cl", "configID": "1079" }
+          ]
+        },
+        {
+          "key": "Bio.Algae.RW",
+          "label": "Biological Algae — RW",
+          "params": [
+            { "key": "Algae.RW.Total",      "label": "Total",       "configID": "932" },
+            { "key": "Algae.RW.ClogFilter", "label": "Clog.Filter", "configID": "933" }
+          ]
+        },
+        {
+          "key": "Bio.Algae.CW1",
+          "label": "Biological Algae — CW1",
+          "params": [
+            { "key": "Algae.CW1.Total",      "label": "Total",       "configID": "934" },
+            { "key": "Algae.CW1.ClogFilter", "label": "Clog.Filter", "configID": "935" }
+          ]
+        },
+        {
+          "key": "Bio.Algae.CW2",
+          "label": "Biological Algae — CW2",
+          "params": [
+            { "key": "Algae.CW2.Total",      "label": "Total",       "configID": "936" },
+            { "key": "Algae.CW2.ClogFilter", "label": "Clog.Filter", "configID": "937" }
+          ]
+        },
+        {
+          "key": "Bio.Algae.CW3",
+          "label": "Biological Algae — CW3",
+          "params": [
+            { "key": "Algae.CW3.Total",      "label": "Total",       "configID": "938" },
+            { "key": "Algae.CW3.ClogFilter", "label": "Clog.Filter", "configID": "939" }
+          ]
+        },
+        {
+          "key": "Bio.Algae.CW4",
+          "label": "Biological Algae — CW4",
+          "params": [
+            { "key": "Algae.CW4.Total",      "label": "Total",       "configID": "940" },
+            { "key": "Algae.CW4.ClogFilter", "label": "Clog.Filter", "configID": "941" }
+          ]
+        },
+        {
+          "key": "Bio.Algae.TW1",
+          "label": "Biological Algae — TW1",
+          "params": [
+            { "key": "Algae.TW1.Total",      "label": "Total",       "configID": "942" },
+            { "key": "Algae.TW1.ClogFilter", "label": "Clog.Filter", "configID": "943" }
+          ]
+        },
+        {
+          "key": "Bio.Algae.TW2",
+          "label": "Biological Algae — TW2",
+          "params": [
+            { "key": "Algae.TW2.Total",      "label": "Total",       "configID": "944" },
+            { "key": "Algae.TW2.ClogFilter", "label": "Clog.Filter", "configID": "945" }
+          ]
+        },
+        {
+          "key": "Bio.Bacteria.TW1",
+          "label": "Biological Bacteria — TW1",
+          "params": [
+            { "key": "Bacteria.TW1.Coliform", "label": "Total Coliform", "configID": "946" },
+            { "key": "Bacteria.TW1.EColi",    "label": "E.Coli",         "configID": "948" }
+          ]
+        },
+        {
+          "key": "Bio.Bacteria.TW2",
+          "label": "Biological Bacteria — TW2",
+          "params": [
+            { "key": "Bacteria.TW2.Coliform", "label": "Total Coliform", "configID": "950" },
+            { "key": "Bacteria.TW2.EColi",    "label": "E.Coli",         "configID": "952" }
+          ]
+        }
+      ]
+    }
+  ]
+}
