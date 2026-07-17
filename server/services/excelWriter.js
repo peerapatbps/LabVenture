@@ -3,10 +3,15 @@ const path = require('path');
 
 const WRITER = path.join(__dirname, '..', 'excel_writer.py');
 
-async function writeToExcel(records) {
+let _excelForceFail = false;
+function setExcelForceFail(v) { _excelForceFail = !!v; }
+function getExcelForceFail() { return _excelForceFail; }
+
+async function writeToExcel(records, recordersByDate = {}) {
   if (!records || records.length === 0) return { written: 0 };
+  if (_excelForceFail) throw new Error('[force-fail] Excel write disabled for testing');
   return new Promise((resolve, reject) => {
-    const input = JSON.stringify({ records });
+    const input = JSON.stringify({ records, recorders: recordersByDate });
     const py = spawn('python', [WRITER, input]);
     let out = '';
     let err = '';
@@ -21,4 +26,4 @@ async function writeToExcel(records) {
   });
 }
 
-module.exports = { writeToExcel };
+module.exports = { writeToExcel, setExcelForceFail, getExcelForceFail };

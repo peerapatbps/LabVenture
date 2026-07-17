@@ -4,7 +4,7 @@ const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
 const CONFIGS = require('../config/aquadat_configs.json');
-const { getDb, persist } = require('../services/db');
+const { getDb, persist, nowTH } = require('../services/db');
 
 const NODES_PATH = path.join(__dirname, '..', 'config', 'nodes.json');
 
@@ -22,11 +22,25 @@ function normalizeParamKey(paramKey) {
 }
 
 const LEGACY_CONFIG_TIME_OVERRIDES = {
-  '984': { '05:00': 'JarTest.Alum.RW_ref_Turb' },
-  '986': { '05:00': 'JarTest.Alum.RW_ref_pH', '09:00': 'JarTest.PACl.RW_ref_turb' },
-  '987': { '05:00': 'JarTest.Alum.RW_ref_Alk', '09:00': 'JarTest.PACl.RW_ref_pH' },
-  '988': { '05:00': 'JarTest.Alum.RW_ref_Temp', '09:00': 'JarTest.PACl.RW_ref_Alk' },
+  // RW reference values — same configID recorded at 05:00 (Alum) and 09:00 (PACl)
+  '984':  { '05:00': 'JarTest.Alum.RW_ref_Temp' },
+  '986':  { '05:00': 'JarTest.Alum.RW_ref_Turb',  '09:00': 'JarTest.PACl.RW_ref_turb' },
+  '987':  { '05:00': 'JarTest.Alum.RW_ref_pH',    '09:00': 'JarTest.PACl.RW_ref_pH' },
+  '988':  { '05:00': 'JarTest.Alum.RW_ref_Alk',   '09:00': 'JarTest.PACl.RW_ref_Alkalinity' },
   '8116': { '09:00': 'JarTest.PACl.RW_ref_Temp' },
+  // JarTest dose series — Alum uses 05:00, PACl reuses same configIDs at 09:00
+  '954': { '09:00': 'JarTest.PACl.D1.Dose' }, '955': { '09:00': 'JarTest.PACl.D1.turb' },
+  '956': { '09:00': 'JarTest.PACl.D1.pH' },   '957': { '09:00': 'JarTest.PACl.D1.alk' },
+  '959': { '09:00': 'JarTest.PACl.D2.Dose' }, '960': { '09:00': 'JarTest.PACl.D2.turb' },
+  '961': { '09:00': 'JarTest.PACl.D2.pH' },   '962': { '09:00': 'JarTest.PACl.D2.alk' },
+  '964': { '09:00': 'JarTest.PACl.D3.Dose' }, '965': { '09:00': 'JarTest.PACl.D3.turb' },
+  '966': { '09:00': 'JarTest.PACl.D3.pH' },   '967': { '09:00': 'JarTest.PACl.D3.alk' },
+  '969': { '09:00': 'JarTest.PACl.D4.Dose' }, '970': { '09:00': 'JarTest.PACl.D4.turb' },
+  '971': { '09:00': 'JarTest.PACl.D4.pH' },   '972': { '09:00': 'JarTest.PACl.D4.alk' },
+  '974': { '09:00': 'JarTest.PACl.D5.Dose' }, '975': { '09:00': 'JarTest.PACl.D5.turb' },
+  '976': { '09:00': 'JarTest.PACl.D5.pH' },   '977': { '09:00': 'JarTest.PACl.D5.alk' },
+  '979': { '09:00': 'JarTest.PACl.D6.Dose' }, '980': { '09:00': 'JarTest.PACl.D6.turb' },
+  '981': { '09:00': 'JarTest.PACl.D6.pH' },   '982': { '09:00': 'JarTest.PACl.D6.alk' },
 };
 
 function getLegacyOverrideParamKey(configId, transTime) {
@@ -294,7 +308,7 @@ router.post('/sync', requireToken, async (req, res) => {
   const { columns, rows } = parseCsv(csvText);
   const configMap = buildConfigMap();
   const db = getDb();
-  const recordedAt = new Date().toISOString();
+  const recordedAt = nowTH();
 
   let inserted = 0;
   let skipped = 0;

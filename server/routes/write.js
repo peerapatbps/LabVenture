@@ -3,7 +3,7 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const { writeData } = require('../services/aquadat');
-const { getDb, persist } = require('../services/db');
+const { getDb, persist, nowTH } = require('../services/db');
 const { writeToExcel } = require('../services/excelWriter');
 
 const NODES_PATH = path.join(__dirname, '..', 'config', 'nodes.json');
@@ -245,10 +245,17 @@ router.post('/', requireAuth, async (req, res) => {
   }
 });
 
+function serverTimeShiftRange() {
+  const h = new Date().getHours();  // local server time
+  if (h >= 0  && h < 8)  return '00-08';
+  if (h >= 8  && h < 16) return '08-16';
+  return '16-24';
+}
+
 // Write node-based records: save to local DB + forward to AquaDAT for params that have configparam_id
 router.post('/nodes', requireAuth, async (req, res) => {
   const token = req.cookies.aquadat_token;
-  const { records, plant_id } = req.body;
+  const { records, plant_id, recorder_name } = req.body;
   if (!Array.isArray(records) || records.length === 0) {
     return res.status(400).json({ error: 'records array required' });
   }
@@ -266,7 +273,7 @@ router.post('/nodes', requireAuth, async (req, res) => {
   const finalRecords = Array.from(mergedMap.values());
 
   // Save all records locally
-  const now = new Date().toISOString();
+  const now = nowTH();
   for (const r of finalRecords) {
     db.run(
       `INSERT OR REPLACE INTO node_records
@@ -290,22 +297,124 @@ router.post('/nodes', requireAuth, async (req, res) => {
     }));
 
   let aquadatResult = null;
+  let aquadatError = null;
   if (aquadatRecords.length > 0) {
     try {
       aquadatResult = await writeData(token, aquadatRecords);
     } catch (err) {
+      aquadatError = err.message;
       console.error('[write/nodes] AquaDAT write failed:', err.message);
+      const transDtm = finalRecords[0]?.trans_dtm ?? '';
+      db.run(
+        `INSERT INTO aquadat_queue (created_at, trans_dtm, payload, status) VALUES (?, ?, ?, 'pending')`,
+        [now, transDtm, JSON.stringify(aquadatRecords)]
+      );
+      persist();
+    }
+  }
+
+  // Save recorder per shift (shift determined by server clock at time of submission)
+  if (recorder_name) {
+    const shift = serverTimeShiftRange();
+    const wlEntry = db.get('SELECT position_label FROM car_whitelist WHERE name = ? LIMIT 1', [recorder_name]);
+    const posLabel = wlEntry?.position_label || null;
+    const transDate = finalRecords[0]?.trans_dtm;
+    if (transDate) {
+      db.run(
+        `INSERT OR REPLACE INTO slot_recorders (trans_dtm, shift_range, recorder_name, position_label, recorded_at)
+         VALUES (?, ?, ?, ?, ?)`,
+        [transDate, shift, recorder_name, posLabel, now]
+      );
+      persist();
+    }
+  }
+
+  // Gather all recorder info for affected dates
+  const affectedDates = [...new Set(finalRecords.map(r => r.trans_dtm))];
+  const recordersByDate = {};
+  for (const d of affectedDates) {
+    const rows = db.all('SELECT shift_range, recorder_name, position_label FROM slot_recorders WHERE trans_dtm = ?', [d]);
+    recordersByDate[d] = {};
+    for (const row of rows) {
+      recordersByDate[d][row.shift_range] = { name: row.recorder_name, position_label: row.position_label };
     }
   }
 
   let excelResult = null;
+  let excelError = null;
   try {
-    excelResult = await writeToExcel(finalRecords);
+    excelResult = await writeToExcel(finalRecords, recordersByDate);
   } catch (err) {
+    excelError = err.message;
     console.error('[write/nodes] Excel write failed:', err.message);
+    const transDtmExcel = finalRecords[0]?.trans_dtm ?? '';
+    db.run(
+      `INSERT INTO excel_queue (created_at, trans_dtm, payload, status) VALUES (?, ?, ?, 'pending')`,
+      [now, transDtmExcel, JSON.stringify({ records: finalRecords, recordersByDate })]
+    );
+    persist();
   }
 
-  res.json({ ok: true, saved: finalRecords.length, derived: derivedRecords.length, aquadat: aquadatRecords.length, aquadatResult, excel: excelResult });
+  res.json({
+    ok: true,
+    saved: finalRecords.length,
+    derived: derivedRecords.length,
+    aquadat: aquadatRecords.length,
+    aquadatResult,
+    excelResult,
+    warnings: {
+      aquadat: aquadatError ?? null,
+      excel: excelError ?? null,
+    },
+  });
+});
+
+// GET /api/write/queue — list pending/dead AquaDAT queue items
+router.get('/queue', requireAuth, (req, res) => {
+  const db = getDb();
+  const items = db.all(
+    `SELECT id, created_at, trans_dtm, attempts, last_error, status,
+            'retry_' || trans_dtm || '_' || id AS script_name
+       FROM aquadat_queue
+      WHERE status IN ('pending', 'dead')
+      ORDER BY created_at ASC`
+  );
+  res.json({ items, count: items.length });
+});
+
+// POST /api/write/queue/retry — retry all pending/dead items using current user's token
+router.post('/queue/retry', requireAuth, async (req, res) => {
+  const token = req.cookies.aquadat_token;
+  const db = getDb();
+  const items = db.all(
+    `SELECT * FROM aquadat_queue WHERE status IN ('pending', 'dead')`
+  );
+
+  let succeeded = 0, failed = 0;
+  for (const item of items) {
+    const records = JSON.parse(item.payload);
+    try {
+      await writeData(token, records);
+      db.run(
+        `UPDATE aquadat_queue SET status='success', last_attempt=? WHERE id=?`,
+        [nowTH(), item.id]
+      );
+      succeeded++;
+    } catch (err) {
+      const attempts = item.attempts + 1;
+      db.run(
+        `UPDATE aquadat_queue
+            SET attempts=?, last_attempt=?, last_error=?,
+                status=CASE WHEN ? >= 3 THEN 'dead' ELSE 'pending' END
+          WHERE id=?`,
+        [attempts, nowTH(), err.message, attempts, item.id]
+      );
+      failed++;
+    }
+    persist();
+  }
+
+  res.json({ ok: true, succeeded, failed });
 });
 
 module.exports = router;

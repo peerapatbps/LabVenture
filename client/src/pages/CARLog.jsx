@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import { get, post, patch, del } from '../api.js';
 
 // ─── Status system ─────────────────────────────────────────────────────────
@@ -273,9 +274,10 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
   const cu = carUser || {};
   const cuGroups = cu.groups || (cu.group ? [cu.group] : []);
   const isG1 = cuGroups.includes('1') || cu.isAdmin;
-  const isG2 = cuGroups.includes('2');
-  const isG3a = cuGroups.includes('3a');
-  const isG3b = cuGroups.includes('3b');
+  const isG2 = cuGroups.includes('2') || cu.isAdmin;
+  const isG3a = cuGroups.includes('3a') || cu.isAdmin;
+  const isG3b = cuGroups.includes('3b') || cu.isAdmin;
+  const isObserver = !!cu.isObserver;
 
   // Section 2 — respondent
   const [s2, setS2] = useState({
@@ -412,11 +414,13 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
               </div>
               <Inp label="วันที่ตอบ" name="s2_responded_at" type="date"
                 value={s2.s2_responded_at} onChange={e => setS2(p => ({ ...p, s2_responded_at: e.target.value }))} />
-              <SaveBtn onClick={() => onUpdate(car.id, { status_code: 20, form_data: s2 })}
-                disabled={saving || !s2.s2_root_cause || !s2.s2_correction || !s2.s2_respondent}
-                color="bg-orange-500 hover:bg-orange-600">
-                บันทึกคำตอบ → รออนุมัติ
-              </SaveBtn>
+              {!isObserver && isG2 && (
+                <SaveBtn onClick={() => onUpdate(car.id, { status_code: 20, form_data: s2 })}
+                  disabled={saving || !s2.s2_root_cause || !s2.s2_correction || !s2.s2_respondent}
+                  color="bg-orange-500 hover:bg-orange-600">
+                  บันทึกคำตอบ → รออนุมัติ
+                </SaveBtn>
+              )}
             </div>
           ) : (
             <div className="space-y-2 px-1">
@@ -456,10 +460,12 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
                     <Inp label="วันที่อนุมัติ" name="s2_approved_at" type="date"
                       value={s2a.s2_approved_at} onChange={e => setS2a(p => ({ ...p, s2_approved_at: e.target.value }))} />
                   </div>
-                  <SaveBtn onClick={() => onUpdate(car.id, { status_code: 30, form_data: s2a })}
-                    disabled={saving || !s2a.s2_approver}>
-                    อนุมัติ → รอติดตามผล#1
-                  </SaveBtn>
+                  {!isObserver && isG3a && (
+                    <SaveBtn onClick={() => onUpdate(car.id, { status_code: 30, form_data: s2a })}
+                      disabled={saving || !s2a.s2_approver}>
+                      อนุมัติ → รอติดตามผล#1
+                    </SaveBtn>
+                  )}
                 </div>
               )}
 
@@ -509,18 +515,20 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
                           value={s4a.s4_check2_owner} onChange={e => setS4a(p => ({ ...p, s4_check2_owner: e.target.value }))} />
                       </div>
                     )}
-                    <SaveBtn
-                      onClick={() => onUpdate(car.id, {
-                        status_code: s4a.s4_check1_result === 'pass' ? 50 : 40,
-                        form_data: s4a,
-                      })}
-                      disabled={saving || !s4a.s4_check1_result || !s4a.s4_check1_by
-                        || (s4a.s4_check1_result === 'fail' && !s4a.s4_check2_deadline)}
-                      color={s4a.s4_check1_result === 'pass' ? 'bg-teal-600 hover:bg-teal-700' : 'bg-purple-600 hover:bg-purple-700'}>
-                      {s4a.s4_check1_result === 'pass' ? 'บันทึกผลผ่าน → แก้ไขแล้ว'
-                        : s4a.s4_check1_result === 'fail' ? 'บันทึกผลไม่ผ่าน → รอติดตาม#2'
-                        : 'บันทึกผลติดตาม#1'}
-                    </SaveBtn>
+                    {!isObserver && isG1 && (
+                      <SaveBtn
+                        onClick={() => onUpdate(car.id, {
+                          status_code: s4a.s4_check1_result === 'pass' ? 50 : 40,
+                          form_data: s4a,
+                        })}
+                        disabled={saving || !s4a.s4_check1_result || !s4a.s4_check1_by
+                          || (s4a.s4_check1_result === 'fail' && !s4a.s4_check2_deadline)}
+                        color={s4a.s4_check1_result === 'pass' ? 'bg-teal-600 hover:bg-teal-700' : 'bg-purple-600 hover:bg-purple-700'}>
+                        {s4a.s4_check1_result === 'pass' ? 'บันทึกผลผ่าน → แก้ไขแล้ว'
+                          : s4a.s4_check1_result === 'fail' ? 'บันทึกผลไม่ผ่าน → รอติดตาม#2'
+                          : 'บันทึกผลติดตาม#1'}
+                      </SaveBtn>
+                    )}
                   </>
                 ) : (
                   <div className="space-y-1">
@@ -563,12 +571,14 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
                         </div>
                         <Inp label="วันที่ตรวจ" name="s4_check2_date" type="date"
                           value={s4b.s4_check2_date} onChange={e => setS4b(p => ({ ...p, s4_check2_date: e.target.value }))} />
-                        <SaveBtn
-                          onClick={() => onUpdate(car.id, { status_code: 50, form_data: s4b })}
-                          disabled={saving || !s4b.s4_check2_result || !s4b.s4_check2_by || s4b.s4_check2_result !== 'pass'}
-                          color="bg-teal-600 hover:bg-teal-700">
-                          บันทึกผลผ่าน → แก้ไขแล้ว
-                        </SaveBtn>
+                        {!isObserver && isG1 && (
+                          <SaveBtn
+                            onClick={() => onUpdate(car.id, { status_code: 50, form_data: s4b })}
+                            disabled={saving || !s4b.s4_check2_result || !s4b.s4_check2_by || s4b.s4_check2_result !== 'pass'}
+                            color="bg-teal-600 hover:bg-teal-700">
+                            บันทึกผลผ่าน → แก้ไขแล้ว
+                          </SaveBtn>
+                        )}
                       </>
                     ) : (
                       <div className="space-y-1">
@@ -614,12 +624,14 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
                       <Inp label="วันที่" name="s5_approved_at" type="date"
                         value={s5.s5_approved_at} onChange={e => setS5(p => ({ ...p, s5_approved_at: e.target.value }))} />
                     </div>
-                    <SaveBtn
-                      onClick={() => onUpdate(car.id, { status_code: s5.s5_decision === 'close' ? 60 : 70, form_data: s5 })}
-                      disabled={saving || !s5.s5_decision || !s5.s5_approver}
-                      color={s5.s5_decision === 'close' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}>
-                      {s5.s5_decision === 'close' ? 'อนุมัติปิด CAR' : s5.s5_decision === 'reject' ? 'ตีกลับ (ต้องออกใบใหม่)' : 'บันทึกการพิจารณา'}
-                    </SaveBtn>
+                    {!isObserver && isG3b && (
+                      <SaveBtn
+                        onClick={() => onUpdate(car.id, { status_code: s5.s5_decision === 'close' ? 60 : 70, form_data: s5 })}
+                        disabled={saving || !s5.s5_decision || !s5.s5_approver}
+                        color={s5.s5_decision === 'close' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}>
+                        {s5.s5_decision === 'close' ? 'อนุมัติปิด CAR' : s5.s5_decision === 'reject' ? 'ตีกลับ (ต้องออกใบใหม่)' : 'บันทึกการพิจารณา'}
+                      </SaveBtn>
+                    )}
                   </>
                 ) : (
                   <div className="space-y-2">
@@ -810,9 +822,12 @@ function AdminPanel({ onClose }) {
 // ─── Main ─────────────────────────────────────────────────────────────────
 
 export default function CARLog() {
-  const [tab, setTab] = useState('list');
+  const location = useLocation();
+  const prefill = location.state?.prefill;
+
+  const [tab, setTab] = useState(prefill ? 'create' : 'list');
   const [selectedCar, setSelectedCar] = useState(null);
-  const [form, setForm] = useState(INIT);
+  const [form, setForm] = useState(prefill ? { ...INIT, ...prefill } : INIT);
   const [filterDate, setFilterDate] = useState(null);
   const [showAdmin, setShowAdmin] = useState(false);
   const qc = useQueryClient();

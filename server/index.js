@@ -4,6 +4,7 @@ const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const path = require('path');
 const { initDb } = require('./services/db');
+const stageMonitor = require('./services/stageMonitor');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -25,21 +26,24 @@ app.use('/api/line/webhook', require('./routes/linewebhook'));
 app.use('/api/aquadat', require('./routes/aquadatProcess'));
 app.use('/api/chem-intake', require('./routes/chemIntake'));
 app.use('/api/algae', require('./routes/algae'));
+app.use('/api/lab', require('./routes/labChart'));
+app.use('/api/test', require('./routes/test'));
+app.use('/api/operator', require('./routes/operator'));
+app.use('/api/daily-report', require('./routes/dailyReport'));
 
 // Serve React client in production
 const CLIENT_DIST = path.join(__dirname, '..', 'client', 'dist');
 const fs = require('fs');
 if (fs.existsSync(CLIENT_DIST)) {
-  app.use(express.static(CLIENT_DIST));
-  app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api')) {
-      res.sendFile(path.join(CLIENT_DIST, 'index.html'));
-    }
+  app.use('/labventure', express.static(CLIENT_DIST));
+  app.get('/labventure/*', (req, res) => {
+    res.sendFile(path.join(CLIENT_DIST, 'index.html'));
   });
 }
 
 async function start() {
   await initDb();
+  stageMonitor.start();
   app.listen(PORT, () => {
     console.log(`LabVenture server running on http://localhost:${PORT}`);
   });

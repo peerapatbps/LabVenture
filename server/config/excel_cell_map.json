@@ -1,5 +1,5 @@
 {
-  "RW.Turb": {
+  "RW.turb": {
     "01:00": "C5",
     "03:00": "C6",
     "05:00": "C7",
@@ -21,7 +21,7 @@
     "17:00": "D13",
     "21:00": "D15"
   },
-  "RW.Alk": {
+  "RW.alk": {
     "01:00": "E5",
     "05:00": "E7",
     "09:00": "E9",
@@ -51,9 +51,10 @@
   },
   "RW.OC": {
     "09:00": "I9",
-    "21:00": "I15"
+    "21:00": "I15",
+    "daily": "I9"
   },
-  "Incoming.Thamuang.Turb": {
+  "Incoming.Thamuang.turb": {
     "daily": "L6"
   },
   "Incoming.Thamuang.Conduct": {
@@ -62,7 +63,7 @@
   "Incoming.Thamuang.DO": {
     "daily": "N6"
   },
-  "Incoming.Banglen.Turb": {
+  "Incoming.Banglen.turb": {
     "daily": "L13"
   },
   "Incoming.Banglen.Conduct": {
@@ -71,7 +72,7 @@
   "Incoming.Banglen.DO": {
     "daily": "N13"
   },
-  "CW1_A.Turb": {
+  "CW1_A.turb": {
     "01:00": "C32",
     "05:00": "C33",
     "09:00": "C34",
@@ -87,7 +88,7 @@
     "17:00": "D36",
     "21:00": "D37"
   },
-  "CW1_A.Alk": {
+  "CW1_A.alk": {
     "01:00": "E32",
     "05:00": "E33",
     "09:00": "E34",
@@ -95,7 +96,7 @@
     "17:00": "E36",
     "21:00": "E37"
   },
-  "CW1_B.Turb": {
+  "CW1_B.turb": {
     "01:00": "F32",
     "05:00": "F33",
     "09:00": "F34",
@@ -111,7 +112,7 @@
     "17:00": "G36",
     "21:00": "G37"
   },
-  "CW1_B.Alk": {
+  "CW1_B.alk": {
     "01:00": "H32",
     "05:00": "H33",
     "09:00": "H34",
@@ -119,7 +120,7 @@
     "17:00": "H36",
     "21:00": "H37"
   },
-  "CW1.Turb": {
+  "CW1.turb": {
     "01:00": "I32",
     "05:00": "I33",
     "09:00": "I34",
@@ -133,7 +134,8 @@
     "09:00": "J34",
     "13:00": "J35",
     "17:00": "J36",
-    "21:00": "J37"
+    "21:00": "J37",
+    "daily": "J34"
   },
   "CW1.ResCl2": {
     "01:00": "K32",
@@ -143,7 +145,7 @@
     "17:00": "K36",
     "21:00": "K37"
   },
-  "FW1.Turb": {
+  "FW1.turb": {
     "01:00": "L32",
     "05:00": "L33",
     "09:00": "L34",
@@ -157,7 +159,8 @@
     "09:00": "M34",
     "13:00": "M35",
     "17:00": "M36",
-    "21:00": "M37"
+    "21:00": "M37",
+    "daily": "M34"
   },
   "FW1.ResCl2": {
     "01:00": "N32",
@@ -167,7 +170,7 @@
     "17:00": "N36",
     "21:00": "N37"
   },
-  "CW2_A.Turb": {
+  "CW2_A.turb": {
     "01:00": "P32",
     "05:00": "P33",
     "09:00": "P34",
@@ -183,7 +186,7 @@
     "17:00": "Q36",
     "21:00": "Q37"
   },
-  "CW2_A.Alk": {
+  "CW2_A.alk": {
     "01:00": "R32",
     "05:00": "R33",
     "09:00": "R34",
@@ -191,7 +194,7 @@
     "17:00": "R36",
     "21:00": "R37"
   },
-  "CW2_B.Turb": {
+  "CW2_B.turb": {
     "01:00": "S32",
     "05:00": "S33",
     "09:00": "S34",
@@ -207,7 +210,7 @@
     "17:00": "T36",
     "21:00": "T37"
   },
-  "CW2_B.Alk": {
+  "CW2_B.alk": {
     "01:00": "U32",
     "05:00": "U33",
     "09:00": "U34",
@@ -215,7 +218,7 @@
     "17:00": "U36",
     "21:00": "U37"
   },
-  "CW2.Turb": {
+  "CW2.turb": {
     "01:00": "V32",
     "05:00": "V33",
     "09:00": "V34",
@@ -229,7 +232,8 @@
     "09:00": "W34",
     "13:00": "W35",
     "17:00": "W36",
-    "21:00": "W37"
+    "21:00": "W37",
+    "daily": "W34"
   },
   "CW2.ResCl2": {
     "01:00": "X32",
@@ -239,7 +243,7 @@
     "17:00": "X36",
     "21:00": "X37"
   },
-  "FW2.Turb": {
+  "FW2.turb": {
     "01:00": "Y32",
     "05:00": "Y33",
     "09:00": "Y34",
@@ -253,7 +257,8 @@
     "09:00": "Z34",
     "13:00": "Z35",
     "17:00": "Z36",
-    "21:00": "Z37"
+    "21:00": "Z37",
+    "daily": "Z34"
   },
   "FW2.ResCl2": {
     "01:00": "AA32",
@@ -263,7 +268,7 @@
     "17:00": "AA36",
     "21:00": "AA37"
   },
-  "CW3_A.Turb": {
+  "CW3_A.turb": {
     "01:00": "C44",
     "05:00": "C45",
     "09:00": "C46",
@@ -279,7 +284,7 @@
     "17:00": "D48",
     "21:00": "D49"
   },
-  "CW3_A.Alk": {
+  "CW3_A.alk": {
     "01:00": "E44",
     "05:00": "E45",
     "09:00": "E46",
@@ -287,7 +292,7 @@
     "17:00": "E48",
     "21:00": "E49"
   },
-  "CW3_B.Turb": {
+  "CW3_B.turb": {
     "01:00": "F44",
     "05:00": "F45",
     "09:00": "F46",
@@ -303,7 +308,7 @@
     "17:00": "G48",
     "21:00": "G49"
   },
-  "CW3_B.Alk": {
+  "CW3_B.alk": {
     "01:00": "H44",
     "05:00": "H45",
     "09:00": "H46",
@@ -311,7 +316,7 @@
     "17:00": "H48",
     "21:00": "H49"
   },
-  "CW3.Turb": {
+  "CW3.turb": {
     "01:00": "I44",
     "05:00": "I45",
     "09:00": "I46",
@@ -325,7 +330,8 @@
     "09:00": "J46",
     "13:00": "J47",
     "17:00": "J48",
-    "21:00": "J49"
+    "21:00": "J49",
+    "daily": "J46"
   },
   "CW3.ResCl2": {
     "01:00": "K44",
@@ -335,7 +341,7 @@
     "17:00": "K48",
     "21:00": "K49"
   },
-  "FW3.Turb": {
+  "FW3.turb": {
     "01:00": "L44",
     "05:00": "L45",
     "09:00": "L46",
@@ -349,7 +355,8 @@
     "09:00": "M46",
     "13:00": "M47",
     "17:00": "M48",
-    "21:00": "M49"
+    "21:00": "M49",
+    "daily": "M46"
   },
   "FW3.ResCl2": {
     "01:00": "N44",
@@ -359,7 +366,7 @@
     "17:00": "N48",
     "21:00": "N49"
   },
-  "CW4_A.Turb": {
+  "CW4_A.turb": {
     "01:00": "P44",
     "05:00": "P45",
     "09:00": "P46",
@@ -375,7 +382,7 @@
     "17:00": "Q48",
     "21:00": "Q49"
   },
-  "CW4_A.Alk": {
+  "CW4_A.alk": {
     "01:00": "R44",
     "05:00": "R45",
     "09:00": "R46",
@@ -383,7 +390,7 @@
     "17:00": "R48",
     "21:00": "R49"
   },
-  "CW4_B.Turb": {
+  "CW4_B.turb": {
     "01:00": "S44",
     "05:00": "S45",
     "09:00": "S46",
@@ -399,7 +406,7 @@
     "17:00": "T48",
     "21:00": "T49"
   },
-  "CW4_B.Alk": {
+  "CW4_B.alk": {
     "01:00": "U44",
     "05:00": "U45",
     "09:00": "U46",
@@ -407,7 +414,7 @@
     "17:00": "U48",
     "21:00": "U49"
   },
-  "CW4.Turb": {
+  "CW4.turb": {
     "01:00": "V44",
     "05:00": "V45",
     "09:00": "V46",
@@ -421,7 +428,8 @@
     "09:00": "W46",
     "13:00": "W47",
     "17:00": "W48",
-    "21:00": "W49"
+    "21:00": "W49",
+    "daily": "W46"
   },
   "CW4.ResCl2": {
     "01:00": "X44",
@@ -431,7 +439,7 @@
     "17:00": "X48",
     "21:00": "X49"
   },
-  "FW4.Turb": {
+  "FW4.turb": {
     "01:00": "Y44",
     "05:00": "Y45",
     "09:00": "Y46",
@@ -445,7 +453,8 @@
     "09:00": "Z46",
     "13:00": "Z47",
     "17:00": "Z48",
-    "21:00": "Z49"
+    "21:00": "Z49",
+    "daily": "Z46"
   },
   "FW4.ResCl2": {
     "01:00": "AA44",
@@ -455,7 +464,7 @@
     "17:00": "AA48",
     "21:00": "AA49"
   },
-  "TW1.Turb": {
+  "TW1.turb": {
     "01:00": "C58",
     "03:00": "C59",
     "05:00": "C60",
@@ -496,14 +505,9 @@
     "21:00": "F68"
   },
   "TW1.OC": {
-    "01:00": "G58",
-    "05:00": "G60",
-    "09:00": "G62",
-    "13:00": "G64",
-    "17:00": "G66",
-    "21:00": "G68"
+    "daily": "G62"
   },
-  "TW1.Alk": {
+  "TW1.alk": {
     "01:00": "H58",
     "05:00": "H60",
     "09:00": "H62",
@@ -535,7 +539,7 @@
     "17:00": "K66",
     "21:00": "K68"
   },
-  "TW2.Turb": {
+  "TW2.turb": {
     "01:00": "L58",
     "03:00": "L59",
     "05:00": "L60",
@@ -576,14 +580,9 @@
     "21:00": "O68"
   },
   "TW2.OC": {
-    "01:00": "P58",
-    "05:00": "P60",
-    "09:00": "P62",
-    "13:00": "P64",
-    "17:00": "P66",
-    "21:00": "P68"
+    "daily": "P62"
   },
-  "TW2.Alk": {
+  "TW2.alk": {
     "01:00": "Q58",
     "05:00": "Q60",
     "09:00": "Q62",
@@ -615,7 +614,7 @@
     "17:00": "T66",
     "21:00": "T68"
   },
-  "TW3.Turb": {
+  "TW3.turb": {
     "01:00": "V58",
     "03:00": "V59",
     "05:00": "V60",
@@ -651,7 +650,7 @@
     "21:00": "X68",
     "23:00": "X69"
   },
-  "TW4.Turb": {
+  "TW4.turb": {
     "01:00": "Y58",
     "03:00": "Y59",
     "05:00": "Y60",
@@ -780,145 +779,145 @@
   "JarTest.Alum.D1.Dose": {
     "daily": "D23"
   },
-  "JarTest.Alum.D1.Turb": {
+  "JarTest.Alum.D1.turb": {
     "daily": "D25"
   },
   "JarTest.Alum.D1.pH": {
     "daily": "D26"
   },
-  "JarTest.Alum.D1.Alk": {
+  "JarTest.Alum.D1.alk": {
     "daily": "D27"
   },
   "JarTest.Alum.D2.Dose": {
     "daily": "E23"
   },
-  "JarTest.Alum.D2.Turb": {
+  "JarTest.Alum.D2.turb": {
     "daily": "E25"
   },
   "JarTest.Alum.D2.pH": {
     "daily": "E26"
   },
-  "JarTest.Alum.D2.Alk": {
+  "JarTest.Alum.D2.alk": {
     "daily": "E27"
   },
   "JarTest.Alum.D3.Dose": {
     "daily": "F23"
   },
-  "JarTest.Alum.D3.Turb": {
+  "JarTest.Alum.D3.turb": {
     "daily": "F25"
   },
   "JarTest.Alum.D3.pH": {
     "daily": "F26"
   },
-  "JarTest.Alum.D3.Alk": {
+  "JarTest.Alum.D3.alk": {
     "daily": "F27"
   },
   "JarTest.Alum.D4.Dose": {
     "daily": "G23"
   },
-  "JarTest.Alum.D4.Turb": {
+  "JarTest.Alum.D4.turb": {
     "daily": "G25"
   },
   "JarTest.Alum.D4.pH": {
     "daily": "G26"
   },
-  "JarTest.Alum.D4.Alk": {
+  "JarTest.Alum.D4.alk": {
     "daily": "G27"
   },
   "JarTest.Alum.D5.Dose": {
     "daily": "H23"
   },
-  "JarTest.Alum.D5.Turb": {
+  "JarTest.Alum.D5.turb": {
     "daily": "H25"
   },
   "JarTest.Alum.D5.pH": {
     "daily": "H26"
   },
-  "JarTest.Alum.D5.Alk": {
+  "JarTest.Alum.D5.alk": {
     "daily": "H27"
   },
   "JarTest.Alum.D6.Dose": {
     "daily": "I23"
   },
-  "JarTest.Alum.D6.Turb": {
+  "JarTest.Alum.D6.turb": {
     "daily": "I25"
   },
   "JarTest.Alum.D6.pH": {
     "daily": "I26"
   },
-  "JarTest.Alum.D6.Alk": {
+  "JarTest.Alum.D6.alk": {
     "daily": "I27"
   },
   "JarTest.PACl.D1.Dose": {
     "daily": "K23"
   },
-  "JarTest.PACl.D1.Turb": {
+  "JarTest.PACl.D1.turb": {
     "daily": "K25"
   },
   "JarTest.PACl.D1.pH": {
     "daily": "K26"
   },
-  "JarTest.PACl.D1.Alk": {
+  "JarTest.PACl.D1.alk": {
     "daily": "K27"
   },
   "JarTest.PACl.D2.Dose": {
     "daily": "L23"
   },
-  "JarTest.PACl.D2.Turb": {
+  "JarTest.PACl.D2.turb": {
     "daily": "L25"
   },
   "JarTest.PACl.D2.pH": {
     "daily": "L26"
   },
-  "JarTest.PACl.D2.Alk": {
+  "JarTest.PACl.D2.alk": {
     "daily": "L27"
   },
   "JarTest.PACl.D3.Dose": {
     "daily": "M23"
   },
-  "JarTest.PACl.D3.Turb": {
+  "JarTest.PACl.D3.turb": {
     "daily": "M25"
   },
   "JarTest.PACl.D3.pH": {
     "daily": "M26"
   },
-  "JarTest.PACl.D3.Alk": {
+  "JarTest.PACl.D3.alk": {
     "daily": "M27"
   },
   "JarTest.PACl.D4.Dose": {
     "daily": "N23"
   },
-  "JarTest.PACl.D4.Turb": {
+  "JarTest.PACl.D4.turb": {
     "daily": "N25"
   },
   "JarTest.PACl.D4.pH": {
     "daily": "N26"
   },
-  "JarTest.PACl.D4.Alk": {
+  "JarTest.PACl.D4.alk": {
     "daily": "N27"
   },
   "JarTest.PACl.D5.Dose": {
     "daily": "O23"
   },
-  "JarTest.PACl.D5.Turb": {
+  "JarTest.PACl.D5.turb": {
     "daily": "O25"
   },
   "JarTest.PACl.D5.pH": {
     "daily": "O26"
   },
-  "JarTest.PACl.D5.Alk": {
+  "JarTest.PACl.D5.alk": {
     "daily": "O27"
   },
   "JarTest.PACl.D6.Dose": {
     "daily": "P23"
   },
-  "JarTest.PACl.D6.Turb": {
+  "JarTest.PACl.D6.turb": {
     "daily": "P25"
   },
   "JarTest.PACl.D6.pH": {
     "daily": "P26"
   },
-  "JarTest.PACl.D6.Alk": {
+  "JarTest.PACl.D6.alk": {
     "daily": "P27"
   },
   "JarTest.Alum.RW_ref_Temp": {
@@ -942,13 +941,13 @@
   "JarTest.PACl.RW_ref_Temp": {
     "daily": "L24"
   },
-  "JarTest.PACl.RW_ref_Turb": {
+  "JarTest.PACl.RW_ref_turb": {
     "daily": "J25"
   },
   "JarTest.PACl.RW_ref_pH": {
     "daily": "J26"
   },
-  "JarTest.PACl.RW_ref_Alk": {
+  "JarTest.PACl.RW_ref_Alkalinity": {
     "daily": "J27"
   },
   "JarTest.PACl.RecommendDose1": {
@@ -956,5 +955,16 @@
   },
   "JarTest.PACl.RecommendDose2": {
     "daily": "AA26"
+  },
+  "JarTest.PACl.RW_ref_Alk": {
+    "daily": "J27"
+  },
+  "TW1.Temp": {
+    "09:00": "J63",
+    "21:00": "J69"
+  },
+  "TW2.Temp": {
+    "09:00": "S63",
+    "21:00": "S69"
   }
 }

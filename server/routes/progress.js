@@ -421,4 +421,87 @@ router.get('/nodes-today', (req, res) => {
   res.json({ date: today, totalExpected, totalRecorded, nodes });
 });
 
+// GET /api/progress/trend?date=YYYY-MM-DD&param_keys=A,B,C,D
+// Returns last 6 values per param_key up to current Thai time.
+// Source priority: node_records overrides aquadat_snapshots (user edits win).
+router.get('/trend', (req, res) => {
+  if (!req.cookies?.aquadat_token) return res.status(401).json({ error: 'Not authenticated' });
+  const date = req.query.date || thaiDateStr();
+  const paramKeys = (req.query.param_keys || '').split(',').map(s => s.trim()).filter(Boolean);
+  if (!paramKeys.length) return res.status(400).json({ error: 'param_keys required' });
+
+  const SLOTS = ['01:00','03:00','05:00','07:00','09:00','11:00','13:00','15:00','17:00','19:00','21:00','23:00'];
+
+  // For today: only include slots up to current Thai time.
+  // For past dates: all slots are eligible.
+  const todayStr = thaiDateStr();
+  const thaiNowDate = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  const nowMinutes = thaiNowDate.getUTCHours() * 60 + thaiNowDate.getUTCMinutes();
+
+  function slotMinutes(s) {
+    const [h] = s.split(':').map(Number);
+    return h * 60;
+  }
+
+  function eligibleSlots(d) {
+    if (d !== todayStr) return SLOTS; // past date — all slots
+    return SLOTS.filter(s => slotMinutes(s) <= nowMinutes);
+  }
+
+  // Look back up to 3 days to ensure we always find 6 values
+  const dates = [];
+  for (let i = 2; i >= 0; i--) {
+    const d = new Date(new Date(date + 'T00:00:00').getTime() - i * 86400000);
+    dates.push(d.toISOString().split('T')[0]);
+  }
+
+  const db = getDb();
+
+  const result = {};
+  for (const pk of paramKeys) {
+    // Load aquadat_snapshots (base layer)
+    const snapRows = db.all(
+      `SELECT trans_dtm, trans_time, trans_value FROM aquadat_snapshots
+       WHERE param_key = ? AND trans_dtm IN (${dates.map(() => '?').join(',')})
+         AND trans_time != 'daily' AND trans_time != 'weekly'`,
+      [pk, ...dates]
+    );
+
+    // Load node_records (override layer — user edits win)
+    const recRows = db.all(
+      `SELECT trans_dtm, trans_time, trans_value FROM node_records
+       WHERE param_key = ? AND trans_dtm IN (${dates.map(() => '?').join(',')})
+         AND trans_time != 'daily' AND trans_time != 'weekly'`,
+      [pk, ...dates]
+    );
+
+    // Merge: start with snapshots, then let node_records override
+    const byKey = {};
+    for (const r of snapRows) {
+      const v = parseFloat(r.trans_value);
+      if (!isNaN(v)) byKey[`${r.trans_dtm}|${r.trans_time}`] = v;
+    }
+    for (const r of recRows) {
+      const v = parseFloat(r.trans_value);
+      if (!isNaN(v)) byKey[`${r.trans_dtm}|${r.trans_time}`] = v;
+    }
+
+    // Build chronological series over eligible slots only
+    const series = [];
+    for (const d of dates) {
+      for (const s of eligibleSlots(d)) {
+        const v = byKey[`${d}|${s}`];
+        if (v !== undefined) {
+          const isToday = d === date;
+          series.push({ slot: isToday ? s : `${d.slice(5)} ${s}`, value: v });
+        }
+      }
+    }
+
+    // Return last 6 values
+    result[pk] = series.slice(-6);
+  }
+  res.json(result);
+});
+
 module.exports = router;

@@ -1,0 +1,70 @@
+{
+  "endpoint": "https://aquadat.mwa.co.th/graphql",
+  "stations": {
+    "RWS1": [
+      { "topic": "Flow",          "pattern_id": 348 },
+      { "topic": "Status",        "pattern_id": 122 },
+      { "topic": "Power",         "pattern_id": 121 },
+      { "topic": "Energy Feeder", "pattern_id": 448 },
+      { "topic": "Temperature",   "pattern_id": 123 },
+      { "topic": "Compensate",    "pattern_id": 429 }
+    ],
+    "RWS2": [
+      { "topic": "Flow",          "pattern_id": 349 },
+      { "topic": "Status",        "pattern_id": 124 },
+      { "topic": "Power",         "pattern_id": 125 },
+      { "topic": "Energy Pump",   "pattern_id": 449 },
+      { "topic": "Temperature",   "pattern_id": 127 },
+      { "topic": "Compensate",    "pattern_id": 430 }
+    ],
+    "CHEM1": [
+      { "topic": "Alum set",      "pattern_id": 350 },
+      { "topic": "PACl set",      "pattern_id": 367 },
+      { "topic": "Polymer set",   "pattern_id": 118 },
+      { "topic": "Chlorine set",  "pattern_id": 351 },
+      { "topic": "Conclusion",    "pattern_id": 346 }
+    ],
+    "CHEM2": [
+      { "topic": "Alum set",      "pattern_id": 323 },
+      { "topic": "PACl set",      "pattern_id": 366 },
+      { "topic": "Polymer set",   "pattern_id": 119 },
+      { "topic": "Chlorine set",  "pattern_id": 352 },
+      { "topic": "Conclusion",    "pattern_id": 347 }
+    ],
+    "TPS": [
+      { "topic": "Overview",      "pattern_id": 254 },
+      { "topic": "Status",        "pattern_id": 251 },
+      { "topic": "Property",      "pattern_id": 250 },
+      { "topic": "Temperature",   "pattern_id": 253 },
+      { "topic": "Energy",        "pattern_id": 255 }
+    ],
+    "DPS": [
+      { "topic": "Overview",      "pattern_id": 258 },
+      { "topic": "Temperature",   "pattern_id": 259 },
+      { "topic": "Energy",        "pattern_id": 260 }
+    ],
+    "CWS1": [
+      { "topic": "Overview",      "pattern_id": 3  },
+      { "topic": "Sludge",        "pattern_id": 13 }
+    ],
+    "CWS2": [
+      { "topic": "Sludge",        "pattern_id": 15 },
+      { "topic": "Drain",         "pattern_id": 14 },
+      { "topic": "Status",        "pattern_id": 29 },
+      { "topic": "Speed",         "pattern_id": 18 }
+    ],
+    "FWS1": [
+      { "topic": "Status",        "pattern_id": 10 },
+      { "topic": "FTR Runtime",   "pattern_id": 1  },
+      { "topic": "Backwashing",   "pattern_id": 2  },
+      { "topic": "LEVEL",         "pattern_id": 21 }
+    ],
+    "FWS2": [
+      { "topic": "FTR Runtime",   "pattern_id": 28  },
+      { "topic": "Status",        "pattern_id": 11  },
+      { "topic": "Backwashing#3", "pattern_id": 332 },
+      { "topic": "Backwashing#4", "pattern_id": 333 },
+      { "topic": "Level",         "pattern_id": 22  }
+    ]
+  }
+}

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { get, post } from '../api.js';
 import { getRefDate, setRefDate } from '../utils/refDate.js';
+import DateSyncBar from '../components/DateSyncBar.jsx';
 
 const SLOTS_2H = ['01:00','03:00','05:00','07:00','09:00','11:00','13:00','15:00','17:00','19:00','21:00','23:00'];
 const SLOTS_4H = new Set(['01:00','05:00','09:00','13:00','17:00','21:00']);
@@ -85,7 +86,9 @@ function isBacteriaParam(paramKey) {
   return /^Bacteria\./.test(paramKey);
 }
 
-const STATIONS = ['RW', 'TW1', 'TW2'];
+const STATIONS = ['RW', 'CW1', 'CW2', 'CW3', 'CW4', 'TW1', 'TW2'];
+
+function isFC(category) { return !!category?.includes('FC'); }
 const DIVISIONS = [
   'Division Bacillariophyceae',
   'Division Chlorophyta',
@@ -96,13 +99,14 @@ const DIVISIONS = [
   'Division Chrysophyta',
 ];
 
-function AlgaeSpeciesPanel({ selectedDate }) {
+function AlgaeSpeciesPanel({ selectedDate, onSpeciesChange, canRecord = true }) {
   const [station, setStation] = useState('RW');
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState({}); // { [station]: [{species_id, species_name, division, category, count}] }
   const [showAddForm, setShowAddForm] = useState(false);
   const [addForm, setAddForm] = useState({ division: '', species_name: '', category: '' });
   const [saveStatus, setSaveStatus] = useState(null);
+  const [exportStatus, setExportStatus] = useState(null); // null | 'exporting' | { sheet, written } | 'error'
   const qc = useQueryClient();
 
   const { data: searchResults = [] } = useQuery({
@@ -127,6 +131,8 @@ function AlgaeSpeciesPanel({ selectedDate }) {
       };
     });
   }, [existingRecords, station]);
+
+  useEffect(() => { onSpeciesChange?.(selected); }, [selected]);
 
   const stationSelected = selected[station] ?? [];
   const selectedIds = new Set(stationSelected.map(s => s.species_id));
@@ -160,6 +166,18 @@ function AlgaeSpeciesPanel({ selectedDate }) {
       setTimeout(() => setSaveStatus(null), 2000);
     } catch {
       setSaveStatus('error');
+    }
+  }
+
+  async function handleExport() {
+    setExportStatus('exporting');
+    try {
+      const result = await post('/api/algae/export', { date: selectedDate });
+      setExportStatus(result);
+      setTimeout(() => setExportStatus(null), 5000);
+    } catch {
+      setExportStatus('error');
+      setTimeout(() => setExportStatus(null), 3000);
     }
   }
 
@@ -296,12 +314,34 @@ function AlgaeSpeciesPanel({ selectedDate }) {
         {/* Save button */}
         <button
           onClick={handleSave}
-          disabled={stationSelected.length === 0 || saveStatus === 'saving'}
-          className="w-full bg-rose-700 hover:bg-rose-600 disabled:opacity-40 text-white font-semibold py-3 rounded-xl transition-colors text-sm"
+          disabled={stationSelected.length === 0 || saveStatus === 'saving' || !canRecord}
+          title={!canRecord ? 'ปิดการบันทึกเมื่ออยู่ใน Bypass Mode' : undefined}
+          className="w-full bg-rose-700 hover:bg-rose-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors text-sm"
         >
           {saveStatus === 'saving' ? 'กำลังบันทึก...' : saveStatus === 'ok' ? '✅ บันทึกสำเร็จ' : `บันทึกสาหร่าย ${station} (${stationSelected.length} ชนิด)`}
         </button>
         {saveStatus === 'error' && <p className="text-red-600 text-sm text-center">เกิดข้อผิดพลาด กรุณาลองใหม่</p>}
+
+        {/* Export to Excel */}
+        <div className="border-t border-rose-100 pt-3 space-y-2">
+          <button
+            onClick={handleExport}
+            disabled={exportStatus === 'exporting'}
+            className="w-full bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 text-white font-semibold py-3 rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
+          >
+            {exportStatus === 'exporting'
+              ? 'กำลัง Export...'
+              : '📥 Export สาหร่ายลง Excel'}
+          </button>
+          {exportStatus && exportStatus !== 'exporting' && exportStatus !== 'error' && (
+            <p className="text-emerald-700 text-xs text-center font-medium">
+              ✅ บันทึก sheet <strong>{exportStatus.sheet}</strong> แล้ว ({exportStatus.written} รายการ)
+            </p>
+          )}
+          {exportStatus === 'error' && (
+            <p className="text-red-600 text-xs text-center">Export ล้มเหลว กรุณาลองใหม่</p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -320,9 +360,42 @@ export default function Record() {
   const [values, setValues] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [carPrompts, setCarPrompts] = useState([]);
+  const [algaeSpecies, setAlgaeSpecies] = useState({});
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState(null);
   const qc = useQueryClient();
 
   const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  async function syncDateToDb(date) {
+    const result = await post('/api/aquadat/sync', { date });
+    qc.invalidateQueries({ queryKey: ['progress-nodes', date] });
+    qc.invalidateQueries({ queryKey: ['progress-nodes-today', date] });
+    return result;
+  }
+
+  async function handleSync() {
+    setSyncing(true); setSyncMsg(null);
+    try {
+      const result = await syncDateToDb(selectedDate);
+      const inserted = result.inserted ?? 0;
+      setSyncMsg(inserted === 0 ? 'AquaDAT ไม่มีข้อมูลวันนี้' : `อัปเดตแล้ว ${inserted} รายการ`);
+    } catch {
+      setSyncMsg('เชื่อมต่อ AquaDAT ไม่ได้');
+    } finally {
+      setSyncing(false);
+      setTimeout(() => setSyncMsg(null), 3000);
+    }
+  }
+
+  function handleDateChange(newDate) {
+    setSelectedDate(newDate);
+    setRefDate(newDate);
+    setValues({});
+    setSubmitted(false);
+    setCarPrompts([]);
+    syncDateToDb(newDate).catch(() => {});
+  }
 
   // Auto-update slot every minute based on wall clock — only when viewing today
   useEffect(() => {
@@ -372,6 +445,22 @@ export default function Record() {
   useEffect(() => {
     if (existingValues?.values) setValues(existingValues.values);
   }, [existingValues]);
+
+  // Auto-fill Biological Analysis values from algae species counts
+  useEffect(() => {
+    if (selectedSlot !== WEEKLY_SLOT) return;
+    setValues(prev => {
+      const next = { ...prev };
+      for (const st of STATIONS) {
+        const species = algaeSpecies[st] ?? [];
+        const total = species.reduce((s, sp) => s + (Number(sp.count) || 0), 0);
+        const fc = species.filter(sp => isFC(sp.category)).reduce((s, sp) => s + (Number(sp.count) || 0), 0);
+        next[`Algae.${st}.Total`] = total > 0 ? String(total) : '';
+        next[`Algae.${st}.ClogFilter`] = fc > 0 ? String(fc) : '';
+      }
+      return next;
+    });
+  }, [algaeSpecies, selectedSlot]);
 
   const thresholdMap = useMemo(() => {
     const map = {};
@@ -426,6 +515,23 @@ export default function Record() {
 
   const [confirmDialog, setConfirmDialog] = useState({ open: false, diffs: [], keysToSubmit: [] });
 
+  const { data: queueStatus } = useQuery({
+    queryKey: ['aquadat-queue'],
+    queryFn: () => get('/api/write/queue'),
+    refetchInterval: 30000,
+  });
+  const queueCount = queueStatus?.count ?? 0;
+
+  const retryMutation = useMutation({
+    mutationFn: () => post('/api/write/queue/retry'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['aquadat-queue'] }),
+  });
+
+  const { data: meData } = useQuery({ queryKey: ['me'], queryFn: () => get('/api/auth/me') });
+  const me = meData;
+  const bypassRole = (me?.bypass && me?.role) ? me.role : null;
+  const canRecord = !bypassRole;
+
   const mutation = useMutation({
     mutationFn: async (keysToSubmit) => {
       const records = keysToSubmit.map(k => ({
@@ -434,18 +540,22 @@ export default function Record() {
         trans_time: selectedSlot,
         trans_value: String(values[k]),
       }));
-      return post('/api/write/nodes', { records, plant_id: nodesConfig.plant_id });
+      return post('/api/write/nodes', { records, plant_id: nodesConfig.plant_id, recorder_name: me?.name ?? null });
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       const oor = allParamKeys.filter(k => isOutOfRange(k, values[k]));
       setCarPrompts(oor);
       setSubmitted(true);
       qc.invalidateQueries({ queryKey: ['progress-nodes', selectedDate] });
       qc.invalidateQueries({ queryKey: ['progress-nodes-today', selectedDate] });
+      if (data?.warnings?.aquadat || data?.warnings?.excel) {
+        qc.invalidateQueries({ queryKey: ['aquadat-queue'] });
+      }
     },
   });
 
   function handleSubmit() {
+    if (!canRecord) return;
     setSubmitted(false);
     setCarPrompts([]);
 
@@ -477,6 +587,7 @@ export default function Record() {
   }
 
   function handleConfirm() {
+    if (!canRecord) { setConfirmDialog(d => ({ ...d, open: false })); return; }
     setConfirmDialog(d => ({ ...d, open: false }));
     mutation.mutate(confirmDialog.keysToSubmit);
   }
@@ -521,7 +632,8 @@ export default function Record() {
               </button>
               <button
                 onClick={handleConfirm}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors"
+                disabled={!canRecord}
+                className="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
               >
                 ยืนยันบันทึก {confirmDialog.keysToSubmit.length} ค่า
               </button>
@@ -530,7 +642,7 @@ export default function Record() {
         </div>
       )}
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <h1 className="text-2xl font-bold text-gray-900">
           บันทึกข้อมูล
           {isRetroactive && (
@@ -539,18 +651,30 @@ export default function Record() {
             </span>
           )}
         </h1>
-        <input
-          type="date"
-          value={selectedDate}
-          max={today}
-          onChange={e => { setSelectedDate(e.target.value); setRefDate(e.target.value); setValues({}); setSubmitted(false); setCarPrompts([]); }}
-          className="ml-auto border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+        <DateSyncBar
+          date={selectedDate}
+          onDateChange={handleDateChange}
+          onSync={handleSync}
+          syncing={syncing}
+          syncMsg={syncMsg}
+          maxDate={today}
         />
       </div>
 
       {/* Time slot selector */}
       <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 space-y-2">
-        <p className="text-xs text-gray-400">เลือกรอบเวลา</p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-gray-400">เลือกรอบเวลา</p>
+          {queueCount > 0 && (
+            <button
+              onClick={() => retryMutation.mutate()}
+              disabled={retryMutation.isPending}
+              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+            >
+              {retryMutation.isPending ? 'กำลังส่ง...' : `⚠️ AquaDAT ค้าง ${queueCount} รายการ — ส่งใหม่`}
+            </button>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2">
           {SLOTS_2H.map(slot => {
             const isActive = slot === selectedSlot;
@@ -619,6 +743,10 @@ export default function Record() {
       </div>
 
       {/* Node sections */}
+      {selectedSlot === WEEKLY_SLOT && (
+        <AlgaeSpeciesPanel selectedDate={selectedDate} onSpeciesChange={setAlgaeSpecies} canRecord={canRecord} />
+      )}
+
       {visibleNodes.length === 0 ? (
         <div className="text-center text-gray-400 py-8">ไม่มีพารามิเตอร์สำหรับรอบนี้</div>
       ) : (
@@ -707,8 +835,9 @@ export default function Record() {
 
           <button
             onClick={handleSubmit}
-            disabled={mutation.isPending || !canSubmit}
-            className="w-full bg-brand hover:bg-sky-700 disabled:opacity-40 text-white font-semibold py-4 rounded-xl touch-target transition-colors text-base"
+            disabled={mutation.isPending || !canSubmit || !canRecord}
+            title={!canRecord ? 'ปิดการบันทึกเมื่ออยู่ใน Bypass Mode' : undefined}
+            className="w-full bg-brand hover:bg-sky-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-xl touch-target transition-colors text-base"
           >
             {mutation.isPending ? 'กำลังบันทึก...' : `บันทึก ${allParamKeys.length} ค่า — รอบ ${selectedSlot}`}
           </button>
@@ -717,10 +846,6 @@ export default function Record() {
             <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
               เกิดข้อผิดพลาด: {mutation.error?.message}
             </div>
-          )}
-
-          {selectedSlot === WEEKLY_SLOT && (
-            <AlgaeSpeciesPanel selectedDate={selectedDate} />
           )}
 
           {submitted && (

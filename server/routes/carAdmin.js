@@ -65,11 +65,28 @@ function decodeToken(token) {
   }
 }
 
+// Map bypass role → CAR group config
+const BYPASS_ROLE_MAP = {
+  scientist:    { group: '1',  groups: ['1'],           isAdmin: false, name: 'นักวิทยาศาสตร์ (Dev)', deptLabel: 'Dev' },
+  operator:     { group: '2',  groups: ['2'],           isAdmin: false, name: 'Operator (Dev)',        deptLabel: 'Dev' },
+  executive_3a: { group: '3a', groups: ['3a'],          isAdmin: false, name: 'ผอ.กผจ. (Dev)',         deptLabel: 'Dev' },
+  executive_3b: { group: '3b', groups: ['3b'],          isAdmin: false, name: 'ผอ.ฝผม. (Dev)',         deptLabel: 'Dev' },
+  observer:     { group: null, groups: [],              isAdmin: false, name: 'ผู้สังเกตการณ์ (Dev)',  deptLabel: 'Dev', isObserver: true },
+  superadmin:   { group: '1',  groups: ['1','2','3a','3b'], isAdmin: true, name: 'Super Admin (Dev)', deptLabel: 'Dev' },
+};
+
 async function resolveCarUser(req) {
   const token = req.cookies?.aquadat_token;
   if (!token) return null;
   const payload = decodeToken(token);
   if (!payload || payload.exp < Date.now() / 1000) return null;
+
+  // Bypass token: return mock role without DB/AquaDAT lookup
+  if (payload.bypass) {
+    const roleConfig = BYPASS_ROLE_MAP[payload.role] || BYPASS_ROLE_MAP.scientist;
+    return { shift: null, position: payload.role, ...roleConfig };
+  }
+
   const profile = await fetchUserProfile(token).catch(() => null);
   if (!profile?.name) return null;
   const db = getDb();
@@ -89,6 +106,7 @@ async function resolveCarUser(req) {
     shift: primaryEntry?.shift || null,
     deptLabel: primaryEntry?.dept_label || '',
     isAdmin,
+    isObserver: false,
   };
 }
 
@@ -131,17 +149,18 @@ router.post('/sync', requireAdmin, async (req, res) => {
 // ── POST /api/car-admin/manual ─────────────────────────────────────────────
 // Add Group 3 managers or set admin flag
 router.post('/manual', requireAdmin, (req, res) => {
-  const { name, group_code, shift, dept_label, is_admin } = req.body;
+  const { name, group_code, shift, dept_label, position_label, is_admin } = req.body;
   if (!name || !group_code) return res.status(400).json({ error: 'name and group_code required' });
   const db = getDb();
   db.run(
-    `INSERT INTO car_whitelist (name, group_code, shift, dept_label, is_admin)
-     VALUES (?, ?, ?, ?, ?)
+    `INSERT INTO car_whitelist (name, group_code, shift, dept_label, position_label, is_admin)
+     VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT(name, group_code) DO UPDATE SET
-       shift      = excluded.shift,
-       dept_label = excluded.dept_label,
-       is_admin   = excluded.is_admin`,
-    [name, group_code, shift || null, dept_label || null, is_admin ? 1 : 0]
+       shift          = excluded.shift,
+       dept_label     = excluded.dept_label,
+       position_label = excluded.position_label,
+       is_admin       = excluded.is_admin`,
+    [name, group_code, shift || null, dept_label || null, position_label || null, is_admin ? 1 : 0]
   );
   const entry = db.get('SELECT * FROM car_whitelist WHERE name = ?', [name]);
   res.json({ ok: true, entry });
@@ -156,13 +175,14 @@ router.patch('/:id', requireAdmin, (req, res) => {
   if (!entry) return res.status(404).json({ error: 'Not found' });
   if (isSuperadmin(entry)) return res.status(403).json({ error: 'Superadmin ไม่สามารถแก้ไขได้' });
 
-  const { name, group_code, shift, dept_label, is_admin } = req.body;
+  const { name, group_code, shift, dept_label, position_label, is_admin } = req.body;
   const sets = [], params = [];
-  if (name != null)       { sets.push('name = ?');       params.push(name); }
-  if (group_code != null) { sets.push('group_code = ?'); params.push(group_code); }
-  if (shift !== undefined){ sets.push('shift = ?');      params.push(shift); }
-  if (dept_label != null) { sets.push('dept_label = ?'); params.push(dept_label); }
-  if (is_admin != null)   { sets.push('is_admin = ?');   params.push(is_admin ? 1 : 0); }
+  if (name != null)           { sets.push('name = ?');           params.push(name); }
+  if (group_code != null)     { sets.push('group_code = ?');     params.push(group_code); }
+  if (shift !== undefined)    { sets.push('shift = ?');          params.push(shift); }
+  if (dept_label != null)     { sets.push('dept_label = ?');     params.push(dept_label); }
+  if (position_label !== undefined) { sets.push('position_label = ?'); params.push(position_label || null); }
+  if (is_admin != null)       { sets.push('is_admin = ?');       params.push(is_admin ? 1 : 0); }
   if (sets.length === 0)  return res.status(400).json({ error: 'Nothing to update' });
 
   params.push(id);

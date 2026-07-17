@@ -4,6 +4,11 @@ require('dotenv').config();
 const REST_BASE = process.env.AQUADAT_REST_BASE || 'http://aquadat.mwa.co.th:12007';
 const GRAPHQL_URL = process.env.AQUADAT_GRAPHQL_URL || 'https://aquadat.mwa.co.th/graphql';
 
+// Runtime test flag — toggled via /api/test/force-fail; never persisted
+let _forceFail = false;
+function setForceFail(v) { _forceFail = !!v; }
+function getForceFail() { return _forceFail; }
+
 // REST login → returns token string
 async function restLogin(username, password) {
   const url = `${REST_BASE}/api/aquaDATService/Enroll`;
@@ -54,6 +59,7 @@ async function readData({ token, plant_id, stationtype_code, begin_dt, end_dt, f
 // Write data via GraphQL mutation
 // SOP ภาคผนวก 3.2: update_transaction_datavalues with inline input_data array
 async function writeData(token, records) {
+  if (_forceFail) throw new Error('[TEST] AquaDAT force-fail enabled');
   const inputItems = records.map(r => {
     const date       = r.trans_dtm   || r.date  || '';
     const time       = r.trans_time  || r.time  || '';
@@ -87,6 +93,9 @@ async function writeData(token, records) {
 // Read remarks via GraphQL
 // SOP ภาคผนวก 4: get_transaction_remark inline, dates in YYYYMMDD format
 async function readRemarks(token, { plant_id, station_id = 0, begin_dt, end_dt, load_file_data = true }) {
+  const fileSelection = load_file_data
+    ? `file_datas { file_name file_type file_data }`
+    : '';
   const payload = {
     variables: {},
     query: `{ get_transaction_remark(
@@ -106,8 +115,7 @@ async function readRemarks(token, { plant_id, station_id = 0, begin_dt, end_dt, 
       created_user
       created_dtm
       updated_dtm
-      file_datas
-      user_profile
+      ${fileSelection}
     } }`,
   };
   const res = await fetch(GRAPHQL_URL, {
@@ -164,4 +172,32 @@ async function fetchUserProfile(token) {
   }
 }
 
-module.exports = { restLogin, graphqlLogin, readData, writeData, readRemarks, fetchUserProfile };
+// Write a remark to AquaDAT via GraphQL mutation
+async function writeRemark(token, { plant_id = 2, station_id = 20, trans_remark_date, trans_type = '', description }) {
+  const payload = {
+    variables: {},
+    query: `mutation { update_transaction_remark(
+      trans_remark_id: 0,
+      plant_id: ${plant_id},
+      station_id: ${station_id},
+      trans_remark_date: "${trans_remark_date}",
+      trans_type: "${trans_type}",
+      description: "${description.replace(/"/g, '\\"')}"
+    ) { return_status return_message } }`,
+  };
+  const res = await fetch(GRAPHQL_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`GraphQL writeRemark failed: ${res.status}`);
+  const data = await res.json();
+  if (data.errors) throw new Error(data.errors[0]?.message || 'GraphQL writeRemark error');
+  return data.data?.update_transaction_remark;
+}
+
+module.exports = { restLogin, graphqlLogin, readData, writeData, readRemarks, writeRemark, fetchUserProfile, setForceFail, getForceFail };

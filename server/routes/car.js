@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getDb, persist } = require('../services/db');
+const { getDb, persist, nowTH } = require('../services/db');
 const { pushCarMessage } = require('../services/line');
 const { fetchUserProfile } = require('../services/aquadat');
 const { v4: uuidv4 } = require('uuid');
@@ -147,7 +147,7 @@ router.post('/', async (req, res) => {
   const lockedIssuerDept = cu?.deptLabel || issuer_dept;
 
   const unique_key = uuidv4().split('-')[0] + '-' + uuidv4().split('-')[1];
-  const deadline_at = addWorkingDays(new Date().toISOString(), 10);
+  const deadline_at = addWorkingDays(nowTH(), 10);
 
   db.run(
     `INSERT INTO car_log
@@ -171,7 +171,7 @@ router.post('/', async (req, res) => {
   let line_sent_at = null;
   try {
     await pushCarMessage(car, 10);
-    line_sent_at = new Date().toISOString();
+    line_sent_at = nowTH();
     db.run('UPDATE car_log SET line_sent_at = ? WHERE id = ?', [line_sent_at, car.id]);
   } catch (e) {
     console.warn('[CAR] LINE push failed:', e.message);

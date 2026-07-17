@@ -30,16 +30,17 @@ function parseOrg(html) {
   const abbrevMatch = fullTitle.match(/\(([^)]+)\)\s*$/);
   const deptLabel = abbrevMatch ? abbrevMatch[1].trim() : fullTitle.slice(0, 30);
 
-  // Extract names — names always start with Thai honorifics
-  const nameRe = /<td valign='top' nowrap>((?:นาย|นาง(?:สาว)?|น\.ส\.|นส\.|ดร\.)[^<]+)<\/td>/g;
-  const names = [];
+  // Extract name + position — name starts with Thai honorific, position is the next <td>
+  const rowRe = /<td valign='top' nowrap>((?:นาย|นาง(?:สาว)?|น\.ส\.|นส\.|ดร\.)[^<]+)<\/td>\s*<td valign='top' nowrap>([^<]*)<\/td>/g;
+  const members = [];
   let m;
-  while ((m = nameRe.exec(html)) !== null) {
+  while ((m = rowRe.exec(html)) !== null) {
     const name = m[1].replace(/\s+/g, ' ').trim();
-    if (name) names.push(name);
+    const position = m[2].replace(/\s+/g, ' ').trim();
+    if (name) members.push({ name, position });
   }
 
-  return { deptLabel, names };
+  return { deptLabel, members };
 }
 
 async function scrapeOrg(orgCode) {
@@ -53,18 +54,17 @@ async function syncWhitelist(db) {
 
   for (const { orgCode, group_code, shift } of ORG_MAP) {
     try {
-      const { deptLabel, names } = await scrapeOrg(orgCode);
-      for (const name of names) {
-        // Upsert: preserve is_admin flag if entry already exists
-        const existing = db.get('SELECT is_admin FROM car_whitelist WHERE name = ?', [name]);
+      const { deptLabel, members } = await scrapeOrg(orgCode);
+      for (const { name, position } of members) {
         db.run(
-          `INSERT INTO car_whitelist (name, group_code, shift, dept_label, synced_at)
-           VALUES (?, ?, ?, ?, ?)
+          `INSERT INTO car_whitelist (name, group_code, shift, dept_label, position_label, synced_at)
+           VALUES (?, ?, ?, ?, ?, ?)
            ON CONFLICT(name, group_code) DO UPDATE SET
-             shift      = excluded.shift,
-             dept_label = excluded.dept_label,
-             synced_at  = excluded.synced_at`,
-          [name, group_code, shift, deptLabel, now]
+             shift          = excluded.shift,
+             dept_label     = excluded.dept_label,
+             position_label = excluded.position_label,
+             synced_at      = excluded.synced_at`,
+          [name, group_code, shift, deptLabel, position || null, now]
         );
         results.synced++;
       }

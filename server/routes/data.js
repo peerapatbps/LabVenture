@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { readData, readRemarks } = require('../services/aquadat');
+const { readData, readRemarks, writeRemark } = require('../services/aquadat');
 
 function requireAuth(req, res, next) {
   if (!req.cookies?.aquadat_token) return res.status(401).json({ error: 'Not authenticated' });
@@ -35,6 +35,26 @@ router.get('/remarks', requireAuth, async (req, res) => {
       load_file_data: load_file_data !== 'false',
     });
     res.json(data);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// Write a remark to AquaDAT station_id 20
+router.post('/remarks', requireAuth, async (req, res) => {
+  const token = req.cookies.aquadat_token;
+  const { description, trans_type, trans_remark_date } = req.body;
+  if (!description) return res.status(400).json({ error: 'description required' });
+  const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split('T')[0].replace(/-/g, '');
+  try {
+    const result = await writeRemark(token, {
+      plant_id: 2,
+      station_id: 20,
+      trans_remark_date: trans_remark_date || today,
+      trans_type: trans_type || '',
+      description,
+    });
+    res.json({ ok: true, result });
   } catch (err) {
     res.status(502).json({ error: err.message });
   }

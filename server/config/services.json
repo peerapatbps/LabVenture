@@ -1,8 +1,10 @@
 {
-  "uroboros": {
-    "base_url": "http://localhost:5000",
+  "bellbeast_lab": {
+    "base_url": "http://localhost:443",
     "endpoints": {
-      "wdata": "/api/wdata"
+      "summary": "/api/lab/summary",
+      "chem_summary": "/api/chem/summary",
+      "chem_report": "/api/chem_report"
     }
   }
 }
