@@ -2,69 +2,72 @@
   "endpoint": "https://aquadat.mwa.co.th/graphql",
   "stations": {
     "RWS1": [
-      { "topic": "Flow",          "pattern_id": 348 },
-      { "topic": "Status",        "pattern_id": 122 },
-      { "topic": "Power",         "pattern_id": 121 },
-      { "topic": "Energy Feeder", "pattern_id": 448 },
-      { "topic": "Temperature",   "pattern_id": 123 },
-      { "topic": "Compensate",    "pattern_id": 429 }
+      { "topic": "Flow",                 "pattern_id": 348, "node_topics": ["FLOW RPS1"] },
+      { "topic": "Status",               "pattern_id": 122, "node_topics": ["PUMP STATUS"] },
+      { "topic": "Power",                "pattern_id": 121, "node_topics": ["POWER / SPEED / BATTERY"] },
+      { "topic": "Energy Feeder",        "pattern_id": 448, "node_topics": ["FEEDER 5&6"] },
+      { "topic": "Temperature",          "pattern_id": 123, "node_topics": ["CURRENT TEMP", "Temperature"] },
+      { "topic": "Compensate",           "pattern_id": 429, "node_topics": ["COMPENSATE"] },
+      { "topic": "PUMP TOTALIZER & IHM", "pattern_id": 19,  "node_topics": ["PUMP TOTALIZER & IHM"] }
     ],
     "RWS2": [
-      { "topic": "Flow",          "pattern_id": 349 },
-      { "topic": "Status",        "pattern_id": 124 },
-      { "topic": "Power",         "pattern_id": 125 },
-      { "topic": "Energy Pump",   "pattern_id": 449 },
-      { "topic": "Temperature",   "pattern_id": 127 },
-      { "topic": "Compensate",    "pattern_id": 430 }
+      { "topic": "Flow",                 "pattern_id": 349, "node_topics": ["FLOW RPS2"] },
+      { "topic": "Status",               "pattern_id": 124, "node_topics": ["PUMP STATUS"] },
+      { "topic": "Power",                "pattern_id": 125, "node_topics": ["POWER / SPEED / BATTERY"] },
+      { "topic": "Energy Pump",          "pattern_id": 449, "node_topics": ["FEEDER 5&6"] },
+      { "topic": "Temperature",          "pattern_id": 127, "node_topics": ["PUMP TEMP"] },
+      { "topic": "Compensate",           "pattern_id": 430, "node_topics": ["COMPENSATE"] },
+      { "topic": "PUMP TOTALIZER & IHM", "pattern_id": 126, "node_topics": ["PUMP TOTALIZER & IHM"] }
     ],
     "CHEM1": [
-      { "topic": "Alum set",      "pattern_id": 350 },
-      { "topic": "PACl set",      "pattern_id": 367 },
-      { "topic": "Polymer set",   "pattern_id": 118 },
-      { "topic": "Chlorine set",  "pattern_id": 351 },
-      { "topic": "Conclusion",    "pattern_id": 346 }
+      { "topic": "Alum set",     "pattern_id": 350, "node_topics": ["ALUM P#12"] },
+      { "topic": "PACl set",     "pattern_id": 367, "node_topics": ["PACl P#12"] },
+      { "topic": "Polymer set",  "pattern_id": 118, "node_topics": ["POLYMER P#12"] },
+      { "topic": "Chlorine set", "pattern_id": 351, "node_topics": ["CHLORINE P#12"] },
+      { "topic": "Conclusion",   "pattern_id": 346, "node_topics": ["คงเหลือ/รับเข้า/ส่งคืน"] }
     ],
     "CHEM2": [
-      { "topic": "Alum set",      "pattern_id": 323 },
-      { "topic": "PACl set",      "pattern_id": 366 },
-      { "topic": "Polymer set",   "pattern_id": 119 },
-      { "topic": "Chlorine set",  "pattern_id": 352 },
-      { "topic": "Conclusion",    "pattern_id": 347 }
+      { "topic": "Alum set",     "pattern_id": 323, "node_topics": ["ALUM P#34"] },
+      { "topic": "PACl set",     "pattern_id": 366, "node_topics": ["PACl P#34"] },
+      { "topic": "Polymer set",  "pattern_id": 119, "node_topics": ["POLYMER P#34"] },
+      { "topic": "Chlorine set", "pattern_id": 352, "node_topics": ["CHLORINE P#34"] },
+      { "topic": "Chlorine set", "pattern_id": 9,   "node_topics": ["CHLORINE P#34"] },
+      { "topic": "Conclusion",   "pattern_id": 347, "node_topics": ["คงเหลือ/รับเข้า/ส่งคืน"] }
     ],
     "TPS": [
-      { "topic": "Overview",      "pattern_id": 254 },
-      { "topic": "Status",        "pattern_id": 251 },
-      { "topic": "Property",      "pattern_id": 250 },
-      { "topic": "Temperature",   "pattern_id": 253 },
-      { "topic": "Energy",        "pattern_id": 255 }
+      { "topic": "Overview",     "pattern_id": 254, "node_topics": ["FLOW, PRESSURE, POWER, %SPEED"] },
+      { "topic": "Status",       "pattern_id": 251, "node_topics": ["STATUS PUMP"] },
+      { "topic": "Property",     "pattern_id": 250, "node_topics": ["SUCTION DISCHARGE PRESSURE, CURRENT"] },
+      { "topic": "Temperature",  "pattern_id": 253, "node_topics": ["TEMP"] },
+      { "topic": "Energy",       "pattern_id": 255, "node_topics": ["I.H.M & ENERGY"] }
     ],
     "DPS": [
-      { "topic": "Overview",      "pattern_id": 258 },
-      { "topic": "Temperature",   "pattern_id": 259 },
-      { "topic": "Energy",        "pattern_id": 260 }
+      { "topic": "Overview",     "pattern_id": 258, "node_topics": ["FLOW, PRESSURE, POWER, SPEED"] },
+      { "topic": "Temperature",  "pattern_id": 259, "node_topics": ["CURRENT, TEMP, BATTERY"] },
+      { "topic": "Energy",       "pattern_id": 260, "node_topics": ["FEEDER, I.H.M"] }
     ],
     "CWS1": [
-      { "topic": "Overview",      "pattern_id": 3  },
-      { "topic": "Sludge",        "pattern_id": 13 }
+      { "topic": "Overview",     "pattern_id": 3,  "node_topics": ["OVERVIEW P#12"] },
+      { "topic": "Sludge",       "pattern_id": 13, "node_topics": ["%SLUDGE P#12"] }
     ],
     "CWS2": [
-      { "topic": "Sludge",        "pattern_id": 15 },
-      { "topic": "Drain",         "pattern_id": 14 },
-      { "topic": "Status",        "pattern_id": 29 },
-      { "topic": "Speed",         "pattern_id": 18 }
+      { "topic": "Sludge",       "pattern_id": 15, "node_topics": ["%SLUDGE P#34"] },
+      { "topic": "Drain",        "pattern_id": 14, "node_topics": ["DRAIN P#34"] },
+      { "topic": "Status",       "pattern_id": 29, "node_topics": ["STAUS P#34"] },
+      { "topic": "Speed",        "pattern_id": 18, "node_topics": ["TURBINE P#34"] }
     ],
     "FWS1": [
-      { "topic": "Status",        "pattern_id": 10 },
-      { "topic": "FTR Runtime",   "pattern_id": 1  },
-      { "topic": "Backwashing",   "pattern_id": 2  },
-      { "topic": "LEVEL",         "pattern_id": 21 }
+      { "topic": "Status",       "pattern_id": 10, "node_topics": ["STATUS P#12"] },
+      { "topic": "FTR Runtime",  "pattern_id": 1,  "node_topics": ["FTR RUNTIME, ENERGY P#12"] },
+      { "topic": "Backwashing",  "pattern_id": 2,  "node_topics": ["BACKWASHING P#12"] },
+      { "topic": "LEVEL",        "pattern_id": 21, "node_topics": ["LEVEL P#12"] }
     ],
     "FWS2": [
-      { "topic": "FTR Runtime",   "pattern_id": 28  },
-      { "topic": "Status",        "pattern_id": 11  },
-      { "topic": "Backwashing#3", "pattern_id": 332 },
-      { "topic": "Backwashing#4", "pattern_id": 333 },
-      { "topic": "Level",         "pattern_id": 22  }
+      { "topic": "FTR Runtime",   "pattern_id": 28,  "node_topics": ["FTR RUNTIME, ENERGY P#34"] },
+      { "topic": "Status",        "pattern_id": 11,  "node_topics": ["STATUS P#34"] },
+      { "topic": "Backwashing#3", "pattern_id": 332, "node_topics": ["BACKWASHING P#3"] },
+      { "topic": "Backwashing#4", "pattern_id": 333, "node_topics": ["BACKWASHING P#4"] },
+      { "topic": "Level",         "pattern_id": 22,  "node_topics": ["LEVEL P#34"] }
     ]
   }
 }

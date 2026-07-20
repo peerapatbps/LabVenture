@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { GridLayout } from 'react-grid-layout';
-import { get, post, patch, del } from '../api.js';
+import { get, post, patch, del, BASE } from '../api.js';
 import { getRefDate, setRefDate } from '../utils/refDate.js';
 import DateSyncBar from '../components/DateSyncBar.jsx';
 import MiniChartCard from '../components/MiniChart.jsx';
@@ -22,6 +22,7 @@ function topicSlots(topic) {
   const count = topic?.time_slot;
   if (count === 13) return Array.from({ length: 13 }, (_, i) => String(i * 2).padStart(2, '0') + ':00');
   if (count === 25) return Array.from({ length: 25 }, (_, i) => String(i).padStart(2, '0') + ':00');
+  if (count === 9)  return Array.from({ length: 9 },  (_, i) => String(i * 3).padStart(2, '0') + ':00');
   // legacy fallback
   const ra = topic?.record_at;
   if (ra === 'every2h') return Array.from({ length: 13 }, (_, i) => String(i * 2).padStart(2, '0') + ':00');
@@ -453,16 +454,138 @@ function injectMarchingAntsCSS() {
   document.head.appendChild(s);
 }
 
+// ── Validation Panel ──────────────────────────────────────────────────────────
+
+const STATUS_ICON = { PASSED: '✓', WARNING: '⚠', FAILED: '✗', SKIPPED: '—' };
+const STATUS_COLOR = {
+  PASSED:  'text-emerald-600',
+  WARNING: 'text-amber-500',
+  FAILED:  'text-red-600',
+  SKIPPED: 'text-gray-400',
+};
+
+function ValidationPanel({ result, loading, stationId }) {
+  const [expanded, setExpanded] = useState(new Set());
+
+  function toggle(idx) {
+    setExpanded(prev => {
+      const s = new Set(prev);
+      s.has(idx) ? s.delete(idx) : s.add(idx);
+      return s;
+    });
+  }
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-sm text-gray-400">
+        <svg className="w-5 h-5 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="10" strokeOpacity="0.2"/><path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round"/>
+        </svg>
+        กำลัง validate...
+      </div>
+    );
+  }
+
+  if (!result) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-sm text-gray-400 p-4 text-center">
+        <svg className="w-8 h-8 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        <p>กด <strong>Validate</strong> เพื่อตรวจสอบข้อมูล<br/>{stationId}</p>
+      </div>
+    );
+  }
+
+  if (result.error) {
+    return (
+      <div className="flex-1 p-3 text-sm text-red-600 bg-red-50 m-2 rounded-lg">
+        ❌ {result.error}
+      </div>
+    );
+  }
+
+  const { steps, summary } = result;
+
+  return (
+    <div className="flex-1 overflow-auto flex flex-col">
+      {/* Summary bar */}
+      <div className="px-3 py-2 border-b border-gray-100 bg-gray-50 flex items-center gap-3 text-sm shrink-0">
+        <span className={`font-bold ${summary.errors > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+          {summary.errors > 0 ? `✗ ${summary.errors} error` : '✓ No errors'}
+        </span>
+        {summary.warnings > 0 && (
+          <span className="text-amber-500 font-medium">⚠ {summary.warnings} warning</span>
+        )}
+      </div>
+
+      {/* Steps */}
+      <div className="divide-y divide-gray-100">
+        {steps.map(s => {
+          const isOpen = expanded.has(s.index);
+          const hasDetail = s.messages.length > 0;
+          return (
+            <div key={s.index} className="text-xs">
+              <button
+                className={`w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 ${hasDetail ? 'cursor-pointer' : 'cursor-default'}`}
+                onClick={() => hasDetail && toggle(s.index)}
+              >
+                <span className={`font-bold text-sm w-4 shrink-0 ${STATUS_COLOR[s.status]}`}>
+                  {STATUS_ICON[s.status]}
+                </span>
+                <span className="flex-1 font-medium text-gray-700">{s.label}</span>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                  s.status === 'PASSED'  ? 'bg-emerald-100 text-emerald-700' :
+                  s.status === 'WARNING' ? 'bg-amber-100 text-amber-700' :
+                  s.status === 'FAILED'  ? 'bg-red-100 text-red-700' :
+                  'bg-gray-100 text-gray-500'
+                }`}>{s.status}</span>
+                {hasDetail && (
+                  <svg className={`w-3 h-3 text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M6 4l4 4-4 4"/>
+                  </svg>
+                )}
+              </button>
+              {isOpen && hasDetail && (
+                <div className="px-3 pb-2 bg-gray-50 space-y-0.5">
+                  {s.messages.map((m, i) => (
+                    <div key={i} className="text-gray-600 leading-snug pl-5">• {m}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Recording table — Excel-like navigation + copy/paste series ───────────────
 
-function computeFormula(formulaStr, slot, allHistory) {
+// formulaStr syntax:
+//   {123}      → value of cfgId 123 at current slot
+//   {123,-1}   → value of cfgId 123 at previous slot (offset -1)
+//   [slot]     → current time string e.g. "00:00"
+function computeFormula(formulaStr, slot, allHistory, slots, si) {
   try {
-    const expr = formulaStr.replace(/\{(\d+)\}/g, (_, cid) => {
-      const v = allHistory[cid]?.[slot];
-      return (v !== undefined && v !== '') ? parseFloat(v) : 0;
+    let expr = formulaStr.replace(/\[slot\]/g, JSON.stringify(slot));
+
+    expr = expr.replace(/\{(\d+),(-?\d+)\}/g, (_, cid, offset) => {
+      const targetIdx = (si ?? 0) + parseInt(offset, 10);
+      if (targetIdx < 0 || !slots) return '0';
+      const v = allHistory[cid]?.[slots[targetIdx]];
+      return (v !== undefined && v !== '') ? parseFloat(v) : '0';
     });
+
+    expr = expr.replace(/\{(\d+)\}/g, (_, cid) => {
+      const v = allHistory[cid]?.[slot];
+      return (v !== undefined && v !== '') ? parseFloat(v) : '0';
+    });
+
     // eslint-disable-next-line no-new-func
-    const result = new Function(`return (${expr})`)();
+    const result = new Function(`"use strict"; return (${expr})`)();
+    if (result === undefined || result === null) return null; // sentinel: cell is not a formula slot
     if (!isFinite(result)) return '';
     return parseFloat(result.toFixed(4));
   } catch {
@@ -470,7 +593,13 @@ function computeFormula(formulaStr, slot, allHistory) {
   }
 }
 
-function RecordingTable({ topic, history, allHistory, dirtyValues, onCellChange }) {
+function RecordingTable({ topic, history, allHistory, dirtyValues, onCellChange, cellMarks, focusId }) {
+  const markMap = useMemo(() => {
+    const m = new Map();
+    if (!cellMarks) return m;
+    for (const mk of cellMarks) m.set(`${mk.configparam_id}:${mk.slot}`, mk.color);
+    return m;
+  }, [cellMarks]);
   const slots  = topicSlots(topic);
   const params = topic.params;
   const colors = TOPIC_COLORS[topic.topic] ?? DEFAULT_TOPIC_COLOR;
@@ -498,9 +627,16 @@ function RecordingTable({ topic, history, allHistory, dirtyValues, onCellChange 
   // Inject marching ants CSS once
   useEffect(() => { injectMarchingAntsCSS(); }, []);
 
+  // Focus the cell matching focusId (configparam_id from URL ?focus=)
+  useEffect(() => {
+    if (!focusId || !topic?.params) return;
+    const pi = topic.params.findIndex(p => String(p.configparam_id) === String(focusId));
+    if (pi >= 0) setSelCell({ si: 0, pi });
+  }, [focusId, topic?.params]); // eslint-disable-line
+
   // Reset to cell (0,0) and focus table whenever the sub-tab (topic) changes
   useEffect(() => {
-    setSelCell({ si: 0, pi: 0 });
+    if (!focusId) setSelCell({ si: 0, pi: 0 }); // skip reset when focusId will position the cell
     setSelAnchor(null);
     setEditCell(null);
     setCopiedRange(null);
@@ -640,7 +776,7 @@ function RecordingTable({ topic, history, allHistory, dirtyValues, onCellChange 
   }
 
   function getDisplayVal(p, slot) {
-    if (p.formula) return computeFormula(p.formula, slot, allHistory || history);
+    if (p.formula) return computeFormula(p.formula, slot, allHistory || history, slots, slots.indexOf(slot));
     return getVal(p.configparam_id, slot);
   }
 
@@ -733,10 +869,14 @@ function RecordingTable({ topic, history, allHistory, dirtyValues, onCellChange 
     const t = (type || '').trim();
     const num = parseFloat(val);
     if (isNaN(num)) return val;
-    if (t === 'INT') return String(Math.round(num));
+    function addCommas(str) {
+      const [int, dec] = str.split('.');
+      return int.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (dec !== undefined ? '.' + dec : '');
+    }
+    if (t === 'INT') return addCommas(String(Math.round(num)));
     const m = t.match(/^FLOAT\((\d+)\)$/);
-    if (m) return num.toFixed(parseInt(m[1], 10));
-    return val;
+    if (m) return addCommas(num.toFixed(parseInt(m[1], 10)));
+    return addCommas(String(num));
   }
 
   // Format the current dirty/stored value and write it back on commit
@@ -822,9 +962,11 @@ function RecordingTable({ topic, history, allHistory, dirtyValues, onCellChange 
                 </td>
                 {params.map((p, pi) => {
                   const isFormula  = !!p.formula;
-                  const isReadonly = !!(p.readonly || isFormula);
-                  const val        = isFormula
-                    ? getDisplayVal(p, slot)
+                  const formulaVal = isFormula ? getDisplayVal(p, slot) : null;
+                  const isFormulaSlot = isFormula && formulaVal !== null;
+                  const isReadonly = !!(p.readonly || isFormulaSlot);
+                  const val        = isFormulaSlot
+                    ? formulaVal
                     : getVal(p.configparam_id, slot);
                   const isDirty = !isReadonly && dirty[p.configparam_id]?.[slot] !== undefined && dirty[p.configparam_id]?.[slot] !== '';
                   const opts    = isReadonly ? null : getCellOptions(p);
@@ -846,10 +988,12 @@ function RecordingTable({ topic, history, allHistory, dirtyValues, onCellChange 
                       className={[
                         'border border-gray-300 relative p-0 h-7',
                         isEdit && opts ? 'overflow-visible z-50' : 'overflow-hidden',
-                        isFormula  ? 'bg-[#ddeeff]' : '',
-                        isReadonly && !isFormula ? 'bg-gray-50' : '',
+                        isFormulaSlot  ? 'bg-[#ddeeff]' : '',
+                        isReadonly && !isFormulaSlot ? 'bg-gray-50' : '',
                         isRng && !isSel && !isReadonly ? 'bg-blue-50' : '',
                         isDirty && !isEdit ? 'bg-amber-50' : '',
+                        markMap.get(`${p.configparam_id}:${slot}`) === 'red'    ? 'bg-red-100'    : '',
+                        markMap.get(`${p.configparam_id}:${slot}`) === 'orange' ? 'bg-orange-100' : '',
                       ].join(' ')}
                       onMouseDown={e => {
                         if (e.button !== 0) return;
@@ -941,11 +1085,11 @@ function RecordingTable({ topic, history, allHistory, dirtyValues, onCellChange 
                       ) : (
                         <div className={[
                           'w-full h-full flex items-center text-xs select-none',
-                          isFormula ? 'text-blue-800 font-medium' : '',
-                          isDirty ? 'font-semibold text-amber-800' : (isFormula ? '' : 'text-gray-800'),
+                          isFormulaSlot ? 'text-blue-800 font-medium' : '',
+                          isDirty ? 'font-semibold text-amber-800' : (isFormulaSlot ? '' : 'text-gray-800'),
                           val === '' ? 'text-gray-300' : '',
                         ].join(' ')}>
-                          <span className="flex-1 text-center">{val !== '' ? formatDisplayVal(val, p.type) : '—'}</span>
+                          <span className="flex-1 text-center">{val !== '' ? formatDisplayVal(val, p.type) : (getCellType(p) === 'number' ? '0' : '—')}</span>
                           {opts && (
                             <span
                               className="shrink-0 pr-0.5 text-[9px] text-gray-400 cursor-pointer hover:text-gray-600 leading-none"
@@ -1064,82 +1208,82 @@ const SANKEY_DATA = {
 };
 
 const CHEM_DONUT_ROWS = [
-  { col: 'left',  phase: 'PACl PHASE#1',    useUnit: 'TON', doseUnit: 'mg/L', use: 18.03, target: 15.00, actual: 14.45, pct: 96 },
-  { col: 'right', phase: 'PRE-CL PHASE#1',  useUnit: 'kg',  doseUnit: 'mg/L', use: 0.72,  target: 1.60,  actual: 1.65,  pct: 97 },
-  { col: 'left',  phase: 'PACl PHASE#2',    useUnit: 'TON', doseUnit: 'mg/L', use: 12.33, target: 17.43, actual: 17.06, pct: 98 },
-  { col: 'right', phase: 'PRE-CL PHASE#2',  useUnit: 'kg',  doseUnit: 'mg/L', use: 0.42,  target: 1.60,  actual: 1.66,  pct: 96 },
-  { col: 'left',  phase: 'PACl PHASE#3',    useUnit: 'TON', doseUnit: 'mg/L', use: 4.26,  target: 13.00, actual: 10.22, pct: 79 },
-  { col: 'right', phase: 'PRE-CL PHASE#3',  useUnit: 'kg',  doseUnit: 'mg/L', use: 0.54,  target: 1.20,  actual: 1.24,  pct: 97 },
-  { col: 'left',  phase: 'PACl PHASE#4',    useUnit: 'TON', doseUnit: 'mg/L', use: 14.62, target: 13.83, actual: 13.47, pct: 97 },
-  { col: 'right', phase: 'PRE-CL PHASE#4',  useUnit: 'kg',  doseUnit: 'mg/L', use: 0.48,  target: 1.20,  actual: 1.25,  pct: 95 },
-  { col: 'left',  phase: 'ALUM PHASE#1',    useUnit: 'TON', doseUnit: 'mg/L', use: 0.00,  target: null,  actual: 0.00,  pct: 0  },
-  { col: 'right', phase: 'POST-CL PHASE#1', useUnit: 'kg',  doseUnit: 'mg/L', use: 0.70,  target: 1.55,  actual: 1.61,  pct: 96 },
-  { col: 'left',  phase: 'ALUM PHASE#2',    useUnit: 'TON', doseUnit: 'mg/L', use: 0.00,  target: null,  actual: 0.00,  pct: 0  },
-  { col: 'right', phase: 'POST-CL PHASE#2', useUnit: 'kg',  doseUnit: 'mg/L', use: 0.49,  target: 1.86,  actual: 1.93,  pct: 96 },
-  { col: 'left',  phase: 'ALUM PHASE#3',    useUnit: 'TON', doseUnit: 'mg/L', use: 10.91, target: 22.00, actual: 18.75, pct: 85 },
-  { col: 'right', phase: 'POST-CL PHASE#3', useUnit: 'kg',  doseUnit: 'mg/L', use: 0.54,  target: 1.20,  actual: 1.24,  pct: 97 },
-  { col: 'left',  phase: 'ALUM PHASE#4',    useUnit: 'TON', doseUnit: 'mg/L', use: 0.00,  target: null,  actual: 0.00,  pct: 0  },
-  { col: 'right', phase: 'POST-CL PHASE#4', useUnit: 'kg',  doseUnit: 'mg/L', use: 0.64,  target: 1.60,  actual: 1.67,  pct: 95 },
+  { col: 'left',  phase: 'PACl PHASE#1',    useUnit: 'TON', doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
+  { col: 'right', phase: 'PRE-CL PHASE#1',  useUnit: 'kg',  doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
+  { col: 'left',  phase: 'PACl PHASE#2',    useUnit: 'TON', doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
+  { col: 'right', phase: 'PRE-CL PHASE#2',  useUnit: 'kg',  doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
+  { col: 'left',  phase: 'PACl PHASE#3',    useUnit: 'TON', doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
+  { col: 'right', phase: 'PRE-CL PHASE#3',  useUnit: 'kg',  doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
+  { col: 'left',  phase: 'PACl PHASE#4',    useUnit: 'TON', doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
+  { col: 'right', phase: 'PRE-CL PHASE#4',  useUnit: 'kg',  doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
+  { col: 'left',  phase: 'ALUM PHASE#1',    useUnit: 'TON', doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
+  { col: 'right', phase: 'POST-CL PHASE#1', useUnit: 'kg',  doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
+  { col: 'left',  phase: 'ALUM PHASE#2',    useUnit: 'TON', doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
+  { col: 'right', phase: 'POST-CL PHASE#2', useUnit: 'kg',  doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
+  { col: 'left',  phase: 'ALUM PHASE#3',    useUnit: 'TON', doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
+  { col: 'right', phase: 'POST-CL PHASE#3', useUnit: 'kg',  doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
+  { col: 'left',  phase: 'ALUM PHASE#4',    useUnit: 'TON', doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
+  { col: 'right', phase: 'POST-CL PHASE#4', useUnit: 'kg',  doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
 ];
 
 const DR_RIGHT_SUMMARY = [
   {
     title: 'สถานีสูบน้ำดิบ 1 และ 2',
     rows: [
-      { label: 'เฟส 1', value: '437,000', unit: 'ลบ.ม./วัน' },
-      { label: 'เฟส 2', value: '253,000', unit: 'ลบ.ม./วัน' },
-      { label: 'เฟส 3', value: '437,000', unit: 'ลบ.ม./วัน' },
-      { label: 'เฟส 4', value: '380,000', unit: 'ลบ.ม./วัน' },
-      { label: 'ปริมาณน้ำดิบรวม', value: '1,507,000', unit: 'ลบ.ม./วัน', bold: true },
+      { label: 'เฟส 1', value: null, unit: 'ลบ.ม./วัน' },
+      { label: 'เฟส 2', value: null, unit: 'ลบ.ม./วัน' },
+      { label: 'เฟส 3', value: null, unit: 'ลบ.ม./วัน' },
+      { label: 'เฟส 4', value: null, unit: 'ลบ.ม./วัน' },
+      { label: 'ปริมาณน้ำดิบรวม', value: null, unit: 'ลบ.ม./วัน', bold: true },
     ],
   },
   {
     title: 'ระดับน้ำ',
     rows: [
-      { label: 'ระดับน้ำ CWT 24:00', value: '2.50', unit: 'ม.' },
-      { label: 'ระดับน้ำ CWT ต่ำสุด', value: '2.00', unit: 'ม.' },
-      { label: 'ระดับน้ำ CWT สูงสุด', value: '3.91', unit: 'ม.' },
-      { label: 'ระดับน้ำ RW ต่ำสุด',  value: '0.86', unit: 'ม.' },
-      { label: 'ระดับน้ำ RW สูงสุด',  value: '0.91', unit: 'ม.' },
+      { label: 'ระดับน้ำ CWT 24:00', value: null, unit: 'ม.' },
+      { label: 'ระดับน้ำ CWT ต่ำสุด', value: null, unit: 'ม.' },
+      { label: 'ระดับน้ำ CWT สูงสุด', value: null, unit: 'ม.' },
+      { label: 'ระดับน้ำ RW ต่ำสุด',  value: null, unit: 'ม.' },
+      { label: 'ระดับน้ำ RW สูงสุด',  value: null, unit: 'ม.' },
     ],
   },
   {
     title: 'สถานีสูบส่งและสูบจ่าย',
     rows: [
-      { label: 'ปริมาณน้ำสูบจ่าย Line A', value: '314,600',   unit: 'ลบ.ม./วัน' },
-      { label: 'ปริมาณน้ำสูบจ่าย Line B', value: '171,600',   unit: 'ลบ.ม./วัน' },
-      { label: 'ปริมาณสูบส่ง',             value: '890,900',   unit: 'ลบ.ม./วัน' },
-      { label: 'ปริมาณน้ำสูบส่ง+สูบจ่ายรวม', value: '1,377,100', unit: 'ลบ.ม./วัน', bold: true },
+      { label: 'ปริมาณน้ำสูบจ่าย Line A', value: null, unit: 'ลบ.ม./วัน' },
+      { label: 'ปริมาณน้ำสูบจ่าย Line B', value: null, unit: 'ลบ.ม./วัน' },
+      { label: 'ปริมาณสูบส่ง',             value: null, unit: 'ลบ.ม./วัน' },
+      { label: 'ปริมาณน้ำสูบส่ง+สูบจ่ายรวม', value: null, unit: 'ลบ.ม./วัน', bold: true },
     ],
   },
   {
     title: 'แรงดัน',
     rows: [
-      { label: 'แรงดันสถานีสูบจ่ายต่ำสุด', value: '8.20',  unit: 'ม.' },
-      { label: 'แรงดันสถานีสูบจ่ายสูงสุด', value: '33.00', unit: 'ม.' },
-      { label: 'แรงดันสถานีสูบส่งต่ำสุด',  value: '9.80',  unit: 'ม.' },
-      { label: 'แรงดันสถานีสูบส่งสูงสุด',  value: '18.20', unit: 'ม.' },
+      { label: 'แรงดันสถานีสูบจ่ายต่ำสุด', value: null, unit: 'ม.' },
+      { label: 'แรงดันสถานีสูบจ่ายสูงสุด', value: null, unit: 'ม.' },
+      { label: 'แรงดันสถานีสูบส่งต่ำสุด',  value: null, unit: 'ม.' },
+      { label: 'แรงดันสถานีสูบส่งสูงสุด',  value: null, unit: 'ม.' },
     ],
   },
   {
     title: 'ปริมาณน้ำระบายตะกอน',
     rows: [
-      { label: 'เฟส 1', value: '2,985', unit: 'ลบ.ม./วัน' },
-      { label: 'เฟส 2', value: '1,928', unit: 'ลบ.ม./วัน', highlight: true },
-      { label: 'เฟส 3', value: '373',   unit: 'ลบ.ม./วัน' },
-      { label: 'เฟส 4', value: '595',   unit: 'ลบ.ม./วัน' },
+      { label: 'เฟส 1', value: null, unit: 'ลบ.ม./วัน' },
+      { label: 'เฟส 2', value: null, unit: 'ลบ.ม./วัน' },
+      { label: 'เฟส 3', value: null, unit: 'ลบ.ม./วัน' },
+      { label: 'เฟส 4', value: null, unit: 'ลบ.ม./วัน' },
     ],
   },
   {
     title: 'การใช้ไฟฟ้า',
     rows: [
-      { label: 'SS1A - DPS',  value: '45.28', unit: 'MWh' },
-      { label: 'SS1B - TPS',  value: '60.12', unit: 'MWh', highlight: true },
-      { label: 'SS3A - WS1',  value: '2.01',  unit: 'MWh' },
-      { label: 'SS3B - WS2',  value: '2.03',  unit: 'MWh' },
-      { label: 'SS2A - RW1',  value: '44.56', unit: 'MWh' },
-      { label: 'SS2B - RW2',  value: '33.07', unit: 'MWh', highlightRed: true },
-      { label: 'SS3 - Bldg.', value: '2.72',  unit: 'MWh' },
+      { label: 'SS1A - DPS',  value: null, unit: 'MWh' },
+      { label: 'SS1B - TPS',  value: null, unit: 'MWh' },
+      { label: 'SS3A - WS1',  value: null, unit: 'MWh' },
+      { label: 'SS3B - WS2',  value: null, unit: 'MWh' },
+      { label: 'SS2A - RW1',  value: null, unit: 'MWh' },
+      { label: 'SS2B - RW2',  value: null, unit: 'MWh' },
+      { label: 'SS3 - Bldg.', value: null, unit: 'MWh' },
     ],
   },
 ];
@@ -1165,7 +1309,7 @@ function DailyTableCardUI({ title, rows, compact = false, grow = false }) {
               <tr key={i} className={`${hi} ${grow ? 'h-px' : ''}`}>
                 <td className={`${cell} text-gray-600 border-b border-gray-100 align-middle w-full`}>{r.label}</td>
                 <td className={`${cell} text-right font-mono font-semibold border-b border-gray-100 align-middle whitespace-nowrap ${r.bold ? 'font-extrabold' : ''}`}>
-                  {r.value != null ? r.value : <span className="text-gray-300">—</span>}
+                  {r.value != null ? r.value : <span className="text-gray-400">0</span>}
                 </td>
                 <td className={`${cell} text-right text-gray-400 border-b border-gray-100 whitespace-nowrap align-middle pl-1`}>{r.unit}</td>
               </tr>
@@ -1200,7 +1344,7 @@ function ChemDonutCard({ phase, useUnit, doseUnit, use, target, actual, pct }) {
         <div className="grid grid-cols-3 gap-x-1 text-gray-500" style={{ fontSize: 14 }}>
           <span>USE</span><span>TARGET</span><span>ACTUAL</span>
           <span className="font-mono text-gray-800">{use}<span className="text-gray-400 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{useUnit}</span></span>
-          <span className="font-mono text-gray-800">{target ?? '—'}<span className="text-gray-400 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{doseUnit}</span></span>
+          <span className="font-mono text-gray-800">{target ?? 0}<span className="text-gray-400 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{doseUnit}</span></span>
           <span className="font-mono text-gray-800">{actual}<span className="text-gray-400 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{doseUnit}</span></span>
         </div>
       </div>
@@ -1213,12 +1357,12 @@ function ChemDonutCard({ phase, useUnit, doseUnit, use, target, actual, pct }) {
 const DR_RIGHT_SUB_TABS = ['SUMMARY', 'CHEMICAL', 'FILTRATION'];
 
 const DR_CHEM_REMAINING_ROWS = [
-  { label: 'PA1', value: '947',  unit: 'm³' },
-  { label: 'PA2', value: '154',  unit: 'm³' },
-  { label: 'AL1', value: '33.9', unit: 'TON' },
-  { label: 'AL2', value: '24.1', unit: 'TON' },
-  { label: 'CL1', value: '34.8', unit: 'drum' },
-  { label: 'CL2', value: '39.7', unit: 'drum' },
+  { label: 'PA1', value: null, unit: 'm³' },
+  { label: 'PA2', value: null, unit: 'm³' },
+  { label: 'AL1', value: null, unit: 'TON' },
+  { label: 'AL2', value: null, unit: 'TON' },
+  { label: 'CL1', value: null, unit: 'drum' },
+  { label: 'CL2', value: null, unit: 'drum' },
 ];
 
 const DR_COST_ROWS = [
@@ -1239,6 +1383,59 @@ const DR_WASH_PHASES = [
 function fmt(v, dec = 0) {
   if (v === null || v === undefined) return null;
   return Number(v).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+
+// ── Filtration Backwash Constants ─────────────────────────────────────────────
+
+// FWS2 LEVEL BEFORE BACKWASH IDs are not in the normal stride (+2 from byShift).
+// They live in a separate, interleaved range (7944-7971) and must be listed explicitly.
+const P3_LEVEL_IDS = [7944,7951,7945,7952,7946,7953,7947,7954,7948,7955,7949,7956,7950,7957];
+const P4_LEVEL_IDS = [7958,7965,7959,7966,7960,7967,7961,7968,7962,7969,7963,7970,7964,7971];
+
+const FWS_BW_PHASES = [
+  { id: 'P1', src: 'FWS#1', totalBeds: 8,  startNo: 1,  station: 'FWS1', topic: 'BACKWASHING P#12', base: 317 },
+  { id: 'P2', src: 'FWS#1', totalBeds: 8,  startNo: 9,  station: 'FWS1', topic: 'BACKWASHING P#12', base: 399 },
+  { id: 'P3', src: 'FWS#2', totalBeds: 14, startNo: 1,  station: 'FWS2', topic: 'BACKWASHING P#3',  base: 479, levelIds: P3_LEVEL_IDS },
+  { id: 'P4', src: 'FWS#2', totalBeds: 14, startNo: 1,  station: 'FWS2', topic: 'BACKWASHING P#4',  base: 621, levelIds: P4_LEVEL_IDS },
+];
+
+const BW_SLOTS = ['08:00', '16:00', '24:00'];
+
+// Parse backwash events from raw history for a phase.
+// Shows bed if ANY of the 6 package fields is not null.
+// complete=true if all 6 present (green card), false = some missing (red card).
+// Fields: +0 byShift, +1 filterRun, +2 level, +3 startTime, +5 endTime, +6 washQty
+function parseBWPhase(history, base, count, startNo = 1, levelIds = null) {
+  if (!history) return null;
+  return Array.from({ length: count }, (_, i) => {
+    const b           = base + i * 10;
+    const byShiftId   = b;
+    const filterRunId = b + 1;
+    const levelId     = levelIds ? levelIds[i] : b + 2; // FWS2 uses non-stride level IDs
+    const startTimeId = b + 3;
+    const endTimeId   = b + 5;
+    const washQtyId   = b + 6;
+    const fieldIds    = [byShiftId, filterRunId, levelId, startTimeId, endTimeId, washQtyId];
+    const washes = [];
+    for (const slot of BW_SLOTS) {
+      const vals = fieldIds.map(id => history[String(id)]?.[slot]);
+      const anyPresent = vals.some(v => v !== null && v !== undefined && v !== '');
+      if (anyPresent) {
+        const allPresent = vals.every(v => v !== null && v !== undefined && v !== '');
+        const shiftNum  = parseInt(history[String(byShiftId)]?.[slot], 10);
+        const filterRun = parseFloat(history[String(filterRunId)]?.[slot]);
+        const washQty   = parseFloat(history[String(washQtyId)]?.[slot]);
+        washes.push({
+          slot,
+          shift:     !isNaN(shiftNum)  ? `Shift ${shiftNum}` : slot,
+          filterRun: !isNaN(filterRun) ? filterRun : null,
+          washQty:   !isNaN(washQty)   ? washQty   : null,
+          complete:  allPresent,
+        });
+      }
+    }
+    return { no: startNo + i, byShiftId: b, washes };
+  });
 }
 
 // ── Settings Modal ────────────────────────────────────────────────────────────
@@ -1353,26 +1550,92 @@ function ReportSettingsModal({ onClose }) {
   );
 }
 
-function DailyReportTab({ selectedDate }) {
+function DailyReportTab({ selectedDate, stage }) {
+  const navigate = useNavigate();
   const [rightSubTab, setRightSubTab] = useState('SUMMARY');
   const [shift, setShift]             = useState(1);
   const [reportData, setReportData]   = useState(null);
   const [validation, setValidation]   = useState(null);
-  const [querying, setQuerying]       = useState(false);
   const [saving, setSaving]           = useState(false);
-  const [saveMsg, setSaveMsg]         = useState(null); // { ok, text }
+  const [saveMsg, setSaveMsg]         = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [fwsBW, setFwsBW]             = useState(null);
+  const [fwsBWLoading, setFwsBWLoading] = useState(false);
+  const [showQueryModal, setShowQueryModal] = useState(false);
+  // stationRows: { [sid]: { status: 'pending'|'loading'|'done'|'error', count: number } }
+  const [stationRows, setStationRows]  = useState({});
+  const [querying, setQuerying]        = useState(false); // true while any stream running
 
-  async function handleQuery() {
+  const STATION_LIST = ['RWS1','RWS2','CHEM1','CHEM2','FWS1','FWS2','TPS','DPS','CWS1','CWS2'];
+
+  function updateRow(sid, patch) {
+    setStationRows(prev => ({ ...prev, [sid]: { ...(prev[sid] || {}), ...patch } }));
+  }
+
+  async function runStream(url, onDone) {
     setQuerying(true);
-    setValidation(null);
-    setSaveMsg(null);
     try {
-      const r = await get(`/api/daily-report?date=${selectedDate}`);
-      setReportData(r);
+      const resp = await fetch(url, { credentials: 'include', headers: { Accept: 'text/event-stream' } });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const reader = resp.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const parts = buf.split('\n\n');
+        buf = parts.pop();
+        for (const part of parts) {
+          if (!part.startsWith('data: ')) continue;
+          let data; try { data = JSON.parse(part.slice(6)); } catch { continue; }
+          if (data.type === 'step' && data.station !== 'compute') {
+            updateRow(data.station, { status: data.status, count: data.count ?? 0 });
+          } else if (data.type === 'done') {
+            setReportData(data.report);
+            if (onDone) onDone();
+          } else if (data.type === 'error') {
+            setSaveMsg({ ok: false, text: 'QUERY ล้มเหลว: ' + data.msg });
+          }
+        }
+      }
     } catch (e) {
       setSaveMsg({ ok: false, text: 'QUERY ล้มเหลว: ' + e.message });
-    } finally { setQuerying(false); }
+    } finally {
+      setQuerying(false);
+    }
+  }
+
+  function handleQuery() {
+    setValidation(null);
+    setSaveMsg(null);
+    setStationRows(Object.fromEntries(STATION_LIST.map(s => [s, { status: 'pending', count: 0 }])));
+    setShowQueryModal(true);
+  }
+
+  async function handleAllQuery() {
+    setStationRows(Object.fromEntries(STATION_LIST.map(s => [s, { status: 'pending', count: 0 }])));
+    const streamUrl = stage === 0
+      ? `${BASE}/api/daily-report/stream-stage0?date=${selectedDate}`
+      : `${BASE}/api/daily-report/stream?date=${selectedDate}`;
+    await runStream(streamUrl, () => {
+      setFwsBWLoading(true);
+      Promise.all([
+        get(`/api/operator/history?station_id=FWS1&date=${selectedDate}&topic=${encodeURIComponent('BACKWASHING P#12')}`),
+        get(`/api/operator/history?station_id=FWS2&date=${selectedDate}&topic=${encodeURIComponent('BACKWASHING P#3')}`),
+        get(`/api/operator/history?station_id=FWS2&date=${selectedDate}&topic=${encodeURIComponent('BACKWASHING P#4')}`),
+      ]).then(([p12, p3, p4]) => setFwsBW({ p12, p3, p4 }))
+        .catch(e => console.warn('[FWS BW]', e.message))
+        .finally(() => setFwsBWLoading(false));
+    });
+  }
+
+  async function handleReQuery(sid) {
+    updateRow(sid, { status: 'pending', count: 0 });
+    const url = stage === 0
+      ? `${BASE}/api/daily-report/stream-station-stage0?date=${selectedDate}&station=${sid}`
+      : `${BASE}/api/daily-report/stream-station?date=${selectedDate}&station=${sid}`;
+    await runStream(url);
   }
 
   async function handleValidate() {
@@ -1398,6 +1661,19 @@ function DailyReportTab({ selectedDate }) {
 
   // ── Derive display values from reportData ──────────────────────────────
   const d = reportData;
+
+  // Per-phase wash water summary derived from fwsBW (available even on SUMMARY tab)
+  const washSummary = FWS_BW_PHASES.map(ph => {
+    if (!fwsBW) return null;
+    const histKey = ph.id === 'P3' ? 'p3' : ph.id === 'P4' ? 'p4' : 'p12';
+    const beds = parseBWPhase(fwsBW[histKey], ph.base, ph.totalBeds, ph.startNo, ph.levelIds ?? null);
+    const washedBeds = beds.filter(b => b.washes.length > 0);
+    const totalVol = washedBeds.reduce((s, b) => s + b.washes.reduce((ss, w) => ss + (w.washQty ?? 0), 0), 0);
+    const frtValues = washedBeds.map(b => b.washes[0]?.filterRun).filter(v => v != null);
+    const avgFRT = frtValues.length > 0 ? frtValues.reduce((s, v) => s + v, 0) / frtValues.length : null;
+    const hasRed = washedBeds.some(b => !b.washes.every(w => w.complete));
+    return { totalVol, avgFRT, hasRed };
+  });
 
   const kpi = [
     { key: 'water',  label: 'WATER PRODUCED', value: d ? fmt(d.card3_pumped.total) : '—',           unit: 'ลบ.ม./วัน', color: '#16a34a' },
@@ -1483,7 +1759,7 @@ function DailyReportTab({ selectedDate }) {
     fmt(d.card13_chem_remaining.alum.days_ph12, 1),
     fmt(d.card13_chem_remaining.alum.days_ph34, 1),
     '—', '—',
-  ] : ['41','6','1.0','1.0','13.4','18.5'];
+  ] : ['0','0','0','0','0','0'];
 
   const costRows = d ? [
     { label: 'CHEMICAL COST',        value: fmt(d.summary.chem_cost_per_m3,  4), unit: 'Baht/m³' },
@@ -1523,6 +1799,52 @@ function DailyReportTab({ selectedDate }) {
     <div className="h-full min-h-0 flex overflow-hidden bg-white">
       {showSettings && <ReportSettingsModal onClose={() => setShowSettings(false)} />}
 
+      {/* ── Query Modal ── */}
+      {showQueryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-xl shadow-2xl w-96 flex flex-col overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+              <span className="text-sm font-bold text-gray-700">ดึงข้อมูล AquaDAT</span>
+              <span className="text-xs text-gray-400 ml-1">{selectedDate}</span>
+              <button
+                onClick={handleAllQuery}
+                disabled={querying}
+                className="ml-auto px-3 py-1 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white text-xs font-bold rounded transition-colors"
+              >{querying ? '⏳ กำลังดึง...' : '▶ All Query'}</button>
+            </div>
+            <div className="flex flex-col divide-y divide-gray-100">
+              {STATION_LIST.map(sid => {
+                const row = stationRows[sid] || { status: 'pending', count: 0 };
+                const icon = row.status === 'loading' ? '⏳'
+                           : row.status === 'done'    ? '✅'
+                           : row.status === 'error'   ? '❌'
+                           : '○';
+                const countLabel = row.status === 'done' ? `${row.count} values` : '';
+                return (
+                  <div key={sid} className="flex items-center gap-2 px-4 py-2">
+                    <span className="text-base w-5 text-center leading-none shrink-0">{icon}</span>
+                    <span className="font-mono text-xs font-semibold text-gray-700 w-16 shrink-0">{sid}</span>
+                    <span className="text-xs text-gray-400 flex-1">{countLabel}</span>
+                    <button
+                      onClick={() => handleReQuery(sid)}
+                      disabled={querying}
+                      className="text-xs px-2 py-0.5 border border-gray-300 hover:bg-gray-50 disabled:opacity-40 rounded text-gray-600 transition-colors"
+                    >re-query</button>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="px-4 py-2.5 border-t border-gray-200 flex justify-end">
+              <button
+                onClick={() => setShowQueryModal(false)}
+                disabled={querying}
+                className="text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 disabled:opacity-40 rounded text-gray-700 font-medium"
+              >ปิด</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── COL 1 (3): ACTION BOX + KPI + Sankey + tables ── */}
       <div className="flex-[3] min-w-0 border-r border-gray-200 flex flex-col overflow-hidden bg-white">
 
@@ -1530,9 +1852,8 @@ function DailyReportTab({ selectedDate }) {
         <div className="shrink-0 bg-gray-50 border-b border-gray-200 px-2 py-1.5 flex items-center gap-1.5 flex-wrap">
           <button
             onClick={handleQuery}
-            disabled={querying}
-            className="px-2.5 py-1 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white text-sm font-bold rounded transition-colors"
-          >{querying ? '⏳...' : 'QUERY DATA'}</button>
+            className="px-2.5 py-1 bg-green-500 hover:bg-green-600 text-white text-sm font-bold rounded transition-colors"
+          >QUERY DATA</button>
 
           <button
             onClick={handleValidate}
@@ -1668,9 +1989,9 @@ function DailyReportTab({ selectedDate }) {
         {/* Chemical use + costs */}
         <div className="shrink-0 px-2 py-1 border-t border-gray-100 flex gap-2">
           <div className="flex-1 text-sm text-gray-700 space-y-0.5">
-            <div>PACL USE: <b>{d ? fmt(paclUse, 2) : '49.24'}</b> TON / INC: {d ? fmt(paclInc, 2) : '42.22'} TON</div>
-            <div>ALUM USE: <b>{d ? fmt(alumUse, 2) : '10.91'}</b> TON / INC: {d ? fmt(alumInc, 2) : '0.00'} TON</div>
-            <div>CHLORINE USE: <b>{d ? fmt(clUseKg ? clUseKg / 1000 : null, 3) : '4.53'}</b> TON</div>
+            <div>PACL USE: <b>{d ? fmt(paclUse, 2) : '0.00'}</b> TON / INC: {d ? fmt(paclInc, 2) : '0.00'} TON</div>
+            <div>ALUM USE: <b>{d ? fmt(alumUse, 2) : '0.00'}</b> TON / INC: {d ? fmt(alumInc, 2) : '0.00'} TON</div>
+            <div>CHLORINE USE: <b>{d ? fmt(clUseKg ? clUseKg / 1000 : null, 3) : '0.000'}</b> TON</div>
           </div>
           <div className="flex-1">
             <table className="w-full text-sm">
@@ -1739,12 +2060,12 @@ function DailyReportTab({ selectedDate }) {
                   <div className="shrink-0 grid grid-cols-2 gap-1">
                     <div className="border border-gray-200 rounded bg-white px-1.5 py-1.5">
                       <div className="text-xs text-gray-500 font-semibold leading-tight">Filter Availability</div>
-                      <div className="text-sm font-black text-gray-800 font-mono">—</div>
+                      <div className="text-sm font-black text-gray-800 font-mono">0</div>
                     </div>
                     <div className="border border-gray-200 rounded bg-white px-1.5 py-1.5">
                       <div className="text-xs text-gray-500 font-semibold leading-tight">SERVICE WATER</div>
                       <div className="text-sm font-black text-gray-800 font-mono">
-                        {d ? `${fmt(d.summary.service_water_m3)} m³` : '— m³'}
+                        {d ? `${fmt(d.summary.service_water_m3)} m³` : '0 m³'}
                       </div>
                     </div>
                   </div>
@@ -1752,13 +2073,23 @@ function DailyReportTab({ selectedDate }) {
                 <DailyTableCardUI title={summaryCards[5].title} rows={summaryCards[5].rows} compact grow />
               </div>
               <div className="flex-[2] min-h-0 grid grid-cols-4 gap-1">
-                {[1,2,3,4].map(p => (
-                  <div key={p} className="border border-gray-200 rounded bg-white p-1.5 text-center flex flex-col justify-center">
-                    <div className="text-xs text-gray-400 font-semibold leading-tight">Phase {p} WASH Water</div>
-                    <div className="text-base font-black text-gray-800">—</div>
-                    <div className="text-sm text-gray-500">FRT: <span className="font-bold text-gray-700">—</span></div>
-                  </div>
-                ))}
+                {[0,1,2,3].map(i => {
+                  const ws = washSummary[i];
+                  const red = ws?.hasRed;
+                  return (
+                    <div key={i} className={`border rounded p-1.5 text-center flex flex-col justify-center ${red ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white'}`}>
+                      <div className={`text-xs font-semibold leading-tight ${red ? 'text-red-500' : 'text-gray-400'}`}>Phase {i + 1} WASH Water</div>
+                      <div className={`text-base font-black ${red ? 'text-red-700' : 'text-gray-800'}`}>
+                        {ws
+                          ? (ws.totalVol > 0 ? `${ws.totalVol.toLocaleString('en-US', { maximumFractionDigits: 0 })} m³` : '0 m³')
+                          : (fwsBWLoading ? '…' : '0 m³')}
+                      </div>
+                      <div className={`text-sm ${red ? 'text-red-500' : 'text-gray-500'}`}>
+                        FRT: <span className="font-bold">{ws?.avgFRT != null ? ws.avgFRT.toFixed(1) : '0'}</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </>
           )}
@@ -1775,14 +2106,105 @@ function DailyReportTab({ selectedDate }) {
             </div>
           )}
           {rightSubTab === 'FILTRATION' && (
-            <div className="grid grid-cols-2 gap-2">
-              {[1,2,3,4].map(n => (
-                <DailyTableCardUI key={n} title={`Filter Phase #${n}`} rows={[
-                  { label: 'Run Time',     value: null, unit: 'h'  },
-                  { label: 'Backwash Vol', value: null, unit: 'm³' },
-                  { label: 'Head Loss',    value: null, unit: 'm'  },
-                ]} />
-              ))}
+            <div className="flex flex-col gap-2">
+              {fwsBWLoading && (
+                <div className="text-xs text-gray-400 text-center py-3">กำลังโหลดข้อมูลบ่อกรอง...</div>
+              )}
+              {FWS_BW_PHASES.map(ph => {
+                const histKey = ph.id === 'P3' ? 'p3' : ph.id === 'P4' ? 'p4' : 'p12';
+                const beds = fwsBW ? parseBWPhase(fwsBW[histKey], ph.base, ph.totalBeds, ph.startNo, ph.levelIds ?? null) : null;
+                const washedBeds   = beds ? beds.filter(b => b.washes.length > 0) : [];
+                const totalBWVol   = washedBeds.reduce((s, b) => s + b.washes.reduce((ss, w) => ss + w.washQty, 0), 0);
+                return (
+                  <div key={ph.id} className="border border-slate-200 rounded-md overflow-hidden bg-white">
+                    {/* Phase header stripe */}
+                    <div className="flex items-center gap-2 px-3 py-1.5" style={{ background: '#1a2b3c' }}>
+                      <span className="font-black text-sm tracking-wide" style={{ color: '#38bdf8' }}>{ph.id}</span>
+                      <span className="text-xs font-medium" style={{ color: 'rgba(148,163,184,0.7)' }}>{ph.src}</span>
+                      <div className="w-px h-4 flex-shrink-0" style={{ background: 'rgba(255,255,255,0.15)' }} />
+                      <span className="text-xs" style={{ color: 'rgba(148,163,184,0.6)' }}>{ph.totalBeds} beds</span>
+                      {beds && (
+                        <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full"
+                              style={{ background: 'rgba(14,165,233,0.18)', color: '#38bdf8' }}>
+                          ↻ {washedBeds.length} BW
+                        </span>
+                      )}
+                      {beds && totalBWVol > 0 && (
+                        <span className="ml-auto text-xs tabular-nums" style={{ color: 'rgba(148,163,184,0.6)' }}>
+                          Total BW{' '}
+                          <span className="font-bold" style={{ color: '#38bdf8' }}>
+                            {totalBWVol.toLocaleString('en-US', { maximumFractionDigits: 0 })} m³
+                          </span>
+                        </span>
+                      )}
+                      {beds && washedBeds.length === 0 && (
+                        <span className="ml-auto text-xs italic" style={{ color: 'rgba(148,163,184,0.5)' }}>ไม่มีการล้างบ่อกรอง</span>
+                      )}
+                    </div>
+                    {/* Washed bed cards */}
+                    <div className={washedBeds.length > 6
+                      ? 'grid grid-cols-6 gap-1.5 px-2.5 py-2 overflow-y-auto'
+                      : 'flex gap-1.5 px-2.5 py-2 overflow-x-auto'}
+                         style={washedBeds.length > 6 ? { maxHeight: '260px' } : { minHeight: '72px' }}>
+                      {!beds && !fwsBWLoading && (
+                        <span className="text-xs text-slate-400 italic self-center">กด QUERY เพื่อโหลดข้อมูล</span>
+                      )}
+                      {beds && washedBeds.length === 0 && (
+                        <span className="text-xs text-slate-400 italic self-center">ไม่มีการล้างบ่อกรองในวันนี้</span>
+                      )}
+                      {washedBeds.map(bed => {
+                        const allComplete = bed.washes.every(w => w.complete);
+                        const totalVol    = bed.washes.reduce((s, w) => s + (w.washQty ?? 0), 0);
+                        const firstRun    = bed.washes[0].filterRun;
+                        // green = all fields present, red = some missing
+                        const cardBg     = allComplete ? '#d1fae5' : '#fee2e2';
+                        const cardBorder = allComplete ? '#6ee7b7' : '#fca5a5';
+                        const accentBar  = allComplete ? '#10b981' : '#ef4444';
+                        const badgeBg    = allComplete ? 'rgba(16,185,129,0.15)'  : 'rgba(239,68,68,0.15)';
+                        const badgeColor = allComplete ? '#065f46' : '#991b1b';
+                        const moreColor  = allComplete ? '#10b981' : '#ef4444';
+                        return (
+                          <div key={bed.no}
+                               className="flex-shrink-0 rounded overflow-hidden cursor-pointer hover:brightness-95 transition-[filter]"
+                               style={{ minWidth: '96px', maxWidth: '96px', background: cardBg, border: `1px solid ${cardBorder}` }}
+                               onClick={() => navigate(`/op-record?station=${ph.station}&date=${selectedDate}&topic=${encodeURIComponent(ph.topic)}&focus=${bed.byShiftId}`)}>
+                            <div style={{ height: '3px', background: accentBar }} />
+                            <div className="flex items-center justify-between px-1.5 py-1"
+                                 style={{ borderBottom: `1px solid ${cardBorder}` }}>
+                              <span className="text-xs font-bold text-slate-800">No.{bed.no}</span>
+                              <span className="text-[10px] font-semibold rounded px-1 py-0.5"
+                                    style={{ background: badgeBg, color: badgeColor }}>
+                                {bed.washes.map(w => w.shift).join('/')}
+                              </span>
+                            </div>
+                            <div className="px-1.5 py-1.5 flex flex-col gap-1">
+                              <div className="flex justify-between items-baseline">
+                                <span className="text-[10px] uppercase tracking-wide text-slate-500">Runtime</span>
+                                <span className="text-sm font-bold tabular-nums text-slate-800">
+                                  {firstRun != null ? firstRun.toFixed(1) : '—'}
+                                  <span className="text-[10px] font-normal text-slate-400 ml-0.5">h</span>
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-baseline">
+                                <span className="text-[10px] uppercase tracking-wide text-slate-500">BW Vol</span>
+                                <span className="text-sm font-bold tabular-nums text-slate-800">
+                                  {totalVol > 0 ? totalVol.toFixed(0) : '—'}
+                                  <span className="text-[10px] font-normal text-slate-400 ml-0.5">m³</span>
+                                </span>
+                              </div>
+                              {bed.washes.length > 1 && (
+                                <span className="text-[10px] font-medium" style={{ color: moreColor }}>
+                                  +{bed.washes.length - 1} more wash
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -1871,9 +2293,16 @@ export default function OpRecord() {
   const qc = useQueryClient();
 
   const initStation = searchParams.get('station') ?? 'RWS1';
+  const urlTopic    = searchParams.get('topic');
+  const urlFocus    = searchParams.get('focus');
   const [activeStation, setActiveStation] = useState(
     ACTIVE_STATIONS.has(initStation) ? initStation : 'RWS1'
   );
+  // Sync station from URL when navigating programmatically (e.g., card click from Daily Report)
+  useEffect(() => {
+    const s = searchParams.get('station');
+    if (s && ACTIVE_STATIONS.has(s)) setActiveStation(s);
+  }, [searchParams]); // eslint-disable-line
   const [selectedDate, setSelectedDate] = useState(() => {
     const urlDate = searchParams.get('date');
     if (urlDate) { setRefDate(urlDate); return urlDate; }
@@ -1894,6 +2323,9 @@ export default function OpRecord() {
   const [configuringWidget, setConfiguringWidget] = useState(null);
   const [canvasWidth, setCanvasWidth]           = useState(400);
   const [canvasHeight, setCanvasHeight]         = useState(400);
+  const [validationResult, setValidationResult] = useState(null);
+  const [validating, setValidating]             = useState(false);
+  const [rightPanel, setRightPanel]             = useState('dashboard'); // 'dashboard' | 'validate'
 
   const canvasRef  = useRef(null);
   const layoutTimer = useRef(null);
@@ -1913,17 +2345,18 @@ export default function OpRecord() {
     return () => ro.disconnect();
   }, []);
 
-  const { data: opNodes } = useQuery({
-    queryKey: ['op-nodes'],
-    queryFn: () => get('/api/operator/nodes'),
+  const { data: stationNode } = useQuery({
+    queryKey: ['op-node', activeStation],
+    queryFn: () => get(`/api/operator/nodes?station_id=${encodeURIComponent(activeStation)}`),
     staleTime: 300000,
+    enabled: !!activeStation,
   });
 
   const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => get('/api/auth/me') });
   const canRecord = !(me?.bypass);
   const loginId   = me?.username ?? me?.name ?? me?.user_id ?? 'default';
 
-  const stationDef = opNodes?.stations?.find(s => s.id === activeStation) ?? null;
+  const stationDef = stationNode?.station ?? null;
 
   // Reset to null on station change; stationDef effect below will set first topic once it loads
   useEffect(() => {
@@ -1936,6 +2369,7 @@ export default function OpRecord() {
     if (!stationDef) return;
     setActiveTopic(prev => {
       if (prev && stationDef.topics?.some(t => t.topic === prev)) return prev;
+      if (urlTopic && stationDef.topics?.some(t => t.topic === urlTopic)) return urlTopic;
       return stationDef.topics?.[0]?.topic ?? null;
     });
   }, [stationDef]); // eslint-disable-line
@@ -1967,24 +2401,29 @@ export default function OpRecord() {
     return () => clearInterval(id);
   }, [selectedDate, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset history when station or date changes
+  // Reset history when station or date changes; show loading immediately so there's no blank flash
   useEffect(() => {
     setHistory({});
+    setHistoryLoading(true);
   }, [activeStation, selectedDate]);
 
-  // Fetch all history for station — server decides Aquadat vs Uroboros based on its own stage
-  // Fetch per station+date (not per topic) so topic switching is instant from cache
+  // Always re-fetch when switching topics — data may have changed from other sources
   useEffect(() => {
-    if (!activeStation) return;
+    if (!activeStation || !activeTopic) return;
+
+    const controller = new AbortController();
     setHistoryLoading(true);
-    const qs = new URLSearchParams({ station_id: activeStation, date: selectedDate });
-    get(`/api/operator/history?${qs}`)
+    const qs = new URLSearchParams({ station_id: activeStation, date: selectedDate, topic: activeTopic });
+    get(`/api/operator/history?${qs}`, { signal: controller.signal })
       .then(data => {
-        if (data && typeof data === 'object') setHistory(data);
+        if (data && typeof data === 'object') {
+          setHistory(prev => ({ ...prev, ...data }));
+        }
       })
-      .catch(e => console.warn('[history]', activeStation, e.message))
-      .finally(() => setHistoryLoading(false));
-  }, [activeStation, selectedDate]);
+      .catch(e => { if (e?.name !== 'AbortError') console.warn('[history]', activeStation, activeTopic, e.message); })
+      .finally(() => { if (!controller.signal.aborted) setHistoryLoading(false); });
+    return () => controller.abort();
+  }, [activeStation, activeTopic, selectedDate]);
 
 
   useEffect(() => {
@@ -2003,7 +2442,26 @@ export default function OpRecord() {
     setActiveStation(id);
     setDirtyValues({});
     setSubmitStatus({});
+    setValidationResult(null);
     navigate(`/op-record?station=${id}`, { replace: true });
+  }
+
+  async function handleValidate() {
+    if (!activeStation || activeStation === 'DAILY') return;
+    setValidating(true);
+    setRightPanel('validate');
+    try {
+      const result = await post('/api/operator/validate', {
+        station_id: activeStation,
+        date: selectedDate,
+        data: liveHistory,
+      });
+      setValidationResult(result);
+    } catch (e) {
+      setValidationResult({ error: e.message });
+    } finally {
+      setValidating(false);
+    }
   }
 
   function handleDateChange(newDate) {
@@ -2238,7 +2696,7 @@ export default function OpRecord() {
       {/* Body — Daily Report tab gets full area */}
       {activeStation === 'DAILY' && (
         <div className="flex-1 min-h-0 rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <DailyReportTab selectedDate={selectedDate} />
+          <DailyReportTab selectedDate={selectedDate} stage={stage} />
         </div>
       )}
 
@@ -2258,6 +2716,8 @@ export default function OpRecord() {
                 allHistory={liveHistory}
                 dirtyValues={dirtyValues}
                 onCellChange={handleCellChange}
+                cellMarks={validationResult?.cellMarks}
+                focusId={urlFocus}
               />
             ) : (
               <div className="flex-1 flex items-center justify-center text-gray-400">เลือก sub-group ด้านบน</div>
@@ -2272,16 +2732,52 @@ export default function OpRecord() {
             )}
           </div>
 
-          {/* 30% — widget canvas */}
+          {/* 30% — widget canvas / validation panel */}
           <div className="flex-[3] min-w-0 min-h-0 flex flex-col rounded-xl shadow-sm border border-gray-100 bg-gray-50 overflow-hidden relative">
-            <div className="px-3 py-2 border-b border-gray-100 bg-white shrink-0 flex items-center justify-between">
-              <span className="text-sm font-semibold text-gray-500">Dashboard</span>
-              <button onClick={() => setShowPicker(p => !p)} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
-                + เพิ่ม Widget
-              </button>
+            <div className="px-3 py-2 border-b border-gray-100 bg-white shrink-0 flex items-center justify-between gap-2">
+              {/* Tab toggle */}
+              <div className="flex rounded-lg overflow-hidden border border-gray-200 text-xs font-semibold shrink-0">
+                <button
+                  onClick={() => setRightPanel('dashboard')}
+                  className={`px-2.5 py-1 transition-colors ${rightPanel === 'dashboard' ? 'bg-slate-700 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                >Dashboard</button>
+                <button
+                  onClick={() => setRightPanel('validate')}
+                  className={`px-2.5 py-1 transition-colors flex items-center gap-1 ${rightPanel === 'validate' ? 'bg-slate-700 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                >
+                  Validate
+                  {validationResult && !validationResult.error && (
+                    <span className={`text-[10px] font-bold ${validationResult.summary?.errors > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                      {validationResult.summary?.errors > 0 ? `✗${validationResult.summary.errors}` : '✓'}
+                    </span>
+                  )}
+                </button>
+              </div>
+              {rightPanel === 'dashboard' ? (
+                <button onClick={() => setShowPicker(p => !p)} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+                  + เพิ่ม Widget
+                </button>
+              ) : (
+                <button
+                  onClick={handleValidate}
+                  disabled={validating}
+                  className="text-xs bg-slate-700 hover:bg-slate-800 disabled:opacity-50 text-white font-semibold px-2.5 py-1 rounded-lg transition-colors"
+                >
+                  {validating ? '...' : '▶ Run'}
+                </button>
+              )}
             </div>
 
-            <div ref={canvasRef} className="flex-1 overflow-auto">
+            {/* Validation panel */}
+            {rightPanel === 'validate' && (
+              <ValidationPanel
+                result={validationResult}
+                loading={validating}
+                stationId={activeStation}
+              />
+            )}
+
+            <div ref={canvasRef} className={`flex-1 overflow-auto ${rightPanel !== 'dashboard' ? 'hidden' : ''}`}>
               {widgets.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2 p-4">
                   <svg className="w-8 h-8 opacity-30" viewBox="0 0 16 16" fill="currentColor">

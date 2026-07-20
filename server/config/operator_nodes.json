@@ -632,7 +632,10 @@
         {
           "topic": "COMPENSATE",
           "time_slot": 25,
-          "time_slots": ["00:00", "24:00"],
+          "time_slots": [
+            "00:00",
+            "24:00"
+          ],
           "params": [
             {
               "configparam_id": 8776,
@@ -1290,7 +1293,10 @@
         {
           "topic": "COMPENSATE",
           "time_slot": 2,
-          "time_slots": ["00:00", "24:00"],
+          "time_slots": [
+            "00:00",
+            "24:00"
+          ],
           "params": [
             {
               "configparam_id": 8778,
@@ -3974,7 +3980,15 @@
         {
           "topic": "%SLUDGE P#12",
           "time_slot": 7,
-          "time_slots": ["00:00", "02:00", "06:00", "10:00", "14:00", "18:00", "22:00"],
+          "time_slots": [
+            "00:00",
+            "02:00",
+            "06:00",
+            "10:00",
+            "14:00",
+            "18:00",
+            "22:00"
+          ],
           "params": [
             {
               "configparam_id": 207,
@@ -4121,7 +4135,12 @@
         {
           "topic": "OVERVIEW P#12",
           "time_slot": 4,
-          "time_slots": ["00:00", "08:00", "16:00", "24:00"],
+          "time_slots": [
+            "00:00",
+            "08:00",
+            "16:00",
+            "24:00"
+          ],
           "params": [
             {
               "configparam_id": 200,
@@ -4331,7 +4350,15 @@
         {
           "topic": "%SLUDGE P#34",
           "time_slot": 7,
-          "time_slots": ["00:00", "02:00", "06:00", "10:00", "14:00", "18:00", "22:00"],
+          "time_slots": [
+            "00:00",
+            "02:00",
+            "06:00",
+            "10:00",
+            "14:00",
+            "18:00",
+            "22:00"
+          ],
           "params": [
             {
               "configparam_id": 260,
@@ -4464,7 +4491,12 @@
         {
           "topic": "DRAIN P#34",
           "time_slot": 4,
-          "time_slots": ["00:00", "08:00", "16:00", "24:00"],
+          "time_slots": [
+            "00:00",
+            "08:00",
+            "16:00",
+            "24:00"
+          ],
           "params": [
             {
               "configparam_id": 249,
@@ -4770,7 +4802,15 @@
         {
           "topic": "STATUS P#12",
           "time_slot": 7,
-          "time_slots": ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00", "24:00"],
+          "time_slots": [
+            "00:00",
+            "04:00",
+            "08:00",
+            "12:00",
+            "16:00",
+            "20:00",
+            "24:00"
+          ],
           "params": [
             {
               "configparam_id": 314,
@@ -4889,7 +4929,10 @@
         {
           "topic": "FTR RUNTIME, ENERGY P#12",
           "time_slot": 2,
-          "time_slots": ["00:00", "24:00"],
+          "time_slots": [
+            "00:00",
+            "24:00"
+          ],
           "params": [
             {
               "configparam_id": 315,
@@ -5022,7 +5065,12 @@
         {
           "topic": "BACKWASHING P#12",
           "time_slot": 4,
-          "time_slots": ["00:00", "08:00", "16:00", "24:00"],
+          "time_slots": [
+            "00:00",
+            "08:00",
+            "16:00",
+            "24:00"
+          ],
           "params": [
             {
               "configparam_id": 317,
@@ -5049,15 +5097,15 @@
               "configparam_id": 320,
               "param_name": "START TIME",
               "equipment_name": "PHASE 1 NO.1 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 322,
               "param_name": "END TIME",
               "equipment_name": "PHASE 1 NO.1 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 323,
@@ -5091,15 +5139,15 @@
               "configparam_id": 330,
               "param_name": "START TIME",
               "equipment_name": "PHASE 1 NO.2 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 332,
               "param_name": "END TIME",
               "equipment_name": "PHASE 1 NO.2 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 333,
@@ -5133,15 +5181,15 @@
               "configparam_id": 340,
               "param_name": "START TIME",
               "equipment_name": "PHASE 1 NO.3 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 342,
               "param_name": "END TIME",
               "equipment_name": "PHASE 1 NO.3 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 343,
@@ -5175,15 +5223,15 @@
               "configparam_id": 350,
               "param_name": "START TIME",
               "equipment_name": "PHASE 1 NO.4 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 352,
               "param_name": "END TIME",
               "equipment_name": "PHASE 1 NO.4 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 353,
@@ -5217,15 +5265,15 @@
               "configparam_id": 360,
               "param_name": "START TIME",
               "equipment_name": "PHASE 1 NO.5 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 362,
               "param_name": "END TIME",
               "equipment_name": "PHASE 1 NO.5 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 363,
@@ -5259,15 +5307,15 @@
               "configparam_id": 370,
               "param_name": "START TIME",
               "equipment_name": "PHASE 1 NO.6 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 372,
               "param_name": "END TIME",
               "equipment_name": "PHASE 1 NO.6 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 373,
@@ -5301,15 +5349,15 @@
               "configparam_id": 380,
               "param_name": "START TIME",
               "equipment_name": "PHASE 1 NO.7 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 382,
               "param_name": "END TIME",
               "equipment_name": "PHASE 1 NO.7 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 383,
@@ -5343,15 +5391,15 @@
               "configparam_id": 390,
               "param_name": "START TIME",
               "equipment_name": "PHASE 1 NO.8 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 392,
               "param_name": "END TIME",
               "equipment_name": "PHASE 1 NO.8 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 393,
@@ -5385,15 +5433,15 @@
               "configparam_id": 402,
               "param_name": "START TIME",
               "equipment_name": "PHASE 2 NO.9 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 404,
               "param_name": "END TIME",
               "equipment_name": "PHASE 2 NO.9 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 405,
@@ -5427,15 +5475,15 @@
               "configparam_id": 412,
               "param_name": "START TIME",
               "equipment_name": "PHASE 2 NO.10 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 414,
               "param_name": "END TIME",
               "equipment_name": "PHASE 2 NO.10 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 415,
@@ -5469,15 +5517,15 @@
               "configparam_id": 422,
               "param_name": "START TIME",
               "equipment_name": "PHASE 2 NO.11 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 424,
               "param_name": "END TIME",
               "equipment_name": "PHASE 2 NO.11 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 425,
@@ -5511,15 +5559,15 @@
               "configparam_id": 432,
               "param_name": "START TIME",
               "equipment_name": "PHASE 2 NO.12 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 434,
               "param_name": "END TIME",
               "equipment_name": "PHASE 2 NO.12 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 435,
@@ -5553,15 +5601,15 @@
               "configparam_id": 442,
               "param_name": "START TIME",
               "equipment_name": "PHASE 2 NO.13 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 444,
               "param_name": "END TIME",
               "equipment_name": "PHASE 2 NO.13 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 445,
@@ -5595,15 +5643,15 @@
               "configparam_id": 452,
               "param_name": "START TIME",
               "equipment_name": "PHASE 2 NO.14 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 454,
               "param_name": "END TIME",
               "equipment_name": "PHASE 2 NO.14 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 455,
@@ -5637,15 +5685,15 @@
               "configparam_id": 462,
               "param_name": "START TIME",
               "equipment_name": "PHASE 2 NO.15 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 464,
               "param_name": "END TIME",
               "equipment_name": "PHASE 2 NO.15 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 465,
@@ -5679,15 +5727,15 @@
               "configparam_id": 472,
               "param_name": "START TIME",
               "equipment_name": "PHASE 2 NO.16 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 474,
               "param_name": "END TIME",
               "equipment_name": "PHASE 2 NO.16 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 475,
@@ -5701,7 +5749,15 @@
         {
           "topic": "LEVEL P#12",
           "time_slot": 7,
-          "time_slots": ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00", "24:00"],
+          "time_slots": [
+            "00:00",
+            "04:00",
+            "08:00",
+            "12:00",
+            "16:00",
+            "20:00",
+            "24:00"
+          ],
           "params": [
             {
               "configparam_id": 316,
@@ -5827,7 +5883,10 @@
         {
           "topic": "FTR RUNTIME, ENERGY P#34",
           "time_slot": 2,
-          "time_slots": ["00:00", "24:00"],
+          "time_slots": [
+            "00:00",
+            "24:00"
+          ],
           "params": [
             {
               "configparam_id": 477,
@@ -6044,7 +6103,15 @@
         {
           "topic": "STATUS P#34",
           "time_slot": 7,
-          "time_slots": ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00", "24:00"],
+          "time_slots": [
+            "00:00",
+            "04:00",
+            "08:00",
+            "12:00",
+            "16:00",
+            "20:00",
+            "24:00"
+          ],
           "params": [
             {
               "configparam_id": 476,
@@ -6247,7 +6314,12 @@
         {
           "topic": "BACKWASHING P#3",
           "time_slot": 4,
-          "time_slots": ["00:00", "08:00", "16:00", "24:00"],
+          "time_slots": [
+            "00:00",
+            "08:00",
+            "16:00",
+            "24:00"
+          ],
           "params": [
             {
               "configparam_id": 479,
@@ -6274,15 +6346,15 @@
               "configparam_id": 482,
               "param_name": "START TIME",
               "equipment_name": "PHASE 3 NO.1 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 484,
               "param_name": "END TIME",
               "equipment_name": "PHASE 3 NO.1 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 485,
@@ -6316,15 +6388,15 @@
               "configparam_id": 492,
               "param_name": "START TIME",
               "equipment_name": "PHASE 3 NO.2 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 494,
               "param_name": "END TIME",
               "equipment_name": "PHASE 3 NO.2 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 495,
@@ -6358,15 +6430,15 @@
               "configparam_id": 502,
               "param_name": "START TIME",
               "equipment_name": "PHASE 3 NO.3 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 504,
               "param_name": "END TIME",
               "equipment_name": "PHASE 3 NO.3 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 505,
@@ -6400,15 +6472,15 @@
               "configparam_id": 512,
               "param_name": "START TIME",
               "equipment_name": "PHASE 3 NO.4 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 514,
               "param_name": "END TIME",
               "equipment_name": "PHASE 3 NO.4 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 515,
@@ -6442,15 +6514,15 @@
               "configparam_id": 522,
               "param_name": "START TIME",
               "equipment_name": "PHASE 3 NO.5 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 524,
               "param_name": "END TIME",
               "equipment_name": "PHASE 3 NO.5 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 525,
@@ -6484,15 +6556,15 @@
               "configparam_id": 532,
               "param_name": "START TIME",
               "equipment_name": "PHASE 3 NO.6 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 534,
               "param_name": "END TIME",
               "equipment_name": "PHASE 3 NO.6 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 535,
@@ -6526,15 +6598,15 @@
               "configparam_id": 542,
               "param_name": "START TIME",
               "equipment_name": "PHASE 3 NO.7 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 544,
               "param_name": "END TIME",
               "equipment_name": "PHASE 3 NO.7 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 545,
@@ -6568,15 +6640,15 @@
               "configparam_id": 552,
               "param_name": "START TIME",
               "equipment_name": "PHASE 3 NO.8 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 554,
               "param_name": "END TIME",
               "equipment_name": "PHASE 3 NO.8 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 555,
@@ -6610,15 +6682,15 @@
               "configparam_id": 562,
               "param_name": "START TIME",
               "equipment_name": "PHASE 3 NO.9 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 564,
               "param_name": "END TIME",
               "equipment_name": "PHASE 3 NO.9 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 565,
@@ -6652,15 +6724,15 @@
               "configparam_id": 572,
               "param_name": "START TIME",
               "equipment_name": "PHASE 3 NO.10 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 574,
               "param_name": "END TIME",
               "equipment_name": "PHASE 3 NO.10 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 575,
@@ -6694,15 +6766,15 @@
               "configparam_id": 582,
               "param_name": "START TIME",
               "equipment_name": "PHASE 3 NO.11 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 584,
               "param_name": "END TIME",
               "equipment_name": "PHASE 3 NO.11 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 585,
@@ -6736,15 +6808,15 @@
               "configparam_id": 592,
               "param_name": "START TIME",
               "equipment_name": "PHASE 3 NO.12 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 594,
               "param_name": "END TIME",
               "equipment_name": "PHASE 3 NO.12 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 595,
@@ -6778,15 +6850,15 @@
               "configparam_id": 602,
               "param_name": "START TIME",
               "equipment_name": "PHASE 3 NO.13 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 604,
               "param_name": "END TIME",
               "equipment_name": "PHASE 3 NO.13 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 605,
@@ -6820,15 +6892,15 @@
               "configparam_id": 612,
               "param_name": "START TIME",
               "equipment_name": "PHASE 3 NO.14 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 614,
               "param_name": "END TIME",
               "equipment_name": "PHASE 3 NO.14 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 615,
@@ -6842,7 +6914,12 @@
         {
           "topic": "BACKWASHING P#4",
           "time_slot": 4,
-          "time_slots": ["00:00", "08:00", "16:00", "24:00"],
+          "time_slots": [
+            "00:00",
+            "08:00",
+            "16:00",
+            "24:00"
+          ],
           "params": [
             {
               "configparam_id": 621,
@@ -6869,15 +6946,15 @@
               "configparam_id": 624,
               "param_name": "START TIME",
               "equipment_name": "PHASE 4 NO.1 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 626,
               "param_name": "END TIME",
               "equipment_name": "PHASE 4 NO.1 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 627,
@@ -6911,15 +6988,15 @@
               "configparam_id": 634,
               "param_name": "START TIME",
               "equipment_name": "PHASE 4 NO.2 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 636,
               "param_name": "END TIME",
               "equipment_name": "PHASE 4 NO.2 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 637,
@@ -6953,15 +7030,15 @@
               "configparam_id": 644,
               "param_name": "START TIME",
               "equipment_name": "PHASE 4 NO.3 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 646,
               "param_name": "END TIME",
               "equipment_name": "PHASE 4 NO.3 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 647,
@@ -6995,15 +7072,15 @@
               "configparam_id": 654,
               "param_name": "START TIME",
               "equipment_name": "PHASE 4 NO.4 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 656,
               "param_name": "END TIME",
               "equipment_name": "PHASE 4 NO.4 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 657,
@@ -7037,15 +7114,15 @@
               "configparam_id": 664,
               "param_name": "START TIME",
               "equipment_name": "PHASE 4 NO.5 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 666,
               "param_name": "END TIME",
               "equipment_name": "PHASE 4 NO.5 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 667,
@@ -7079,15 +7156,15 @@
               "configparam_id": 674,
               "param_name": "START TIME",
               "equipment_name": "PHASE 4 NO.6 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 676,
               "param_name": "END TIME",
               "equipment_name": "PHASE 4 NO.6 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 677,
@@ -7121,15 +7198,15 @@
               "configparam_id": 684,
               "param_name": "START TIME",
               "equipment_name": "PHASE 4 NO.7 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 686,
               "param_name": "END TIME",
               "equipment_name": "PHASE 4 NO.7 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 687,
@@ -7163,15 +7240,15 @@
               "configparam_id": 694,
               "param_name": "START TIME",
               "equipment_name": "PHASE 4 NO.8 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 696,
               "param_name": "END TIME",
               "equipment_name": "PHASE 4 NO.8 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 697,
@@ -7205,15 +7282,15 @@
               "configparam_id": 704,
               "param_name": "START TIME",
               "equipment_name": "PHASE 4 NO.9 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 706,
               "param_name": "END TIME",
               "equipment_name": "PHASE 4 NO.9 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 707,
@@ -7247,15 +7324,15 @@
               "configparam_id": 714,
               "param_name": "START TIME",
               "equipment_name": "PHASE 4 NO.10 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 716,
               "param_name": "END TIME",
               "equipment_name": "PHASE 4 NO.10 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 717,
@@ -7289,15 +7366,15 @@
               "configparam_id": 724,
               "param_name": "START TIME",
               "equipment_name": "PHASE 4 NO.11 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 726,
               "param_name": "END TIME",
               "equipment_name": "PHASE 4 NO.11 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 727,
@@ -7331,15 +7408,15 @@
               "configparam_id": 734,
               "param_name": "START TIME",
               "equipment_name": "PHASE 4 NO.12 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 736,
               "param_name": "END TIME",
               "equipment_name": "PHASE 4 NO.12 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 737,
@@ -7373,15 +7450,15 @@
               "configparam_id": 744,
               "param_name": "START TIME",
               "equipment_name": "PHASE 4 NO.13 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 746,
               "param_name": "END TIME",
               "equipment_name": "PHASE 4 NO.13 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 747,
@@ -7415,15 +7492,15 @@
               "configparam_id": 754,
               "param_name": "START TIME",
               "equipment_name": "PHASE 4 NO.14 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 756,
               "param_name": "END TIME",
               "equipment_name": "PHASE 4 NO.14 - WASHING",
-              "unit": "hh:mm",
-              "type": "TEXT"
+              "unit": "HH.MM",
+              "type": "FLOAT(2)"
             },
             {
               "configparam_id": 757,
@@ -7437,7 +7514,15 @@
         {
           "topic": "LEVEL P#34",
           "time_slot": 7,
-          "time_slots": ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00", "24:00"],
+          "time_slots": [
+            "00:00",
+            "04:00",
+            "08:00",
+            "12:00",
+            "16:00",
+            "20:00",
+            "24:00"
+          ],
           "params": [
             {
               "configparam_id": 6692,

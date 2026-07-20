@@ -69,6 +69,11 @@ const LAYOUTS_DIR = path.join(__dirname, '..', 'config', 'user_layouts');
 router.get('/nodes', (req, res) => {
   try {
     const data = JSON.parse(fs.readFileSync(NODES_PATH, 'utf8'));
+    const { station_id } = req.query;
+    if (station_id) {
+      const station = (data.stations || []).find(s => s.id === station_id) ?? null;
+      return res.json({ station });
+    }
     res.json(data);
   } catch {
     res.status(500).json({ error: 'Failed to load operator nodes config' });
@@ -136,8 +141,12 @@ async function fetchAquadatHistory(station_id, topic_filter, date, token) {
   if (!allPatterns || !token) return {};
 
   // If a specific topic is requested, fetch only that one; otherwise fetch all sequentially
+  // Match by node_topics array (operator_nodes name) or legacy topic field (pattern name)
   const patterns = topic_filter
-    ? allPatterns.filter(p => p.topic === topic_filter)
+    ? allPatterns.filter(p =>
+        (Array.isArray(p.node_topics) && p.node_topics.includes(topic_filter)) ||
+        p.topic === topic_filter
+      )
     : allPatterns;
   if (!patterns.length) return {};
 
@@ -416,6 +425,34 @@ router.post('/graphql-proxy', async (req, res) => {
   } catch (e) {
     console.error('[graphql-proxy] error:', e.message);
     res.status(502).json({ error: e.message });
+  }
+});
+
+// POST /api/operator/validate  { station_id, date, data }
+// data = { [configparam_id]: { [slot]: value_string } }
+router.post('/validate', (req, res) => {
+  const { station_id, date, data } = req.body;
+  if (!station_id || !data) return res.status(400).json({ error: 'station_id and data required' });
+
+  try {
+    let result;
+    switch (station_id) {
+      case 'RWS1': { const { validateRWS1 } = require('../services/dailyValidator_RWS'); result = validateRWS1(data); break; }
+      case 'RWS2': { const { validateRWS2 } = require('../services/dailyValidator_RWS'); result = validateRWS2(data); break; }
+      case 'TPS':  { const { validateTPS }  = require('../services/dailyValidator_TPS'); result = validateTPS(data); break; }
+      case 'DPS':  { const { validateDPS }  = require('../services/dailyValidator_TPS'); result = validateDPS(data); break; }
+      case 'FWS1': { const { validateFWS1 } = require('../services/dailyValidator_FWS'); result = validateFWS1(data); break; }
+      case 'FWS2': { const { validateFWS2 } = require('../services/dailyValidator_FWS'); result = validateFWS2(data); break; }
+      case 'CWS1': { const { validateCWS1 } = require('../services/dailyValidator_CWS'); result = validateCWS1(data); break; }
+      case 'CWS2': { const { validateCWS2 } = require('../services/dailyValidator_CWS'); result = validateCWS2(data); break; }
+      case 'CHEM1':{ const { validateCHEM1 }= require('../services/dailyValidator_CHEM'); result = validateCHEM1(data); break; }
+      case 'CHEM2':{ const { validateCHEM2 }= require('../services/dailyValidator_CHEM'); result = validateCHEM2(data); break; }
+      default: return res.status(400).json({ error: `Validator for station "${station_id}" not implemented` });
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('[operator/validate]', err);
+    res.status(500).json({ error: err.message });
   }
 });
 

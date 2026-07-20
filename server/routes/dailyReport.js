@@ -2,24 +2,301 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
 const { computeDailyReport } = require('../services/dailyReport');
 const { getDb, nowTH } = require('../services/db');
+const { fetchAquadatHistory, fetchDailyReportHistory, DAILY_REPORT_ENTRIES, DAILY_REPORT_STATIONS } = require('../services/aquadatHistory');
+const { getStage } = require('../services/stageMonitor');
 
 const SETTINGS_PATH = path.join(__dirname, '..', 'config', 'app_settings.json');
+const NODES_PATH    = path.join(__dirname, '..', 'config', 'operator_nodes.json');
+
+const BELLBEAST_HOST = process.env.BELLBEAST_HOST || 'localhost';
+const BELLBEAST_PORT = parseInt(process.env.BELLBEAST_PORT || '443', 10);
+
+function fetchUroborosHistory(configIds) {
+  return new Promise((resolve) => {
+    if (!configIds || configIds.length === 0) { resolve([]); return; }
+    const qs = `?configIDs=${configIds.join(',')}`;
+    const options = {
+      hostname: BELLBEAST_HOST,
+      port: BELLBEAST_PORT,
+      path: `/api/operator/data${qs}`,
+      method: 'GET',
+      timeout: 8000,
+    };
+    const req = http.request(options, (res) => {
+      let raw = '';
+      res.on('data', d => { raw += d; });
+      res.on('end', () => {
+        try { resolve(JSON.parse(raw)); } catch { resolve(null); }
+      });
+    });
+    req.on('error', () => resolve(null));
+    req.on('timeout', () => { req.destroy(); resolve(null); });
+    req.end();
+  });
+}
 
 function loadSettings() {
   try { return JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8')); }
   catch { return {}; }
 }
 
+// In-memory cache: { [date]: { [stationId]: { [cfgId]: { [slot]: value } } } }
+const historyCache = {};
+
+function getCache(date) {
+  if (!historyCache[date]) historyCache[date] = {};
+  return historyCache[date];
+}
+
+function sseHeaders(res) {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+}
+
+function sseSend(res, obj) {
+  res.write(`data: ${JSON.stringify(obj)}\n\n`);
+}
+
+// GET /api/daily-report/stream?date=  — SSE: fetch all stations serially, cache, compute
+router.get('/stream', async (req, res) => {
+  const { date } = req.query;
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'date required (YYYY-MM-DD)' });
+  }
+  sseHeaders(res);
+
+  if (getStage() === 1) {
+    const token = req.cookies?.aquadat_token;
+    if (token) {
+      const cache = getCache(date);
+      const result = await fetchDailyReportHistory(date, token, (sid, status, count) => {
+        sseSend(res, { type: 'step', station: sid, status, count: count ?? 0 });
+      });
+      Object.assign(cache, result);
+    } else {
+      sseSend(res, { type: 'info', msg: 'ไม่มี token — ดึงข้อมูลจาก SQLite' });
+    }
+  } else {
+    sseSend(res, { type: 'info', msg: `Stage ${getStage()} — ดึงจาก SQLite` });
+  }
+
+  sseSend(res, { type: 'step', station: 'compute', status: 'loading' });
+  try {
+    const cache = historyCache[date] || null;
+    const report = computeDailyReport(date, loadSettings(), Object.keys(cache || {}).length ? cache : null);
+    sseSend(res, { type: 'step', station: 'compute', status: 'done' });
+    sseSend(res, { type: 'done', report });
+  } catch (e) {
+    sseSend(res, { type: 'step', station: 'compute', status: 'error', msg: e.message });
+    sseSend(res, { type: 'error', msg: e.message });
+  }
+  res.end();
+});
+
+// GET /api/daily-report/stream-station?date=&station=  — SSE: re-fetch one station, recompute
+router.get('/stream-station', async (req, res) => {
+  const { date, station } = req.query;
+  if (!date || !station) return res.status(400).json({ error: 'date and station required' });
+  sseHeaders(res);
+
+  const entry = DAILY_REPORT_ENTRIES.find(e => e.sid === station);
+  if (!entry) {
+    sseSend(res, { type: 'step', station, status: 'error', msg: 'unknown station' });
+    sseSend(res, { type: 'error', msg: 'unknown station' });
+    return res.end();
+  }
+
+  if (getStage() === 1) {
+    const token = req.cookies?.aquadat_token;
+    if (token) {
+      const thHour = new Date(Date.now() + 7 * 3600 * 1000).getUTCHours();
+      const dayshift_id = thHour < 8 ? 1 : thHour < 16 ? 2 : 3;
+      const { fetchOnePattern } = require('../services/aquadatHistory');
+      sseSend(res, { type: 'step', station, status: 'loading' });
+      const out = {};
+      let failed = false;
+      for (const pattern_id of entry.patterns) {
+        try {
+          await fetchOnePattern(station, pattern_id, date, dayshift_id, token, out);
+        } catch (e) {
+          console.warn(`[stream-station] ${station} pattern ${pattern_id}:`, e.message);
+          failed = true;
+        }
+      }
+      const count = Object.values(out).reduce((s, slots) => s + Object.keys(slots).length, 0);
+      sseSend(res, { type: 'step', station, status: failed && count === 0 ? 'error' : 'done', count });
+      getCache(date)[station] = out;
+    } else {
+      sseSend(res, { type: 'info', msg: 'ไม่มี token' });
+    }
+  }
+
+  sseSend(res, { type: 'step', station: 'compute', status: 'loading' });
+  try {
+    const cache = historyCache[date] || null;
+    const report = computeDailyReport(date, loadSettings(), Object.keys(cache || {}).length ? cache : null);
+    sseSend(res, { type: 'step', station: 'compute', status: 'done' });
+    sseSend(res, { type: 'done', report });
+  } catch (e) {
+    sseSend(res, { type: 'step', station: 'compute', status: 'error', msg: e.message });
+    sseSend(res, { type: 'error', msg: e.message });
+  }
+  res.end();
+});
+
+// GET /api/daily-report/stream-stage0?date=  — SSE: fetch all stations from Uroboros, compute (stage=0)
+router.get('/stream-stage0', async (req, res) => {
+  const { date } = req.query;
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'date required (YYYY-MM-DD)' });
+  }
+  sseHeaders(res);
+
+  let nodes;
+  try { nodes = JSON.parse(fs.readFileSync(NODES_PATH, 'utf8')); }
+  catch { sseSend(res, { type: 'error', msg: 'โหลด operator_nodes ไม่ได้' }); return res.end(); }
+
+  const historyMap = {};
+
+  for (const station of nodes.stations || []) {
+    const sid = station.station_id ?? station.id;
+    const allParams = (station.topics || []).flatMap(t => t.params || []);
+    const configIds = [...new Set(allParams.map(p => p.configparam_id).filter(Boolean))];
+
+    sseSend(res, { type: 'step', station: sid, status: 'loading', count: 0 });
+    try {
+      const rows = await fetchUroborosHistory(configIds);
+      const stMap = {};
+      if (Array.isArray(rows)) {
+        for (const r of rows) {
+          const cid = String(r.configID ?? r.configparam_id ?? '');
+          const slot = (r.ts ?? '').slice(11, 16);
+          const val  = r.value_text ?? (r.value != null ? String(r.value) : '');
+          if (!cid || !slot) continue;
+          if (!stMap[cid]) stMap[cid] = {};
+          stMap[cid][slot] = val;
+        }
+      }
+      historyMap[sid] = stMap;
+      const count = Object.keys(stMap).length;
+      sseSend(res, { type: 'step', station: sid, status: 'done', count });
+    } catch (e) {
+      console.warn(`[stream-stage0] ${sid}:`, e.message);
+      sseSend(res, { type: 'step', station: sid, status: 'error', count: 0 });
+    }
+  }
+
+  sseSend(res, { type: 'step', station: 'compute', status: 'loading' });
+  try {
+    const report = computeDailyReport(date, loadSettings(), historyMap);
+    sseSend(res, { type: 'step', station: 'compute', status: 'done' });
+    sseSend(res, { type: 'done', report });
+  } catch (e) {
+    sseSend(res, { type: 'step', station: 'compute', status: 'error', msg: e.message });
+    sseSend(res, { type: 'error', msg: e.message });
+  }
+  res.end();
+});
+
+// GET /api/daily-report/stream-station-stage0?date=&station=  — SSE: re-fetch one station from Uroboros, recompute
+router.get('/stream-station-stage0', async (req, res) => {
+  const { date, station } = req.query;
+  if (!date || !station) return res.status(400).json({ error: 'date and station required' });
+  sseHeaders(res);
+
+  let nodes;
+  try { nodes = JSON.parse(fs.readFileSync(NODES_PATH, 'utf8')); }
+  catch { sseSend(res, { type: 'error', msg: 'โหลด operator_nodes ไม่ได้' }); return res.end(); }
+
+  const stationDef = nodes.stations?.find(s => (s.station_id ?? s.id) === station);
+  if (!stationDef) {
+    sseSend(res, { type: 'step', station, status: 'error', count: 0 });
+    sseSend(res, { type: 'error', msg: 'unknown station' });
+    return res.end();
+  }
+
+  const allParams = (stationDef.topics || []).flatMap(t => t.params || []);
+  const configIds = [...new Set(allParams.map(p => p.configparam_id).filter(Boolean))];
+
+  sseSend(res, { type: 'step', station, status: 'loading', count: 0 });
+  try {
+    const rows = await fetchUroborosHistory(configIds);
+    const stMap = {};
+    if (Array.isArray(rows)) {
+      for (const r of rows) {
+        const cid = String(r.configID ?? r.configparam_id ?? '');
+        const slot = (r.ts ?? '').slice(11, 16);
+        const val  = r.value_text ?? (r.value != null ? String(r.value) : '');
+        if (!cid || !slot) continue;
+        if (!stMap[cid]) stMap[cid] = {};
+        stMap[cid][slot] = val;
+      }
+    }
+    const cache = getCache(date);
+    cache[station] = stMap;
+    sseSend(res, { type: 'step', station, status: 'done', count: Object.keys(stMap).length });
+  } catch (e) {
+    console.warn(`[stream-station-stage0] ${station}:`, e.message);
+    sseSend(res, { type: 'step', station, status: 'error', count: 0 });
+  }
+
+  sseSend(res, { type: 'step', station: 'compute', status: 'loading' });
+  try {
+    const cache = historyCache[date] || null;
+    const report = computeDailyReport(date, loadSettings(), Object.keys(cache || {}).length ? cache : null);
+    sseSend(res, { type: 'step', station: 'compute', status: 'done' });
+    sseSend(res, { type: 'done', report });
+  } catch (e) {
+    sseSend(res, { type: 'step', station: 'compute', status: 'error', msg: e.message });
+    sseSend(res, { type: 'error', msg: e.message });
+  }
+  res.end();
+});
+
+// GET /api/daily-report/debug?date=YYYY-MM-DD  — returns cfgIds per station (temp)
+router.get('/debug', async (req, res) => {
+  const { date } = req.query;
+  if (!date) return res.status(400).json({ error: 'date required' });
+  if (getStage() !== 1) return res.json({ stage: getStage(), msg: 'not stage 1' });
+  const token = req.cookies?.aquadat_token;
+  if (!token) return res.json({ error: 'no token' });
+  const historyMap = {};
+  for (const sid of DAILY_REPORT_STATIONS) {
+    historyMap[sid] = await fetchAquadatHistory(sid, null, date, token);
+  }
+  const summary = {};
+  for (const [sid, cfgMap] of Object.entries(historyMap)) {
+    summary[sid] = Object.keys(cfgMap).map(id => ({
+      id,
+      slots: Object.keys(cfgMap[id]),
+      sample_00: cfgMap[id]['00:00'],
+      sample_24: cfgMap[id]['24:00'],
+    }));
+  }
+  res.json(summary);
+});
+
 // GET /api/daily-report?date=YYYY-MM-DD
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const { date } = req.query;
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return res.status(400).json({ error: 'date query param required (YYYY-MM-DD)' });
   }
   try {
-    const report = computeDailyReport(date, loadSettings());
+    let historyMap = null;
+    if (getStage() === 1) {
+      const token = req.cookies?.aquadat_token;
+      if (token) {
+        historyMap = await fetchAllStationsHistory(date, token);
+        console.log('[daily-report] fetched AquaDAT history for', date);
+      }
+    }
+    const report = computeDailyReport(date, loadSettings(), historyMap);
     res.json(report);
   } catch (err) {
     console.error('[daily-report]', err);
@@ -28,12 +305,16 @@ router.get('/', (req, res) => {
 });
 
 // POST /api/daily-report/validate  { date }
-// Returns list of null fields split into errors (critical) and warnings (secondary)
-router.post('/validate', (req, res) => {
+router.post('/validate', async (req, res) => {
   const { date } = req.body;
   if (!date) return res.status(400).json({ error: 'date required' });
   try {
-    const r = computeDailyReport(date, loadSettings());
+    let historyMap = null;
+    if (getStage() === 1) {
+      const token = req.cookies?.aquadat_token;
+      if (token) historyMap = await fetchAllStationsHistory(date, token);
+    }
+    const r = computeDailyReport(date, loadSettings(), historyMap);
 
     const errors = [];
     const warnings = [];
@@ -86,12 +367,17 @@ router.post('/validate', (req, res) => {
 });
 
 // POST /api/daily-report/save  { date, shift }
-router.post('/save', (req, res) => {
+router.post('/save', async (req, res) => {
   const { date, shift = 1 } = req.body;
   if (!date) return res.status(400).json({ error: 'date required' });
   try {
+    let historyMap = null;
+    if (getStage() === 1) {
+      const token = req.cookies?.aquadat_token;
+      if (token) historyMap = await fetchAllStationsHistory(date, token);
+    }
     const settings = loadSettings();
-    const r = computeDailyReport(date, settings);
+    const r = computeDailyReport(date, settings, historyMap);
     const db = getDb();
     const now = nowTH();
     const s = settings.chem_cost || {};

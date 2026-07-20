@@ -1,5 +1,5 @@
 // In production (served via BellBeast proxy), prefix all API calls with /labventure
-const BASE = import.meta.env.PROD ? '/labventure' : '';
+export const BASE = import.meta.env.PROD ? '/labventure' : '';
 
 // Centralized fetch helper — always sends cookies
 async function api(path, opts = {}) {
@@ -17,7 +17,7 @@ async function api(path, opts = {}) {
   return data;
 }
 
-export const get = (path) => api(path);
+export const get = (path, opts) => api(path, opts);
 export const post = (path, body) => api(path, { method: 'POST', body });
 export const put = (path, body) => api(path, { method: 'PUT', body });
 export const patch = (path, body) => api(path, { method: 'PATCH', body });
