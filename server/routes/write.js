@@ -305,6 +305,22 @@ router.post('/nodes', requireAuth, async (req, res) => {
       aquadatError = err.message;
       console.error('[write/nodes] AquaDAT write failed:', err.message);
       const transDtm = finalRecords[0]?.trans_dtm ?? '';
+      const newTransTime = aquadatRecords[0]?.trans_time;
+      const newCfgIds = new Set(aquadatRecords.map(r => r.configparam_id));
+      // Remove stale queue rows for the exact same (date, slot, overlapping params)
+      // Must match trans_time from payload — not just trans_dtm — to avoid cross-slot data loss
+      const existingRows = db.all(
+        `SELECT id, payload FROM aquadat_queue WHERE trans_dtm = ? AND status IN ('pending','dead')`,
+        [transDtm]
+      );
+      for (const row of existingRows) {
+        try {
+          const p = JSON.parse(row.payload);
+          const sameSlot = p[0]?.trans_time === newTransTime;
+          const overlaps = p.some(r => newCfgIds.has(r.configparam_id));
+          if (sameSlot && overlaps) db.run(`DELETE FROM aquadat_queue WHERE id = ?`, [row.id]);
+        } catch {}
+      }
       db.run(
         `INSERT INTO aquadat_queue (created_at, trans_dtm, payload, status) VALUES (?, ?, ?, 'pending')`,
         [now, transDtm, JSON.stringify(aquadatRecords)]

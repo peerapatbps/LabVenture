@@ -124,8 +124,40 @@ def push_to_dest(local_path, push_path):
     except Exception as e:
         sys.stderr.write(f'[excel_writer] push to {push_path} failed: {e}\n')
 
+def _find_open_book(file_path):
+    """คืน (app, book) ถ้าไฟล์เปิดอยู่ใน Excel instance ที่รันอยู่แล้ว ไม่เช่นนั้นคืน (None, None)."""
+    import xlwings as xw
+    norm = os.path.normcase(os.path.abspath(file_path))
+    for app in xw.apps:
+        for book in app.books:
+            try:
+                if os.path.normcase(os.path.abspath(book.fullname)) == norm:
+                    return app, book
+            except Exception:
+                pass
+    return None, None
+
+
+def _clear_stale_lock(file_path):
+    """ลบ ~$filename lock file ถ้ามีอยู่แต่ไม่มี Excel COM instance เปิดไฟล์นั้นจริง ๆ
+    Excel สร้าง lock file เมื่อเปิดไฟล์ และลบเมื่อปิด — ถ้า Excel crash lock จะค้างไว้
+    ทำให้ invisible xlwings app เปิดไฟล์เป็น read-only โดยไม่จำเป็น"""
+    dirpath = os.path.dirname(os.path.abspath(file_path))
+    lock_path = os.path.join(dirpath, '~$' + os.path.basename(file_path))
+    if os.path.exists(lock_path):
+        try:
+            os.remove(lock_path)
+            sys.stderr.write(f'[excel_writer] removed stale lock: {os.path.basename(lock_path)}\n')
+        except Exception as e:
+            sys.stderr.write(f'[excel_writer] cannot remove stale lock {lock_path}: {e}\n')
+
+
 def _write_day_xlwings(file_path, date_str, day_records, recorders):
-    """เขียนข้อมูลลงไฟล์ที่มีอยู่แล้วผ่าน Excel COM — ไม่ rewrite ไฟล์ทั้งหมด."""
+    """เขียนข้อมูลลงไฟล์ที่มีอยู่แล้วผ่าน Excel COM — ไม่ rewrite ไฟล์ทั้งหมด.
+
+    ถ้า Excel มีไฟล์นี้เปิดอยู่แล้ว → เขียนผ่าน book นั้นโดยตรง (ไม่สร้าง instance ใหม่)
+    เพื่อหลีกเลี่ยงการเปิด read-only copy ที่ save แล้วไม่เขียนทับไฟล์จริง
+    """
     import xlwings as xw
 
     pin_local(file_path)
@@ -134,9 +166,15 @@ def _write_day_xlwings(file_path, date_str, day_records, recorders):
     buddhist_year = int(y) + 543
     month_th = _MONTH_TH[int(m) - 1]
 
-    app = xw.App(visible=False, add_book=False)
+    # ถ้า Excel เปิดไฟล์นี้อยู่แล้ว ใช้ book นั้น (ไม่สร้าง app ใหม่)
+    existing_app, wb = _find_open_book(file_path)
+    owned_app = None
+    if wb is None:
+        _clear_stale_lock(file_path)   # ถ้า Excel crash ทิ้ง ~$ lock ไว้ ลบก่อนเปิด
+        owned_app = xw.App(visible=False, add_book=False)
+        wb = owned_app.books.open(file_path)
+
     try:
-        wb = app.books.open(file_path)
         sheet_names = [s.name for s in wb.sheets]
 
         if day not in sheet_names:
@@ -183,10 +221,12 @@ def _write_day_xlwings(file_path, date_str, day_records, recorders):
             ws[addr].value = label
 
         wb.save()
-        wb.close()
+        if owned_app:
+            wb.close()
         return written
     finally:
-        app.quit()
+        if owned_app:
+            owned_app.quit()
 
 
 def _write_day(wb, date_str, day_records, recorders):

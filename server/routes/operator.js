@@ -39,10 +39,11 @@ function forwardToUroboros(records, stationId) {
   });
 }
 
-function fetchUroborosHistory(configIds) {
+function fetchUroborosHistory(configIds, date) {
   return new Promise((resolve) => {
     if (!configIds || configIds.length === 0) { resolve([]); return; }
-    const qs = `?configIDs=${configIds.join(',')}`;
+    let qs = `?configIDs=${configIds.join(',')}`;
+    if (date) qs += `&date=${encodeURIComponent(date)}`;
     const options = {
       hostname: BELLBEAST_HOST,
       port: BELLBEAST_PORT,
@@ -96,16 +97,19 @@ router.get('/todos', (req, res) => {
 // Fetch one pattern_id from Aquadat and merge into out map
 async function fetchOnePattern(topic, pattern_id, date, dayshift_id, token, out) {
   const query = `{\n  get_transaction_datavalues_pattern(\n    pattern_id: ${pattern_id}\n    trans_dtm: "${date}"\n    dayshift_id: ${dayshift_id}\n    dtl_flag: false\n  ) {\n    var_data\n    __typename\n  }\n}\n`;
-  const r = await fetch(GRAPHQL_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify({ variables: {}, query }),
-    timeout: 20000,
-  });
+  const body = JSON.stringify({ variables: {}, query });
+  const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': `Bearer ${token}` };
+  let r;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      r = await fetch(GRAPHQL_URL, { method: 'POST', headers, body, timeout: 20000 });
+      break;
+    } catch (e) {
+      if (attempt === 2) throw new Error(`network timeout at: ${GRAPHQL_URL}`);
+      console.warn(`[history/aquadat] ${topic} pattern ${pattern_id} retry (attempt ${attempt})...`);
+      await new Promise(res => setTimeout(res, 3000));
+    }
+  }
   const data = await r.json();
   if (data.errors || !data.data) {
     console.warn(`[history/aquadat] ${topic} pattern ${pattern_id} error:`, data.errors?.[0]?.message);
@@ -199,13 +203,21 @@ router.get('/history', async (req, res) => {
   const configIds = params.map(p => p.configparam_id).filter(Boolean);
   if (configIds.length === 0) return res.json({});
 
-  const rows = await fetchUroborosHistory(configIds);
+  const rows = await fetchUroborosHistory(configIds, date);
   if (!Array.isArray(rows)) return res.json({});
+
   const out = {};
-  for (const r of rows) {
-    const cid = String(r.configID ?? r.configparam_id ?? '');
-    const slot = (r.ts ?? '').slice(11, 16); // "HH:mm"
-    const val  = r.value_text ?? (r.value != null ? String(r.value) : '');
+  const seenMidnight = {};
+  const sorted = [...rows].sort((a, b) => (a.ts ?? '') < (b.ts ?? '') ? -1 : 1);
+  for (const r of sorted) {
+    const cid    = String(r.configID ?? r.configparam_id ?? '');
+    const tsTime = (r.ts ?? '').slice(11, 16);
+    let slot = tsTime;
+    if (tsTime === '00:00') {
+      if (!seenMidnight[cid]) { seenMidnight[cid] = true; }
+      else { slot = '24:00'; }
+    }
+    const val = r.value_text ?? (r.value != null ? String(r.value) : '');
     if (!cid || !slot) continue;
     if (!out[cid]) out[cid] = {};
     out[cid][slot] = val;
@@ -342,10 +354,25 @@ router.post('/record', async (req, res) => {
     }
   }
 
-  // Stage 1: write to Aquadat
+  // Stage 1: write to Aquadat (bypass tokens route to Uroboros instead)
   try {
     const token = req.cookies?.aquadat_token;
     if (!token) return res.status(401).json({ error: 'Not authenticated' });
+
+    let isBypassToken = false;
+    try {
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const p = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
+        isBypassToken = !!p.bypass;
+      }
+    } catch {}
+
+    if (isBypassToken) {
+      const result = await forwardToUroboros(records, station_id);
+      return res.json({ ...result, stage, routed_to: 'uroboros' });
+    }
+
     await writeData(token, records);
     return res.json({ ok: true, saved: records.length, station_id, stage, routed_to: 'aquadat' });
   } catch (err) {

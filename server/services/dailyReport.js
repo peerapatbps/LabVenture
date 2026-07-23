@@ -127,6 +127,60 @@ function sumNullable(...vals) {
 
 // historyMap: { [stationId]: { [configparam_id]: { [slot]: value_string } } }
 // Pre-fetched from AquaDAT; falls back to SQLite node_records when null/missing.
+// Flow-weighted average dosing rate over hourly slots 01:00–24:00
+function weightedAvgDR(flowId, drId, stationId, historyMap) {
+  const stMap = historyMap?.[stationId];
+  if (!stMap) return null;
+  const flowSlots = stMap[String(flowId)] || {};
+  const drSlots   = stMap[String(drId)]   || {};
+  let sumFD = 0, sumF = 0;
+  for (let h = 1; h <= 24; h++) {
+    const slot = String(h).padStart(2, '0') + ':00';
+    const f  = parseFloat(flowSlots[slot]);
+    const dr = parseFloat(drSlots[slot]);
+    if (!isNaN(f) && !isNaN(dr) && f > 0 && dr > 0) { sumFD += f * dr; sumF += f; }
+  }
+  return sumF > 0 ? sumFD / sumF : null;
+}
+
+// Sum of (flow × DR) products — used as proportioning weight (no totalizer)
+function sumFlowDR(flowId, drId, stationId, historyMap) {
+  const stMap = historyMap?.[stationId];
+  if (!stMap) return null;
+  const flowSlots = stMap[String(flowId)] || {};
+  const drSlots   = stMap[String(drId)]   || {};
+  let sumFD = 0, hasAny = false;
+  for (let h = 1; h <= 24; h++) {
+    const slot = String(h).padStart(2, '0') + ':00';
+    const f  = parseFloat(flowSlots[slot]);
+    const dr = parseFloat(drSlots[slot]);
+    if (!isNaN(f) && !isNaN(dr) && f > 0 && dr > 0) { sumFD += f * dr; hasAny = true; }
+  }
+  return hasAny ? sumFD : null;
+}
+
+// 2h net volume × DR — for chlorine where flow comes from totalizer delta (like formula 8384/8385/8386/8387)
+// totId/totStation: the totalizer cfgId (e.g. 4 in RWS1); drId/drStation: the DR cfgId (e.g. 129 in CHEM1)
+// Returns { sumFD: Σ(flow_2h × DR), sumF: Σ(flow_2h) } over slots where flow>0 and dr>0
+function sumDeltaFlowDR(totId, totStation, drId, drStation, historyMap) {
+  const totSlots = historyMap?.[totStation]?.[String(totId)] || {};
+  const drSlots  = historyMap?.[drStation]?.[String(drId)]   || {};
+  let sumFD = 0, sumF = 0;
+  for (let h = 2; h <= 24; h += 2) {
+    const cur  = String(h).padStart(2, '0') + ':00';
+    const prev = String(h - 2).padStart(2, '0') + ':00';
+    const tc = parseFloat(totSlots[cur]);
+    const tp = parseFloat(totSlots[prev]);
+    const dr = parseFloat(drSlots[cur]);
+    if (isNaN(tc) || isNaN(tp) || isNaN(dr)) continue;
+    const flow = (tc - tp) * 100;
+    if (flow <= 0 || dr <= 0) continue;
+    sumFD += flow * dr;
+    sumF  += flow;
+  }
+  return { sumFD, sumF };
+}
+
 function computeDailyReport(date, settings, historyMap) {
   const h = historyMap || null;
 
@@ -140,6 +194,17 @@ function computeDailyReport(date, settings, historyMap) {
   const V  = (id, sid, t)    => getValueAt(id, sid, date,    t, h);
   const Vn = (id, sid, t)    => getValueAt(id, sid, addDays(date, 1), t, h);
   const MM = (id, sid)       => getMinMax(id, sid, date, h);
+
+  // Chlorine tank consumed (kg): handles normal drain & tank-swap in same day
+  const clLineUsed = (cfgId, sid) => {
+    const v0  = V(cfgId, sid, '00:00');
+    const v24 = V(cfgId, sid, '24:00');
+    if (v0 === null || v24 === null) return null;
+    const delta = v24 - v0;
+    if (delta <= 0) return -delta;            // normal: tank drained
+    const { min: minVal } = MM(cfgId, sid);  // swap: used = v00:00 - min(01:00..24:00)
+    return minVal !== null ? v0 - minVal : null;
+  };
   const DD  = (id, sid)      => getDayDelta(id, sid, date, h);
   const D   = (id, sid)      => getDelta(id, sid, date, h);
   const DS  = (ids, sid)     => getDeltaSum(ids, sid, date, h);
@@ -194,6 +259,103 @@ function computeDailyReport(date, settings, historyMap) {
   const cl2_d = D(191, 'CHEM2');
   const cl2_in  = [cl2_c, cl2_d].filter(v => v !== null && v > 0).reduce((a, b) => a + b, 0) || null;
   const cl2_use = [cl2_c, cl2_d].filter(v => v !== null && v < 0).reduce((a, b) => a + Math.abs(b), 0) || null;
+
+  // ── CHEM1 Alum USE by phase (totalizer-based) ────────────────────────────
+  const alum1_A  = DD(88, 'CHEM1');   // totalizer P1: 24:00 - 00:00
+  const alum1_B  = DD(91, 'CHEM1');   // totalizer P2: 24:00 - 00:00
+  const alum1_C  = sumNullable(DD(93, 'CHEM1'), DD(96, 'CHEM1')); // tank delta
+  const alum1_D  = V(8037, 'CHEM1', '24:00'); // received (pattern 346)
+  // D is tons, C is m³ → convert C to tons with ×1.33 before subtracting
+  const alum1_net = alum1_D !== null && alum1_C !== null ? alum1_D - alum1_C * 1.33 : null;
+  const alum1_AB  = alum1_A !== null && alum1_B !== null ? alum1_A + alum1_B : null;
+  const alum_use_p1 = alum1_net !== null && alum1_AB ? (alum1_A ?? 0) / alum1_AB * alum1_net : null;
+  const alum_use_p2 = alum1_net !== null && alum1_AB ? (alum1_B ?? 0) / alum1_AB * alum1_net : null;
+  // actual dose (mg/L): USE_ton / 2 × 1e6 / raw_water_m3
+  // CHEM1 uses RWS1 only: P1→ph1, P2→ph2
+  const alum_actual_p1 = alum_use_p1 !== null && rw_ph1 ? alum_use_p1 / 2 * 1e6 / rw_ph1 : null;
+  const alum_actual_p2 = alum_use_p2 !== null && rw_ph2 ? alum_use_p2 / 2 * 1e6 / rw_ph2 : null;
+
+  // ── CHEM2 Alum USE by phase (totalizer-based) ────────────────────────────
+  const alum2_A  = DD(150, 'CHEM2');  // totalizer P3: 24:00 - 00:00
+  const alum2_B  = DD(153, 'CHEM2');  // totalizer P4: 24:00 - 00:00
+  const alum2_C  = sumNullable(DD(155, 'CHEM2'), DD(158, 'CHEM2')); // tank delta
+  const alum2_D  = V(8036, 'CHEM2', '24:00'); // received (pattern 347)
+  const alum2_net = alum2_D !== null && alum2_C !== null ? alum2_D - alum2_C * 1.33 : null;
+  const alum2_AB  = alum2_A !== null && alum2_B !== null ? alum2_A + alum2_B : null;
+  const alum_use_p3 = alum2_net !== null && alum2_AB ? (alum2_A ?? 0) / alum2_AB * alum2_net : null;
+  const alum_use_p4 = alum2_net !== null && alum2_AB ? (alum2_B ?? 0) / alum2_AB * alum2_net : null;
+  const alum_actual_p3 = alum_use_p3 !== null && rw_ph3 ? alum_use_p3 / 2 * 1e6 / rw_ph3 : null;
+  const alum_actual_p4 = alum_use_p4 !== null && rw_ph4 ? alum_use_p4 / 2 * 1e6 / rw_ph4 : null;
+
+  // ── CHEM1 PACl USE by phase (flow×DR proportion, no totalizer) ───────────
+  // A/B = Σ(DR_pacl_p1/p2 × flow_p1/p2) used as split ratio
+  const pacl1_A  = sumFlowDR(1, 8402, 'CHEM1', h);   // P1: Σ(flow×DR_pacl)
+  const pacl1_B  = sumFlowDR(2, 8404, 'CHEM1', h);   // P2: Σ(flow×DR_pacl)
+  const pacl1_C  = sumNullable(D(8405, 'CHEM1'), D(8407, 'CHEM1')); // tank A+B delta (m³)
+  const pacl1_D  = V(8423, 'CHEM1', '24:00');          // received (TON)
+  const pacl1_net = pacl1_D !== null && pacl1_C !== null ? pacl1_D - pacl1_C * 1.19 : null;
+  const pacl1_AB  = (pacl1_A ?? 0) + (pacl1_B ?? 0);
+  const pacl_use_p1 = pacl1_net !== null && pacl1_AB > 0 ? (pacl1_A ?? 0) / pacl1_AB * pacl1_net : null;
+  const pacl_use_p2 = pacl1_net !== null && pacl1_AB > 0 ? (pacl1_B ?? 0) / pacl1_AB * pacl1_net : null;
+  const pacl_actual_p1 = pacl_use_p1 !== null && rw_ph1 ? pacl_use_p1 / 2 * 1e6 / rw_ph1 : null;
+  const pacl_actual_p2 = pacl_use_p2 !== null && rw_ph2 ? pacl_use_p2 / 2 * 1e6 / rw_ph2 : null;
+
+  // ── CHEM2 PACl USE by phase (flow×DR proportion, no totalizer) ───────────
+  const pacl2_A  = sumFlowDR(39, 8416, 'CHEM2', h);  // P3: Σ(flow×DR_pacl)
+  const pacl2_B  = sumFlowDR(40, 8418, 'CHEM2', h);  // P4: Σ(flow×DR_pacl)
+  const pacl2_C  = sumNullable(D(8419, 'CHEM2'), D(8421, 'CHEM2')); // tank C+D delta (m³)
+  const pacl2_D  = V(8424, 'CHEM2', '24:00');          // received (TON)
+  const pacl2_net = pacl2_D !== null && pacl2_C !== null ? pacl2_D - pacl2_C * 1.19 : null;
+  const pacl2_AB  = (pacl2_A ?? 0) + (pacl2_B ?? 0);
+  const pacl_use_p3 = pacl2_net !== null && pacl2_AB > 0 ? (pacl2_A ?? 0) / pacl2_AB * pacl2_net : null;
+  const pacl_use_p4 = pacl2_net !== null && pacl2_AB > 0 ? (pacl2_B ?? 0) / pacl2_AB * pacl2_net : null;
+  const pacl_actual_p3 = pacl_use_p3 !== null && rw_ph3 ? pacl_use_p3 / 2 * 1e6 / rw_ph3 : null;
+  const pacl_actual_p4 = pacl_use_p4 !== null && rw_ph4 ? pacl_use_p4 / 2 * 1e6 / rw_ph4 : null;
+
+  // ── CHEM1 Chlorine USE by phase ──────────────────────────────────────────
+  // Weight (proportion): flow rate (m³/s, cfgId 1/2 in CHEM1) × DR  — same unit as weightedAvgDR
+  // Denominator (actual): 2h totalizer delta (m³) from RWS1, only during active DR slots
+  const cl1_wFD_preP1  = sumFlowDR(1, 129, 'CHEM1', h) ?? 0;
+  const cl1_wFD_preP2  = sumFlowDR(2, 131, 'CHEM1', h) ?? 0;
+  const cl1_wFD_postP1 = sumFlowDR(1, 133, 'CHEM1', h) ?? 0;
+  const cl1_wFD_postP2 = sumFlowDR(2, 135, 'CHEM1', h) ?? 0;
+  const cl1_net_kg = (clLineUsed(127, 'CHEM1') ?? 0) + (clLineUsed(128, 'CHEM1') ?? 0);
+  const cl1_wTot   = cl1_wFD_preP1 + cl1_wFD_preP2 + cl1_wFD_postP1 + cl1_wFD_postP2;
+  const cl_use_pre_p1  = cl1_wTot > 0 ? cl1_wFD_preP1  / cl1_wTot * cl1_net_kg : null;
+  const cl_use_pre_p2  = cl1_wTot > 0 ? cl1_wFD_preP2  / cl1_wTot * cl1_net_kg : null;
+  const cl_use_post_p1 = cl1_wTot > 0 ? cl1_wFD_postP1 / cl1_wTot * cl1_net_kg : null;
+  const cl_use_post_p2 = cl1_wTot > 0 ? cl1_wFD_postP2 / cl1_wTot * cl1_net_kg : null;
+  // Actual denominator: 2h net volume (m³) during active DR slots only
+  const cl1_rwPreP1  = sumDeltaFlowDR(4, 'RWS1', 129, 'CHEM1', h).sumF;
+  const cl1_rwPreP2  = sumDeltaFlowDR(7, 'RWS1', 131, 'CHEM1', h).sumF;
+  const cl1_rwPostP1 = sumDeltaFlowDR(4, 'RWS1', 133, 'CHEM1', h).sumF;
+  const cl1_rwPostP2 = sumDeltaFlowDR(7, 'RWS1', 135, 'CHEM1', h).sumF;
+  const cl_actual_pre_p1  = cl_use_pre_p1  != null && cl1_rwPreP1  > 0 ? cl_use_pre_p1  * 1000 / cl1_rwPreP1  : null;
+  const cl_actual_pre_p2  = cl_use_pre_p2  != null && cl1_rwPreP2  > 0 ? cl_use_pre_p2  * 1000 / cl1_rwPreP2  : null;
+  const cl_actual_post_p1 = cl_use_post_p1 != null && cl1_rwPostP1 > 0 ? cl_use_post_p1 * 1000 / cl1_rwPostP1 : null;
+  const cl_actual_post_p2 = cl_use_post_p2 != null && cl1_rwPostP2 > 0 ? cl_use_post_p2 * 1000 / cl1_rwPostP2 : null;
+
+  // ── CHEM2 Chlorine USE by phase ──────────────────────────────────────────
+  // Weight: flow rate (cfgId 39/40 in CHEM2) × DR
+  // Denominator: 2h totalizer delta from RWS2 (cfgId 42=LINE C, 44=LINE D)
+  const cl2_wFD_preP3  = sumFlowDR(39, 192, 'CHEM2', h) ?? 0;
+  const cl2_wFD_preP4  = sumFlowDR(40, 194, 'CHEM2', h) ?? 0;
+  const cl2_wFD_postP3 = sumFlowDR(39, 196, 'CHEM2', h) ?? 0;
+  const cl2_wFD_postP4 = sumFlowDR(40, 198, 'CHEM2', h) ?? 0;
+  const cl2_net_kg = (clLineUsed(190, 'CHEM2') ?? 0) + (clLineUsed(191, 'CHEM2') ?? 0);
+  const cl2_wTot   = cl2_wFD_preP3 + cl2_wFD_preP4 + cl2_wFD_postP3 + cl2_wFD_postP4;
+  const cl_use_pre_p3  = cl2_wTot > 0 ? cl2_wFD_preP3  / cl2_wTot * cl2_net_kg : null;
+  const cl_use_pre_p4  = cl2_wTot > 0 ? cl2_wFD_preP4  / cl2_wTot * cl2_net_kg : null;
+  const cl_use_post_p3 = cl2_wTot > 0 ? cl2_wFD_postP3 / cl2_wTot * cl2_net_kg : null;
+  const cl_use_post_p4 = cl2_wTot > 0 ? cl2_wFD_postP4 / cl2_wTot * cl2_net_kg : null;
+  const cl2_rwPreP3  = sumDeltaFlowDR(42, 'RWS2', 192, 'CHEM2', h).sumF;
+  const cl2_rwPreP4  = sumDeltaFlowDR(44, 'RWS2', 194, 'CHEM2', h).sumF;
+  const cl2_rwPostP3 = sumDeltaFlowDR(42, 'RWS2', 196, 'CHEM2', h).sumF;
+  const cl2_rwPostP4 = sumDeltaFlowDR(44, 'RWS2', 198, 'CHEM2', h).sumF;
+  const cl_actual_pre_p3  = cl_use_pre_p3  != null && cl2_rwPreP3  > 0 ? cl_use_pre_p3  * 1000 / cl2_rwPreP3  : null;
+  const cl_actual_pre_p4  = cl_use_pre_p4  != null && cl2_rwPreP4  > 0 ? cl_use_pre_p4  * 1000 / cl2_rwPreP4  : null;
+  const cl_actual_post_p3 = cl_use_post_p3 != null && cl2_rwPostP3 > 0 ? cl_use_post_p3 * 1000 / cl2_rwPostP3 : null;
+  const cl_actual_post_p4 = cl_use_post_p4 != null && cl2_rwPostP4 > 0 ? cl_use_post_p4 * 1000 / cl2_rwPostP4 : null;
 
   // ── Card 9: CHEM1 ALUM ───────────────────────────────────────────────────
   const al1_a_delta = D(93, 'CHEM1');
@@ -341,6 +503,44 @@ function computeDailyReport(date, settings, historyMap) {
       rws1: e_rws1, rws2: e_rws2, bldg: e_bldg, total: e_total,
       peak_mwh: totalPeak, offpeak_mwh: totalOffPeak,
       cost_baht: energy_cost_baht,
+    },
+    card14_chem_dosing: {
+      // CHEM#1 — P1(flow=1) / P2(flow=2)
+      alum_p1:    weightedAvgDR(1, 89,   'CHEM1', h),
+      alum_p2:    weightedAvgDR(2, 92,   'CHEM1', h),
+      pacl_p1:    weightedAvgDR(1, 8402, 'CHEM1', h),
+      pacl_p2:    weightedAvgDR(2, 8404, 'CHEM1', h),
+      pre_cl_p1:  weightedAvgDR(1, 129,  'CHEM1', h),
+      post_cl_p1: weightedAvgDR(1, 133,  'CHEM1', h),
+      pre_cl_p2:  weightedAvgDR(2, 131,  'CHEM1', h),
+      post_cl_p2: weightedAvgDR(2, 135,  'CHEM1', h),
+      // CHEM#2 — P3(flow=39) / P4(flow=40)
+      alum_p3:    weightedAvgDR(39, 151,  'CHEM2', h),
+      alum_p4:    weightedAvgDR(40, 154,  'CHEM2', h),
+      pacl_p3:    weightedAvgDR(39, 8416, 'CHEM2', h),
+      pacl_p4:    weightedAvgDR(40, 8418, 'CHEM2', h),
+      pre_cl_p3:  weightedAvgDR(39, 192,  'CHEM2', h),
+      post_cl_p3: weightedAvgDR(39, 196,  'CHEM2', h),
+      pre_cl_p4:  weightedAvgDR(40, 194,  'CHEM2', h),
+      post_cl_p4: weightedAvgDR(40, 198,  'CHEM2', h),
+      // CHEM1 Alum USE (TON) and actual dose (mg/L)
+      alum_use_p1, alum_use_p2,
+      alum_actual_p1, alum_actual_p2,
+      // CHEM2 Alum USE (TON) and actual dose (mg/L)
+      alum_use_p3, alum_use_p4,
+      alum_actual_p3, alum_actual_p4,
+      // CHEM1 PACl USE (TON) and actual dose (mg/L)
+      pacl_use_p1, pacl_use_p2,
+      pacl_actual_p1, pacl_actual_p2,
+      // CHEM2 PACl USE (TON) and actual dose (mg/L)
+      pacl_use_p3, pacl_use_p4,
+      pacl_actual_p3, pacl_actual_p4,
+      // CHEM1 Chlorine USE (kg) and actual dose (mg/L)
+      cl_use_pre_p1, cl_use_post_p1, cl_use_pre_p2, cl_use_post_p2,
+      cl_actual_pre_p1, cl_actual_post_p1, cl_actual_pre_p2, cl_actual_post_p2,
+      // CHEM2 Chlorine USE (kg) and actual dose (mg/L)
+      cl_use_pre_p3, cl_use_post_p3, cl_use_pre_p4, cl_use_post_p4,
+      cl_actual_pre_p3, cl_actual_post_p3, cl_actual_pre_p4, cl_actual_post_p4,
     },
     card13_chem_remaining: {
       alum: { chem1_m3: rem_al1, chem2_m3: rem_al2, days_ph12: days_al12, days_ph34: days_al34 },

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { get, post } from '../api.js';
 import { getRefDate, setRefDate } from '../utils/refDate.js';
@@ -364,6 +364,8 @@ export default function Record() {
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState(null);
   const qc = useQueryClient();
+  const [stage, setStage] = useState(1);
+  const autoSwitchFiredRef = useRef(false);
 
   const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split('T')[0];
 
@@ -410,6 +412,20 @@ export default function Record() {
     const id = setInterval(tick, 60_000);
     return () => clearInterval(id);
   }, [selectedDate, today]);
+
+  // Poll AquaDAT stage every 30s
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchStage() {
+      try {
+        const { stage: s } = await get('/api/operator/stage');
+        if (!cancelled) setStage(s);
+      } catch {}
+    }
+    fetchStage();
+    const id = setInterval(fetchStage, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
 
   const { data: progress } = useQuery({
     queryKey: ['progress-nodes', selectedDate],
@@ -529,8 +545,22 @@ export default function Record() {
 
   const { data: meData } = useQuery({ queryKey: ['me'], queryFn: () => get('/api/auth/me') });
   const me = meData;
-  const bypassRole = (me?.bypass && me?.role) ? me.role : null;
-  const canRecord = !bypassRole;
+  const bypassRole = (me?.bypass && me?.role && me.role !== 'superadmin') ? me.role : null;
+  const canRecord = !bypassRole || stage === 0;
+
+  // Auto-switch real scientist login → bypass when stage drops to 0.
+  // Placed after `me` declaration so deps array evaluates without TDZ error.
+  // Fires when either `stage` or `me` resolves, handling the initial-load race.
+  useEffect(() => {
+    if (stage !== 0) { autoSwitchFiredRef.current = false; return; }
+    if (autoSwitchFiredRef.current) return;
+    if (!me || me.bypass) return;
+    if (me.role !== 'scientist') return;
+    autoSwitchFiredRef.current = true;
+    post('/api/auth/bypass', { role: 'scientist' })
+      .then(() => qc.invalidateQueries({ queryKey: ['me'] }))
+      .catch(() => { autoSwitchFiredRef.current = false; });
+  }, [stage, me?.bypass, me?.role, qc]); // eslint-disable-line
 
   const mutation = useMutation({
     mutationFn: async (keysToSubmit) => {
@@ -665,15 +695,25 @@ export default function Record() {
       <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 space-y-2">
         <div className="flex items-center justify-between">
           <p className="text-xs text-gray-400">เลือกรอบเวลา</p>
-          {queueCount > 0 && (
-            <button
-              onClick={() => retryMutation.mutate()}
-              disabled={retryMutation.isPending}
-              className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-            >
-              {retryMutation.isPending ? 'กำลังส่ง...' : `⚠️ AquaDAT ค้าง ${queueCount} รายการ — ส่งใหม่`}
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            <span className={`flex items-center gap-1 text-xs font-medium ${
+              stage === 0 ? 'text-red-500' : stage === 2 ? 'text-amber-500' : 'text-emerald-600'
+            }`}>
+              <span className={`inline-block w-2 h-2 rounded-full ${
+                stage === 0 ? 'bg-red-500' : stage === 2 ? 'bg-amber-400' : 'bg-emerald-500'
+              }`} />
+              {stage === 0 ? 'ออฟไลน์' : stage === 2 ? 'ซิงค์' : 'AquaDAT'}
+            </span>
+            {queueCount > 0 && (
+              <button
+                onClick={() => retryMutation.mutate()}
+                disabled={retryMutation.isPending}
+                className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+              >
+                {retryMutation.isPending ? 'กำลังส่ง...' : `⚠️ AquaDAT ค้าง ${queueCount} รายการ — ส่งใหม่`}
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           {SLOTS_2H.map(slot => {

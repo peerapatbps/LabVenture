@@ -42,7 +42,8 @@
               "param_name": "FLOW น้ำดิบ",
               "equipment_name": "LINE A",
               "unit": "m³",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? 0 : ({4}-{4,-1})*100"
             },
             {
               "configparam_id": 5,
@@ -70,7 +71,8 @@
               "param_name": "FLOW น้ำดิบ",
               "equipment_name": "LINE B",
               "unit": "m³",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? 0 : ({7}-{7,-1})*100"
             },
             {
               "configparam_id": 8,
@@ -738,7 +740,8 @@
               "param_name": "FLOW น้ำดิบ",
               "equipment_name": "LINE C",
               "unit": "m³",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? 0 : ({42}-{42,-1})*100"
             },
             {
               "configparam_id": 43,
@@ -759,7 +762,8 @@
               "param_name": "FLOW น้ำดิบ",
               "equipment_name": "LINE D",
               "unit": "m³",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? 0 : ({44}-{44,-1})*100"
             },
             {
               "configparam_id": 45,
@@ -2881,7 +2885,7 @@
       "topics": [
         {
           "topic": "FLOW, PRESSURE, POWER, %SPEED",
-          "time_slot": 13,
+          "time_slot": 25,
           "params": [
             {
               "configparam_id": 758,
@@ -2909,7 +2913,8 @@
               "param_name": "FLOW RATE",
               "equipment_name": "FLOW SERVICE",
               "unit": "m³",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? undefined : [slot]===\"01:00\" ? {759}*100 : ({759}-{759,-1})*100"
             },
             {
               "configparam_id": 762,
@@ -2985,7 +2990,7 @@
         },
         {
           "topic": "I.H.M & ENERGY",
-          "time_slot": 13,
+          "time_slot": 25,
           "params": [
             {
               "configparam_id": 768,
@@ -3409,7 +3414,7 @@
         },
         {
           "topic": "STATUS PUMP",
-          "time_slot": 13,
+          "time_slot": 25,
           "params": [
             {
               "configparam_id": 761,
@@ -3450,7 +3455,7 @@
       "topics": [
         {
           "topic": "FLOW, PRESSURE, POWER, SPEED",
-          "time_slot": 13,
+          "time_slot": 25,
           "params": [
             {
               "configparam_id": 816,
@@ -3555,7 +3560,8 @@
               "param_name": "FLOW RATE",
               "equipment_name": "LINE A",
               "unit": "m³",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? undefined : [slot]===\"01:00\" ? {873}*100 : ({873}-{873,-1})*100"
             },
             {
               "configparam_id": 874,
@@ -3576,7 +3582,8 @@
               "param_name": "FLOW RATE",
               "equipment_name": "LINE B",
               "unit": "m³",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? undefined : [slot]===\"01:00\" ? {875}*100 : ({875}-{875,-1})*100"
             },
             {
               "configparam_id": 876,
@@ -3882,7 +3889,7 @@
         },
         {
           "topic": "FEEDER, I.H.M",
-          "time_slot": 13,
+          "time_slot": 25,
           "params": [
             {
               "configparam_id": 819,

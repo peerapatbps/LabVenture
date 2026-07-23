@@ -38,6 +38,27 @@ function fetchUroborosHistory(configIds) {
   });
 }
 
+function remapMidnight(rows) {
+  if (!Array.isArray(rows)) return {};
+  const out = {};
+  const seenMidnight = {};
+  const sorted = [...rows].sort((a, b) => (a.ts ?? '') < (b.ts ?? '') ? -1 : 1);
+  for (const r of sorted) {
+    const cid = String(r.configID ?? r.configparam_id ?? '');
+    const tsTime = (r.ts ?? '').slice(11, 16);
+    let slot = tsTime;
+    if (tsTime === '00:00') {
+      if (!seenMidnight[cid]) { seenMidnight[cid] = true; }
+      else { slot = '24:00'; }
+    }
+    const val = r.value_text ?? (r.value != null ? String(r.value) : '');
+    if (!cid || !slot) continue;
+    if (!out[cid]) out[cid] = {};
+    out[cid][slot] = val;
+  }
+  return out;
+}
+
 function loadSettings() {
   try { return JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8')); }
   catch { return {}; }
@@ -74,9 +95,11 @@ router.get('/stream', async (req, res) => {
     const token = req.cookies?.aquadat_token;
     if (token) {
       const cache = getCache(date);
-      const result = await fetchDailyReportHistory(date, token, (sid, status, count) => {
-        sseSend(res, { type: 'step', station: sid, status, count: count ?? 0 });
-      });
+      const result = await fetchDailyReportHistory(
+        date, token,
+        (sid, status, count) => sseSend(res, { type: 'step', station: sid, status, count: count ?? 0 }),
+        (sid, pid, status, count) => sseSend(res, { type: 'pattern', station: sid, pattern_id: pid, status, count })
+      );
       Object.assign(cache, result);
     } else {
       sseSend(res, { type: 'info', msg: 'ไม่มี token — ดึงข้อมูลจาก SQLite' });
@@ -121,11 +144,15 @@ router.get('/stream-station', async (req, res) => {
       const out = {};
       let failed = false;
       for (const pattern_id of entry.patterns) {
+        const before = Object.values(out).reduce((s, m) => s + Object.keys(m).length, 0);
         try {
           await fetchOnePattern(station, pattern_id, date, dayshift_id, token, out);
+          const after = Object.values(out).reduce((s, m) => s + Object.keys(m).length, 0);
+          sseSend(res, { type: 'pattern', station, pattern_id, status: 'done', count: after - before });
         } catch (e) {
           console.warn(`[stream-station] ${station} pattern ${pattern_id}:`, e.message);
           failed = true;
+          sseSend(res, { type: 'pattern', station, pattern_id, status: 'error', count: 0 });
         }
       }
       const count = Object.values(out).reduce((s, slots) => s + Object.keys(slots).length, 0);
@@ -171,17 +198,7 @@ router.get('/stream-stage0', async (req, res) => {
     sseSend(res, { type: 'step', station: sid, status: 'loading', count: 0 });
     try {
       const rows = await fetchUroborosHistory(configIds);
-      const stMap = {};
-      if (Array.isArray(rows)) {
-        for (const r of rows) {
-          const cid = String(r.configID ?? r.configparam_id ?? '');
-          const slot = (r.ts ?? '').slice(11, 16);
-          const val  = r.value_text ?? (r.value != null ? String(r.value) : '');
-          if (!cid || !slot) continue;
-          if (!stMap[cid]) stMap[cid] = {};
-          stMap[cid][slot] = val;
-        }
-      }
+      const stMap = remapMidnight(rows);
       historyMap[sid] = stMap;
       const count = Object.keys(stMap).length;
       sseSend(res, { type: 'step', station: sid, status: 'done', count });
@@ -226,17 +243,7 @@ router.get('/stream-station-stage0', async (req, res) => {
   sseSend(res, { type: 'step', station, status: 'loading', count: 0 });
   try {
     const rows = await fetchUroborosHistory(configIds);
-    const stMap = {};
-    if (Array.isArray(rows)) {
-      for (const r of rows) {
-        const cid = String(r.configID ?? r.configparam_id ?? '');
-        const slot = (r.ts ?? '').slice(11, 16);
-        const val  = r.value_text ?? (r.value != null ? String(r.value) : '');
-        if (!cid || !slot) continue;
-        if (!stMap[cid]) stMap[cid] = {};
-        stMap[cid][slot] = val;
-      }
-    }
+    const stMap = remapMidnight(rows);
     const cache = getCache(date);
     cache[station] = stMap;
     sseSend(res, { type: 'step', station, status: 'done', count: Object.keys(stMap).length });

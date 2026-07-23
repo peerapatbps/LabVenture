@@ -573,14 +573,14 @@ function computeFormula(formulaStr, slot, allHistory, slots, si) {
 
     expr = expr.replace(/\{(\d+),(-?\d+)\}/g, (_, cid, offset) => {
       const targetIdx = (si ?? 0) + parseInt(offset, 10);
-      if (targetIdx < 0 || !slots) return '0';
+      if (targetIdx < 0 || !slots) return 'NaN';
       const v = allHistory[cid]?.[slots[targetIdx]];
-      return (v !== undefined && v !== '') ? parseFloat(v) : '0';
+      return (v !== undefined && v !== '') ? parseFloat(v) : 'NaN';
     });
 
     expr = expr.replace(/\{(\d+)\}/g, (_, cid) => {
       const v = allHistory[cid]?.[slot];
-      return (v !== undefined && v !== '') ? parseFloat(v) : '0';
+      return (v !== undefined && v !== '') ? parseFloat(v) : 'NaN';
     });
 
     // eslint-disable-next-line no-new-func
@@ -1089,7 +1089,7 @@ function RecordingTable({ topic, history, allHistory, dirtyValues, onCellChange,
                           isDirty ? 'font-semibold text-amber-800' : (isFormulaSlot ? '' : 'text-gray-800'),
                           val === '' ? 'text-gray-300' : '',
                         ].join(' ')}>
-                          <span className="flex-1 text-center">{val !== '' ? formatDisplayVal(val, p.type) : (getCellType(p) === 'number' ? '0' : '—')}</span>
+                          <span className="flex-1 text-center">{val !== '' && val != null ? formatDisplayVal(val, p.type) : '—'}</span>
                           {opts && (
                             <span
                               className="shrink-0 pr-0.5 text-[9px] text-gray-400 cursor-pointer hover:text-gray-600 leading-none"
@@ -1323,9 +1323,15 @@ function DailyTableCardUI({ title, rows, compact = false, grow = false }) {
 
 // ── Donut card (Section C) ───────────────────────────────────────────────────
 
-function ChemDonutCard({ phase, useUnit, doseUnit, use, target, actual, pct }) {
-  const color = pct >= 90 ? '#16a34a' : pct >= 70 ? '#d97706' : '#dc2626';
-  const data  = [{ value: pct }, { value: 100 - pct }];
+function ChemDonutCard({ phase, useUnit, doseUnit, use, target, actual, pct, noData }) {
+  const inactive = noData === true;
+  const color = inactive ? '#9ca3af'
+              : pct >= 80 ? '#16a34a'
+              : pct >= 70 ? '#d97706'
+              :             '#dc2626';
+  const data = inactive
+    ? [{ value: 0 }, { value: 100 }]
+    : [{ value: pct }, { value: 100 - pct }];
   return (
     <div className="border border-gray-200 rounded bg-white p-1.5 flex gap-2 items-center">
       <div className="relative shrink-0" style={{ width: 60, height: 60 }}>
@@ -1336,7 +1342,9 @@ function ChemDonutCard({ phase, useUnit, doseUnit, use, target, actual, pct }) {
           </Pie>
         </PieChart>
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span className="font-black leading-none" style={{ color, fontSize: 12 }}>{pct}%</span>
+          <span className="font-black leading-none" style={{ color, fontSize: 12 }}>
+            {inactive ? '—' : `${pct}%`}
+          </span>
         </div>
       </div>
       <div className="flex-1 min-w-0">
@@ -1344,8 +1352,8 @@ function ChemDonutCard({ phase, useUnit, doseUnit, use, target, actual, pct }) {
         <div className="grid grid-cols-3 gap-x-1 text-gray-500" style={{ fontSize: 14 }}>
           <span>USE</span><span>TARGET</span><span>ACTUAL</span>
           <span className="font-mono text-gray-800">{use}<span className="text-gray-400 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{useUnit}</span></span>
-          <span className="font-mono text-gray-800">{target ?? 0}<span className="text-gray-400 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{doseUnit}</span></span>
-          <span className="font-mono text-gray-800">{actual}<span className="text-gray-400 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{doseUnit}</span></span>
+          <span className="font-mono text-gray-800">{inactive ? '—' : (target ?? 0)}<span className="text-gray-400 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{doseUnit}</span></span>
+          <span className="font-mono text-gray-800">{inactive ? '—' : actual}<span className="text-gray-400 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{doseUnit}</span></span>
         </div>
       </div>
     </div>
@@ -1560,16 +1568,43 @@ function DailyReportTab({ selectedDate, stage }) {
   const [saveMsg, setSaveMsg]         = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [fwsBW, setFwsBW]             = useState(null);
+
+  // Restore cached query results from sessionStorage when date changes (or on mount)
+  useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem(`dr_report_${selectedDate}`);
+      setReportData(cached ? JSON.parse(cached) : null);
+    } catch { setReportData(null); }
+    try {
+      const cached = sessionStorage.getItem(`dr_fwsbw_${selectedDate}`);
+      setFwsBW(cached ? JSON.parse(cached) : null);
+    } catch { setFwsBW(null); }
+  }, [selectedDate]); // eslint-disable-line
   const [fwsBWLoading, setFwsBWLoading] = useState(false);
   const [showQueryModal, setShowQueryModal] = useState(false);
   // stationRows: { [sid]: { status: 'pending'|'loading'|'done'|'error', count: number } }
   const [stationRows, setStationRows]  = useState({});
   const [querying, setQuerying]        = useState(false); // true while any stream running
 
+  // ESC to close query modal (disabled while querying is in progress)
+  useEffect(() => {
+    if (!showQueryModal) return;
+    function onKey(e) {
+      if (e.key === 'Escape' && !querying) setShowQueryModal(false);
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [showQueryModal, querying]);
+
   const STATION_LIST = ['RWS1','RWS2','CHEM1','CHEM2','FWS1','FWS2','TPS','DPS','CWS1','CWS2'];
 
+
   function updateRow(sid, patch) {
-    setStationRows(prev => ({ ...prev, [sid]: { ...(prev[sid] || {}), ...patch } }));
+    setStationRows(prev => {
+      const cur = prev[sid] || {};
+      const delta = typeof patch === 'function' ? patch(cur) : patch;
+      return { ...prev, [sid]: { ...cur, ...delta } };
+    });
   }
 
   async function runStream(url, onDone) {
@@ -1589,10 +1624,15 @@ function DailyReportTab({ selectedDate, stage }) {
         for (const part of parts) {
           if (!part.startsWith('data: ')) continue;
           let data; try { data = JSON.parse(part.slice(6)); } catch { continue; }
-          if (data.type === 'step' && data.station !== 'compute') {
+          if (data.type === 'pattern') {
+            updateRow(data.station, prev => ({
+              patterns: { ...(prev?.patterns || {}), [data.pattern_id]: { status: data.status, count: data.count ?? 0 } }
+            }));
+          } else if (data.type === 'step' && data.station !== 'compute') {
             updateRow(data.station, { status: data.status, count: data.count ?? 0 });
           } else if (data.type === 'done') {
             setReportData(data.report);
+            try { sessionStorage.setItem(`dr_report_${selectedDate}`, JSON.stringify(data.report)); } catch {}
             if (onDone) onDone();
           } else if (data.type === 'error') {
             setSaveMsg({ ok: false, text: 'QUERY ล้มเหลว: ' + data.msg });
@@ -1609,12 +1649,12 @@ function DailyReportTab({ selectedDate, stage }) {
   function handleQuery() {
     setValidation(null);
     setSaveMsg(null);
-    setStationRows(Object.fromEntries(STATION_LIST.map(s => [s, { status: 'pending', count: 0 }])));
+    setStationRows(Object.fromEntries(STATION_LIST.map(s => [s, { status: 'pending', count: 0, patterns: {} }])));
     setShowQueryModal(true);
   }
 
   async function handleAllQuery() {
-    setStationRows(Object.fromEntries(STATION_LIST.map(s => [s, { status: 'pending', count: 0 }])));
+    setStationRows(Object.fromEntries(STATION_LIST.map(s => [s, { status: 'pending', count: 0, patterns: {} }])));
     const streamUrl = stage === 0
       ? `${BASE}/api/daily-report/stream-stage0?date=${selectedDate}`
       : `${BASE}/api/daily-report/stream?date=${selectedDate}`;
@@ -1624,14 +1664,17 @@ function DailyReportTab({ selectedDate, stage }) {
         get(`/api/operator/history?station_id=FWS1&date=${selectedDate}&topic=${encodeURIComponent('BACKWASHING P#12')}`),
         get(`/api/operator/history?station_id=FWS2&date=${selectedDate}&topic=${encodeURIComponent('BACKWASHING P#3')}`),
         get(`/api/operator/history?station_id=FWS2&date=${selectedDate}&topic=${encodeURIComponent('BACKWASHING P#4')}`),
-      ]).then(([p12, p3, p4]) => setFwsBW({ p12, p3, p4 }))
+      ]).then(([p12, p3, p4]) => {
+        setFwsBW({ p12, p3, p4 });
+        try { sessionStorage.setItem(`dr_fwsbw_${selectedDate}`, JSON.stringify({ p12, p3, p4 })); } catch {}
+      })
         .catch(e => console.warn('[FWS BW]', e.message))
         .finally(() => setFwsBWLoading(false));
     });
   }
 
   async function handleReQuery(sid) {
-    updateRow(sid, { status: 'pending', count: 0 });
+    updateRow(sid, { status: 'pending', count: 0, patterns: {} });
     const url = stage === 0
       ? `${BASE}/api/daily-report/stream-station-stage0?date=${selectedDate}&station=${sid}`
       : `${BASE}/api/daily-report/stream-station?date=${selectedDate}&station=${sid}`;
@@ -1792,8 +1835,73 @@ function DailyReportTab({ selectedDate, stage }) {
     ].filter(l => l.value > 0),
   } : SANKEY_DATA;
 
-  const leftDonuts  = CHEM_DONUT_ROWS.filter(r => r.col === 'left');
-  const rightDonuts = CHEM_DONUT_ROWS.filter(r => r.col === 'right');
+  const cd = d?.card14_chem_dosing;
+  const chemDonutRows = CHEM_DONUT_ROWS.map(r => {
+    const v =
+      r.phase === 'PACl PHASE#1'    ? cd?.pacl_p1    :
+      r.phase === 'PACl PHASE#2'    ? cd?.pacl_p2    :
+      r.phase === 'ALUM PHASE#1'    ? cd?.alum_p1    :
+      r.phase === 'ALUM PHASE#2'    ? cd?.alum_p2    :
+      r.phase === 'PRE-CL PHASE#1'  ? cd?.pre_cl_p1  :
+      r.phase === 'POST-CL PHASE#1' ? cd?.post_cl_p1 :
+      r.phase === 'PRE-CL PHASE#2'  ? cd?.pre_cl_p2  :
+      r.phase === 'POST-CL PHASE#2' ? cd?.post_cl_p2 :
+      r.phase === 'PACl PHASE#3'    ? cd?.pacl_p3    :
+      r.phase === 'PACl PHASE#4'    ? cd?.pacl_p4    :
+      r.phase === 'ALUM PHASE#3'    ? cd?.alum_p3    :
+      r.phase === 'ALUM PHASE#4'    ? cd?.alum_p4    :
+      r.phase === 'PRE-CL PHASE#3'  ? cd?.pre_cl_p3  :
+      r.phase === 'POST-CL PHASE#3' ? cd?.post_cl_p3 :
+      r.phase === 'PRE-CL PHASE#4'  ? cd?.pre_cl_p4  :
+      r.phase === 'POST-CL PHASE#4' ? cd?.post_cl_p4 : null;
+    const u =
+      r.phase === 'ALUM PHASE#1'    ? cd?.alum_use_p1      :
+      r.phase === 'ALUM PHASE#2'    ? cd?.alum_use_p2      :
+      r.phase === 'ALUM PHASE#3'    ? cd?.alum_use_p3      :
+      r.phase === 'ALUM PHASE#4'    ? cd?.alum_use_p4      :
+      r.phase === 'PACl PHASE#1'    ? cd?.pacl_use_p1      :
+      r.phase === 'PACl PHASE#2'    ? cd?.pacl_use_p2      :
+      r.phase === 'PACl PHASE#3'    ? cd?.pacl_use_p3      :
+      r.phase === 'PACl PHASE#4'    ? cd?.pacl_use_p4      :
+      r.phase === 'PRE-CL PHASE#1'  ? cd?.cl_use_pre_p1   :
+      r.phase === 'POST-CL PHASE#1' ? cd?.cl_use_post_p1  :
+      r.phase === 'PRE-CL PHASE#2'  ? cd?.cl_use_pre_p2   :
+      r.phase === 'POST-CL PHASE#2' ? cd?.cl_use_post_p2  :
+      r.phase === 'PRE-CL PHASE#3'  ? cd?.cl_use_pre_p3   :
+      r.phase === 'POST-CL PHASE#3' ? cd?.cl_use_post_p3  :
+      r.phase === 'PRE-CL PHASE#4'  ? cd?.cl_use_pre_p4   :
+      r.phase === 'POST-CL PHASE#4' ? cd?.cl_use_post_p4  : null;
+    const a =
+      r.phase === 'ALUM PHASE#1'    ? cd?.alum_actual_p1      :
+      r.phase === 'ALUM PHASE#2'    ? cd?.alum_actual_p2      :
+      r.phase === 'ALUM PHASE#3'    ? cd?.alum_actual_p3      :
+      r.phase === 'ALUM PHASE#4'    ? cd?.alum_actual_p4      :
+      r.phase === 'PACl PHASE#1'    ? cd?.pacl_actual_p1      :
+      r.phase === 'PACl PHASE#2'    ? cd?.pacl_actual_p2      :
+      r.phase === 'PACl PHASE#3'    ? cd?.pacl_actual_p3      :
+      r.phase === 'PACl PHASE#4'    ? cd?.pacl_actual_p4      :
+      r.phase === 'PRE-CL PHASE#1'  ? cd?.cl_actual_pre_p1   :
+      r.phase === 'POST-CL PHASE#1' ? cd?.cl_actual_post_p1  :
+      r.phase === 'PRE-CL PHASE#2'  ? cd?.cl_actual_pre_p2   :
+      r.phase === 'POST-CL PHASE#2' ? cd?.cl_actual_post_p2  :
+      r.phase === 'PRE-CL PHASE#3'  ? cd?.cl_actual_pre_p3   :
+      r.phase === 'POST-CL PHASE#3' ? cd?.cl_actual_post_p3  :
+      r.phase === 'PRE-CL PHASE#4'  ? cd?.cl_actual_pre_p4   :
+      r.phase === 'POST-CL PHASE#4' ? cd?.cl_actual_post_p4  : null;
+    const tgt = v != null ? +v.toFixed(2) : 0;
+    const act = a != null ? +a.toFixed(2) : 0;
+    const pct = tgt > 0 ? Math.max(0, Math.round((tgt - Math.abs(act - tgt)) / tgt * 100)) : 0;
+    return {
+      ...r,
+      target: tgt,
+      use:    u != null ? +u.toFixed(3) : 0,
+      actual: act,
+      noData: v == null && a == null,
+      pct,
+    };
+  });
+  const leftDonuts  = chemDonutRows.filter(r => r.col === 'left');
+  const rightDonuts = chemDonutRows.filter(r => r.col === 'right');
 
   return (
     <div className="h-full min-h-0 flex overflow-hidden bg-white">
@@ -1817,14 +1925,25 @@ function DailyReportTab({ selectedDate, stage }) {
                 const row = stationRows[sid] || { status: 'pending', count: 0 };
                 const icon = row.status === 'loading' ? '⏳'
                            : row.status === 'done'    ? '✅'
-                           : row.status === 'error'   ? '❌'
+                           : row.status === 'error'   ? (row.count > 0 ? '⚠️' : '❌')
                            : '○';
-                const countLabel = row.status === 'done' ? `${row.count} values` : '';
+                const countLabel = row.count > 0 ? `${row.count} values` : '';
                 return (
                   <div key={sid} className="flex items-center gap-2 px-4 py-2">
                     <span className="text-base w-5 text-center leading-none shrink-0">{icon}</span>
                     <span className="font-mono text-xs font-semibold text-gray-700 w-16 shrink-0">{sid}</span>
-                    <span className="text-xs text-gray-400 flex-1">{countLabel}</span>
+                    <div className="flex items-center gap-1 flex-1 flex-wrap">
+                      <span className="text-xs text-gray-400">{countLabel}</span>
+                      {row.patterns && Object.entries(row.patterns).map(([pid, p]) => (
+                        <span key={pid} className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold ${
+                          p.status === 'done'
+                            ? p.count > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'
+                            : 'bg-red-100 text-red-600'
+                        }`}>
+                          P{pid}{p.status === 'done' ? (p.count > 0 ? '✓' : '∅') : '✗'}
+                        </span>
+                      ))}
+                    </div>
                     <button
                       onClick={() => handleReQuery(sid)}
                       disabled={querying}
@@ -2317,6 +2436,7 @@ export default function OpRecord() {
   const hadNonNormalStageRef = useRef(false);
   const [dirtyValues, setDirtyValues]     = useState({});
   const [submitStatus, setSubmitStatus]   = useState({});
+  const [pendingStationSwitch, setPendingStationSwitch] = useState(null);
   const [widgets, setWidgets]                   = useState([]);
   const [widgetLayout, setWidgetLayout]         = useState([]);
   const [showPicker, setShowPicker]             = useState(false);
@@ -2353,7 +2473,7 @@ export default function OpRecord() {
   });
 
   const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => get('/api/auth/me') });
-  const canRecord = !(me?.bypass);
+  const canRecord = !(me?.bypass) || me?.role === 'superadmin';
   const loginId   = me?.username ?? me?.name ?? me?.user_id ?? 'default';
 
   const stationDef = stationNode?.station ?? null;
@@ -2439,11 +2559,40 @@ export default function OpRecord() {
 
   function handleStationChange(id) {
     if (!ACTIVE_STATIONS.has(id)) return;
+    if (id === activeStation) return;
+    const hasPending = activeStation !== 'DAILY' && stationDef?.topics?.some(t => {
+      const d = dirtyValues[t.topic] || {};
+      return Object.values(d).some(sm => sm && Object.values(sm).some(v => v !== ''));
+    });
+    if (hasPending) { setPendingStationSwitch(id); return; }
+    doStationChange(id);
+  }
+
+  function doStationChange(id) {
     setActiveStation(id);
     setDirtyValues({});
     setSubmitStatus({});
     setValidationResult(null);
     navigate(`/op-record?station=${id}`, { replace: true });
+  }
+
+  async function handleSwitchWithSubmit() {
+    const targetId = pendingStationSwitch;
+    setPendingStationSwitch(null);
+    const pendingTopics = (stationDef?.topics ?? []).filter(t => {
+      const d = dirtyValues[t.topic] || {};
+      return Object.values(d).some(sm => sm && Object.values(sm).some(v => v !== ''));
+    });
+    for (const t of pendingTopics) {
+      await handleSubmitTopic(t.topic);
+    }
+    doStationChange(targetId);
+  }
+
+  function handleSwitchWithDiscard() {
+    const targetId = pendingStationSwitch;
+    setPendingStationSwitch(null);
+    doStationChange(targetId);
   }
 
   async function handleValidate() {
@@ -2597,6 +2746,47 @@ export default function OpRecord() {
           await qc.invalidateQueries({ queryKey: ['me'] });
           setShowLoginOverlay(false);
         }} />
+      )}
+      {pendingStationSwitch && stationDef && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-[440px] flex flex-col overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100">
+              <p className="font-bold text-gray-900 text-base">ต้องการส่งข้อมูลหรือไม่</p>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {STATION_TABS.find(t => t.id === activeStation)?.label} มีข้อมูลที่ยังไม่ได้ส่ง
+              </p>
+            </div>
+            <div className="px-5 py-3 space-y-2">
+              {stationDef.topics
+                .filter(t => {
+                  const d = dirtyValues[t.topic] || {};
+                  return Object.values(d).some(sm => sm && Object.values(sm).some(v => v !== ''));
+                })
+                .map(t => {
+                  const cellCount = Object.values(dirtyValues[t.topic] || {})
+                    .reduce((acc, sm) => acc + Object.values(sm).filter(v => v !== '').length, 0);
+                  const tc = TOPIC_COLORS[t.topic] ?? DEFAULT_TOPIC_COLOR;
+                  return (
+                    <div key={t.topic} className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${tc.tag}`}>{t.topic}</span>
+                      <span className="text-xs text-gray-500">{cellCount} ช่อง</span>
+                    </div>
+                  );
+                })
+              }
+            </div>
+            <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-100">
+              <button
+                onClick={handleSwitchWithDiscard}
+                className="px-4 py-2 rounded-lg text-sm text-red-600 border border-red-200 hover:bg-red-50 transition-colors"
+              >ยกเลิกและลบการเปลี่ยนแปลง</button>
+              <button
+                onClick={handleSwitchWithSubmit}
+                className="px-5 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              >ส่งข้อมูล</button>
+            </div>
+          </div>
+        </div>
       )}
       {stage === 0 && (
         <div className="bg-red-700 text-white text-sm px-4 py-1.5 rounded-lg flex items-center gap-2 shrink-0">
