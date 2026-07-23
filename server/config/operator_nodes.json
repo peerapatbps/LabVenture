@@ -1390,7 +1390,8 @@
               "param_name": "FLOW RATE",
               "equipment_name": "ALUM PHASE 1",
               "unit": "L/h",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? undefined : {1}*{89}*5.4135"
             },
             {
               "configparam_id": 88,
@@ -1411,7 +1412,8 @@
               "param_name": "FLOW RATE",
               "equipment_name": "ALUM PHASE 2",
               "unit": "L/h",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? undefined : {2}*{92}*5.4135"
             },
             {
               "configparam_id": 91,
@@ -1655,7 +1657,8 @@
               "param_name": "FLOW RATE",
               "equipment_name": "PRE Cl2 PHASE 1",
               "unit": "kg/h",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? undefined : {129}*{1}*3.6"
             },
             {
               "configparam_id": 131,
@@ -1669,7 +1672,8 @@
               "param_name": "FLOW RATE",
               "equipment_name": "PRE Cl2 PHASE 2",
               "unit": "kg/h",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? undefined : {131}*{2}*3.6"
             },
             {
               "configparam_id": 133,
@@ -1683,7 +1687,8 @@
               "param_name": "FLOW RATE",
               "equipment_name": "POST Cl2 PHASE 1",
               "unit": "kg/h",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? undefined : {133}*{1}*3.6"
             },
             {
               "configparam_id": 135,
@@ -1697,7 +1702,8 @@
               "param_name": "FLOW RATE",
               "equipment_name": "POST Cl2 PHASE 2",
               "unit": "kg/h",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? undefined : {135}*{2}*3.6"
             }
           ]
         },
@@ -1891,7 +1897,8 @@
               "param_name": "FLOW RATE",
               "equipment_name": "PACl PHASE 1",
               "unit": "L/h",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? undefined : {1}*{8402}*8.6434"
             },
             {
               "configparam_id": 8402,
@@ -1905,7 +1912,8 @@
               "param_name": "FLOW RATE",
               "equipment_name": "PACl PHASE 2",
               "unit": "L/h",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? undefined : {2}*{8404}*8.6434"
             },
             {
               "configparam_id": 8404,
@@ -2169,7 +2177,8 @@
               "param_name": "FLOW RATE",
               "equipment_name": "ALUM PHASE 3",
               "unit": "L/min",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? undefined : ({151}*{39}*5.4135)/3600/60"
             },
             {
               "configparam_id": 150,
@@ -2190,7 +2199,8 @@
               "param_name": "FLOW RATE",
               "equipment_name": "ALUM PHASE 4",
               "unit": "L/min",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? undefined : ({154}*{40}*5.4135)/3600/60"
             },
             {
               "configparam_id": 153,
@@ -2441,7 +2451,8 @@
               "param_name": "FLOW RATE",
               "equipment_name": "PRE Cl2 PHASE 3",
               "unit": "kg/h",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? undefined : {192}*{39}*3.6/3600"
             },
             {
               "configparam_id": 194,
@@ -2455,7 +2466,8 @@
               "param_name": "FLOW RATE",
               "equipment_name": "PRE Cl2 PHASE 4",
               "unit": "kg/h",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? undefined : {194}*{40}*3.6/3600"
             },
             {
               "configparam_id": 196,
@@ -2469,7 +2481,8 @@
               "param_name": "FLOW RATE",
               "equipment_name": "POST Cl2 PHASE 3",
               "unit": "kg/h",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? undefined : {196}*{39}*3.6/3600"
             },
             {
               "configparam_id": 198,
@@ -2483,7 +2496,8 @@
               "param_name": "FLOW RATE",
               "equipment_name": "POST Cl2 PHASE 4",
               "unit": "kg/h",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? undefined : {198}*{40}*3.6/3600"
             },
             {
               "configparam_id": 6454,
@@ -2712,7 +2726,8 @@
               "param_name": "FLOW RATE",
               "equipment_name": " PACl PHASE 3",
               "unit": "L/h",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? undefined : {39}*{8416}*0.0024"
             },
             {
               "configparam_id": 8416,
@@ -2726,7 +2741,8 @@
               "param_name": "FLOW RATE",
               "equipment_name": "PACl PHASE 4",
               "unit": "L/h",
-              "type": "FLOAT(2)"
+              "type": "FLOAT(2)",
+              "formula": "[slot]===\"00:00\" ? undefined : {40}*{8418}*0.0024"
             },
             {
               "configparam_id": 8418,
