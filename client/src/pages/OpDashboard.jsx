@@ -11,15 +11,15 @@ import { MINI_FILTERS, CHART_REFRESH_MS, LAB_CHART_ENDPOINT, getThreshold } from
 const SLOTS_2H = ['01:00','03:00','05:00','07:00','09:00','11:00','13:00','15:00','17:00','19:00','21:00','23:00'];
 const DAILY_POSITION = 6;
 
-const STATION_COLORS = {
-  RWS1:  'bg-emerald-700 text-white border-emerald-300',
-  RWS2:  'bg-teal-700 text-white border-teal-300',
-  CHEM1: 'bg-violet-700 text-white border-violet-300',
-  CHEM2: 'bg-fuchsia-700 text-white border-fuchsia-300',
-  TPS:   'bg-blue-700 text-white border-blue-300',
-  DPS:   'bg-indigo-700 text-white border-indigo-300',
-  FWS:   'bg-amber-700 text-white border-amber-300',
-  CWS:   'bg-orange-700 text-white border-orange-300',
+const STATION_ACCENTS = {
+  RWS1:  '#10b981',
+  RWS2:  '#14b8a6',
+  CHEM1: '#7c3aed',
+  CHEM2: '#a21caf',
+  TPS:   '#1d4ed8',
+  DPS:   '#3730a3',
+  FWS:   '#d97706',
+  CWS:   '#ea580c',
 };
 
 const ACTIVE_STATIONS = new Set(['RWS1', 'RWS2']);
@@ -35,10 +35,10 @@ function StationDot({ slot, isActive, isPast, isCurrent }) {
   const cls = isActive
     ? 'bg-green-500 border-green-700 ring-green-200'
     : isPast
-    ? 'bg-gray-300 border-gray-400'
+    ? 'bg-earth-border border-earth-ink3'
     : isCurrent
     ? 'bg-amber-400 border-amber-600 ring-amber-200'
-    : 'bg-gray-100 border-earth-border';
+    : 'bg-earth-card border-earth-border';
   const tip = isActive ? '✓ มีข้อมูล' : isPast ? 'ไม่ทราบสถานะ' : isCurrent ? 'รอบปัจจุบัน' : 'ยังไม่ถึงเวลา';
   return (
     <div className="relative flex items-center justify-center"
@@ -61,9 +61,7 @@ function StationRow({ station, selectedDate, today }) {
   const isToday = selectedDate === todayStr;
   const currentH = now.getHours();
 
-  const colorCls = STATION_COLORS[station.id] ?? 'bg-gray-700 text-white border-earth-border';
-  const borderCls = colorCls.split(' ').find(c => c.startsWith('border-')) ?? 'border-earth-border';
-
+  const accent = STATION_ACCENTS[station.id] ?? '#8CC0EB';
   const topicCount = station.topics?.length ?? 0;
   const paramCount = station.topics?.reduce((s, t) => s + t.params.length, 0) ?? 0;
   const isActive = ACTIVE_STATIONS.has(station.id);
@@ -77,22 +75,23 @@ function StationRow({ station, selectedDate, today }) {
   }
 
   return (
-    <div className={`rounded-xl border overflow-hidden shadow-sm ${borderCls}`}>
-      <div className={`flex items-center justify-between px-4 py-2.5 ${colorCls.split(' ').filter(c => !c.startsWith('border-')).join(' ')}`}>
+    <div className="rounded-xl border border-earth-border overflow-hidden shadow-sm"
+         style={{ borderLeftColor: accent, borderLeftWidth: 4 }}>
+      <div className="flex items-center justify-between px-4 py-2.5 bg-earth-card">
         <div>
-          <span className="text-sm font-bold">{station.label}</span>
-          <span className="ml-2 text-xs opacity-70">{station.id}</span>
+          <span className="text-sm font-bold text-earth-ink">{station.label}</span>
+          <span className="ml-2 text-xs text-earth-ink3">{station.id}</span>
         </div>
         <div className="flex items-center gap-2">
           {isActive ? (
             <button
               onClick={() => navigate(`/op-record?station=${station.id}`)}
-              className="text-xs bg-white/20 hover:bg-white/30 px-2.5 py-1 rounded-lg border border-white/30 transition-colors"
+              className="text-xs bg-earth-DEFAULT hover:bg-earth-border px-2.5 py-1 rounded-lg border border-earth-border transition-colors text-earth-ink2"
             >
               บันทึก →
             </button>
           ) : (
-            <span className="text-xs opacity-50 bg-white/10 px-2 py-0.5 rounded-full">เร็วๆ นี้</span>
+            <span className="text-xs text-earth-ink3 bg-earth-DEFAULT px-2 py-0.5 rounded-full border border-earth-border">เร็วๆ นี้</span>
           )}
         </div>
       </div>
@@ -104,7 +103,7 @@ function StationRow({ station, selectedDate, today }) {
           </div>
           {/* Timeline dots */}
           <div className="relative flex-1 flex items-center h-6">
-            <div className="absolute inset-x-0 h-0.5 bg-gray-200 rounded-full" />
+            <div className="absolute inset-x-0 h-0.5 bg-earth-border rounded-full" />
             <div className="relative w-full flex justify-between items-center">
               {SLOTS_2H.map((slot) => {
                 const { isPast, isCurrent, isActive: dotActive } = getDotStatus(slot);
@@ -140,7 +139,7 @@ function MiniCalendar({ selectedDate, today, onSelectDate }) {
     return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
   return (
-    <div className="bg-earth-DEFAULT rounded-xl p-3 shadow-sm border border-earth-border select-none">
+    <div className="bg-earth-card rounded-xl p-3 shadow-sm border border-earth-border select-none">
       <div className="flex items-center justify-between mb-2">
         <button onClick={() => setViewDate(v => { const d = new Date(v.year, v.month - 1, 1); return { year: d.getFullYear(), month: d.getMonth() }; })} className="text-earth-ink3 hover:text-earth-ink px-1 text-xl leading-none">‹</button>
         <span className="text-sm font-semibold text-earth-ink">{monthLabel}</span>
@@ -160,9 +159,9 @@ function MiniCalendar({ selectedDate, today, onSelectDate }) {
             <button key={i} disabled={isFuture} onClick={() => !isFuture && onSelectDate(ds)}
               className={`text-sm rounded-md py-1 leading-none transition-colors font-medium
                 ${isSelected ? 'bg-brand text-white font-bold' :
-                  isToday ? 'bg-blue-100 text-blue-700 font-semibold' :
-                  isFuture ? 'text-gray-200 cursor-default' :
-                  'text-earth-ink2 hover:bg-earth-card'}`}>
+                  isToday ? 'bg-brand-dark text-white font-semibold' :
+                  isFuture ? 'text-earth-border cursor-default' :
+                  'text-earth-ink2 hover:bg-earth-DEFAULT'}`}>
               {day}
             </button>
           );
