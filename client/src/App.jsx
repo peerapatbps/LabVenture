@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { get } from './api.js';
@@ -37,7 +37,7 @@ function RequireAuth({ children, page }) {
   });
 
   if (isLoading) return (
-    <div className="flex items-center justify-center h-screen text-gray-500">กำลังโหลด...</div>
+    <div className="flex items-center justify-center h-screen text-earth-ink2">กำลังโหลด...</div>
   );
   if (isError || !data?.ok) return <Navigate to="/login" replace />;
 

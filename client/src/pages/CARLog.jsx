@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+﻿import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import { get, post, patch, del } from '../api.js';
@@ -49,7 +49,7 @@ function ProgressStages({ car }) {
               className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border
                 ${done ? 'bg-brand text-white border-brand'
                   : active ? 'bg-white text-brand border-brand ring-1 ring-brand ring-offset-1'
-                  : 'bg-gray-100 text-gray-400 border-gray-200'}`}>
+                  : 'bg-earth-card text-earth-ink3 border-earth-border'}`}>
               {s / 10}
             </div>
           </React.Fragment>
@@ -90,16 +90,16 @@ function MiniCalendar({ year, month, events, selectedDate, onDateClick }) {
   const weekRows = cells.length / 7;
 
   return (
-    <div className="bg-white rounded-xl px-3 pt-3 pb-2 shadow-sm border border-gray-100 flex flex-col h-full">
+    <div className="bg-earth-card rounded-xl px-3 pt-3 pb-2 shadow-sm border border-earth-border flex flex-col h-full">
       {/* Month header */}
-      <p className="text-base font-bold text-gray-700 text-center mb-1.5 shrink-0">
+      <p className="text-base font-bold text-earth-ink text-center mb-1.5 shrink-0">
         {TH_MONTHS[month]} {year + 543}
       </p>
 
       {/* Day-name row */}
       <div className="grid grid-cols-7 shrink-0 mb-0.5">
         {['อา','จ','อ','พ','พฤ','ศ','ส'].map(d => (
-          <div key={d} className="text-center text-xs font-semibold text-gray-400">{d}</div>
+          <div key={d} className="text-center text-xs font-semibold text-earth-ink3">{d}</div>
         ))}
       </div>
 
@@ -114,13 +114,13 @@ function MiniCalendar({ year, month, events, selectedDate, onDateClick }) {
             <div key={i}
               onClick={() => d && onDateClick?.(isSelected(d) ? null : toDateStr(d))}
               className={`flex flex-col items-center justify-center rounded-lg mx-0.5 my-0.5 transition-colors
-                ${d ? 'cursor-pointer hover:bg-gray-100' : ''}
+                ${d ? 'cursor-pointer hover:bg-earth-card' : ''}
                 ${d && isSelected(d) ? 'bg-brand text-white ring-2 ring-brand' : ''}
                 ${d && isToday(d) && !isSelected(d) ? 'bg-brand/10 ring-1 ring-brand/30' : ''}`}>
               {d && (
                 <>
                   <span className={`text-sm font-medium leading-none
-                    ${isSelected(d) ? 'text-white font-bold' : isToday(d) ? 'font-extrabold text-brand' : 'text-gray-700'}`}>
+                    ${isSelected(d) ? 'text-white font-bold' : isToday(d) ? 'font-extrabold text-brand' : 'text-earth-ink'}`}>
                     {d}
                   </span>
                   {evs.length > 0 && (
@@ -143,11 +143,11 @@ function MiniCalendar({ year, month, events, selectedDate, onDateClick }) {
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-x-2 gap-y-0.5 border-t border-gray-100 pt-1 mt-1 shrink-0">
+      <div className="flex flex-wrap gap-x-2 gap-y-0.5 border-t border-earth-border pt-1 mt-1 shrink-0">
         {[['bg-red-500','Deadline'],['bg-orange-400','แก้ไข'],['bg-green-500','ป้องกัน'],['bg-purple-400','ติดตาม#2']].map(([c,l]) => (
           <div key={l} className="flex items-center gap-1.5">
             <div className={`w-2.5 h-2.5 rounded-full ${c}`} />
-            <span className="text-xs text-gray-500">{l}</span>
+            <span className="text-xs text-earth-ink2">{l}</span>
           </div>
         ))}
       </div>
@@ -164,19 +164,19 @@ function CarCard({ car, onClick }) {
 
   return (
     <div onClick={onClick}
-      className={`bg-white rounded-xl px-4 py-3 shadow-sm border cursor-pointer hover:shadow-md transition-shadow
-        ${overdue ? 'border-red-300' : 'border-gray-100'}`}>
+      className={`bg-earth-DEFAULT rounded-xl px-4 py-3 shadow-sm border cursor-pointer hover:shadow-md transition-shadow
+        ${overdue ? 'border-red-300' : 'border-earth-border'}`}>
       {/* Row 1: number · dates · key  |  badge */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 flex-wrap text-sm min-w-0">
-          <span className="font-semibold text-gray-900 shrink-0">{car.car_number || '(ยังไม่ระบุเลข)'}</span>
-          <span className="text-gray-400 shrink-0">ออกใบ: {fmtDate(car.issued_at)}</span>
+          <span className="font-semibold text-earth-ink shrink-0">{car.car_number || '(ยังไม่ระบุเลข)'}</span>
+          <span className="text-earth-ink3 shrink-0">ออกใบ: {fmtDate(car.issued_at)}</span>
           {car.deadline_at && (
-            <span className={`shrink-0 ${overdue ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
+            <span className={`shrink-0 ${overdue ? 'text-red-500 font-semibold' : 'text-earth-ink3'}`}>
               Deadline: {fmtDate(car.deadline_at)}{overdue ? ' ⚠' : ''}
             </span>
           )}
-          <span className="text-gray-300 font-mono text-xs shrink-0">({car.unique_key})</span>
+          <span className="text-earth-ink3 font-mono text-xs shrink-0">({car.unique_key})</span>
         </div>
         <span className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-medium border ${st.color}`}>
           {st.label}
@@ -184,7 +184,7 @@ function CarCard({ car, onClick }) {
       </div>
       {/* Row 2: description */}
       {car.parameter_name && (
-        <p className="text-sm text-gray-700 mt-1 line-clamp-1">{car.parameter_name}</p>
+        <p className="text-sm text-earth-ink mt-1 line-clamp-1">{car.parameter_name}</p>
       )}
       {/* Row 3: progress */}
       <ProgressStages car={car} />
@@ -198,11 +198,11 @@ function Bucket({ title, cars, onSelect, badge }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <h2 className="text-sm font-semibold text-gray-600 uppercase tracking-wide">{title}</h2>
-        <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full font-medium">{badge}</span>
+        <h2 className="text-sm font-semibold text-earth-ink2 uppercase tracking-wide">{title}</h2>
+        <span className="px-1.5 py-0.5 bg-earth-card text-earth-ink3 text-xs rounded-full font-medium">{badge}</span>
       </div>
       {cars.length === 0
-        ? <div className="text-center py-3 text-gray-300 text-sm border border-dashed border-gray-200 rounded-xl">— ไม่มีรายการ —</div>
+        ? <div className="text-center py-3 text-earth-ink3 text-sm border border-dashed border-earth-border rounded-xl">— ไม่มีรายการ —</div>
         : <div className="space-y-2">{cars.map(c => <CarCard key={c.id} car={c} onClick={() => onSelect(c)} />)}</div>
       }
     </div>
@@ -214,8 +214,8 @@ function Bucket({ title, cars, onSelect, badge }) {
 function Field({ label, value }) {
   return (
     <div>
-      <p className="text-xs text-gray-400 mb-0.5">{label}</p>
-      <p className="text-sm text-gray-800 whitespace-pre-wrap">{value || '—'}</p>
+      <p className="text-xs text-earth-ink3 mb-0.5">{label}</p>
+      <p className="text-sm text-earth-ink whitespace-pre-wrap">{value || '—'}</p>
     </div>
   );
 }
@@ -223,14 +223,14 @@ function Field({ label, value }) {
 function Inp({ label, name, value, onChange, type = 'text', required, cls = '', readOnly = false }) {
   return (
     <div className={cls}>
-      <label className="block text-xs font-medium text-gray-600 mb-1">
+      <label className="block text-xs font-medium text-earth-ink2 mb-1">
         {label}{required && <span className="text-red-500 ml-0.5">*</span>}
-        {readOnly && <span className="ml-1 text-gray-400 font-normal">(อัตโนมัติ)</span>}
+        {readOnly && <span className="ml-1 text-earth-ink3 font-normal">(อัตโนมัติ)</span>}
       </label>
       <input type={type} name={name} value={value || ''} onChange={readOnly ? undefined : onChange}
         readOnly={readOnly}
         className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand
-          ${readOnly ? 'border-gray-200 bg-gray-50 text-gray-500 cursor-default' : 'border-gray-300'}`} />
+          ${readOnly ? 'border-earth-border bg-earth-card text-earth-ink3 cursor-default' : 'border-earth-border'}`} />
     </div>
   );
 }
@@ -238,19 +238,19 @@ function Inp({ label, name, value, onChange, type = 'text', required, cls = '', 
 function Txt({ label, name, value, onChange, rows = 3, cls = '' }) {
   return (
     <div className={cls}>
-      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-earth-ink2 mb-1">{label}</label>
       <textarea name={name} value={value || ''} onChange={onChange} rows={rows}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+        className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
     </div>
   );
 }
 
 function SecHeader({ n, title, active }) {
   return (
-    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${active ? 'bg-brand/10' : 'bg-gray-50'}`}>
+    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${active ? 'bg-brand/10' : 'bg-earth-DEFAULT'}`}>
       <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0
-        ${active ? 'bg-brand text-white' : 'bg-gray-200 text-gray-500'}`}>{n}</div>
-      <span className={`text-sm font-semibold ${active ? 'text-brand' : 'text-gray-600'}`}>{title}</span>
+        ${active ? 'bg-brand text-white' : 'bg-earth-card text-earth-ink3'}`}>{n}</div>
+      <span className={`text-sm font-semibold ${active ? 'text-brand' : 'text-earth-ink2'}`}>{title}</span>
       {active && <span className="ml-auto text-xs text-brand font-medium">รอดำเนินการ</span>}
     </div>
   );
@@ -335,27 +335,27 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
   return (
     <>
       <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} />
-      <div className="fixed right-0 top-0 h-full w-3/4 bg-white z-50 shadow-2xl flex flex-col">
+      <div className="fixed right-0 top-0 h-full w-3/4 bg-earth-card z-50 shadow-2xl flex flex-col">
 
         {/* Panel header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-earth-border shrink-0">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-lg font-bold text-gray-900">{car.car_number || '(ยังไม่ระบุเลข)'}</span>
+              <span className="text-lg font-bold text-earth-ink">{car.car_number || '(ยังไม่ระบุเลข)'}</span>
               <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${STATUS[code]?.color}`}>
                 {STATUS[code]?.label}
               </span>
             </div>
-            <p className="text-xs text-gray-400 font-mono mt-0.5">{car.unique_key}</p>
+            <p className="text-xs text-earth-ink3 font-mono mt-0.5">{car.unique_key}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none px-2">✕</button>
+          <button onClick={onClose} className="text-earth-ink3 hover:text-earth-ink text-xl leading-none px-2">✕</button>
         </div>
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
 
           {/* Key dates */}
-          <div className="grid grid-cols-2 gap-3 bg-gray-50 rounded-xl p-3 text-sm">
+          <div className="grid grid-cols-2 gap-3 bg-earth-DEFAULT rounded-xl p-3 text-sm">
             <Field label="วันที่ออกใบ" value={fmtDate(car.issued_at)} />
             <Field label="Deadline" value={fmtDate(car.deadline_at)} />
             {car.correction_deadline && <Field label="กำหนดแก้ไขเสร็จ" value={fmtDate(car.correction_deadline)} />}
@@ -428,7 +428,7 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
               {fd.s2_correction && (
                 <>
                   <Field label="2.2 กำหนดการแก้ไข" value={fd.s2_correction} />
-                  <div className="flex gap-4 text-xs text-gray-400">
+                  <div className="flex gap-4 text-xs text-earth-ink3">
                     {fd.s2_correction_deadline && <span>กำหนดเสร็จ: {fmtDate(fd.s2_correction_deadline)}</span>}
                     {fd.s2_correction_owner && <span>ผู้รับผิดชอบ: {fd.s2_correction_owner}</span>}
                   </div>
@@ -437,14 +437,14 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
               {fd.s2_prevention && (
                 <>
                   <Field label="2.3 กำหนดการป้องกัน" value={fd.s2_prevention} />
-                  <div className="flex gap-4 text-xs text-gray-400">
+                  <div className="flex gap-4 text-xs text-earth-ink3">
                     {fd.s2_prevention_deadline && <span>กำหนดเสร็จ: {fmtDate(fd.s2_prevention_deadline)}</span>}
                     {fd.s2_prevention_owner && <span>ผู้รับผิดชอบ: {fd.s2_prevention_owner}</span>}
                   </div>
                 </>
               )}
               {fd.s2_respondent && (
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-earth-ink3">
                   ผู้ตอบ: {fd.s2_respondent}{fd.s2_respondent_pos ? ` (${fd.s2_respondent_pos})` : ''}{fd.s2_responded_at ? ` · ${fmtDate(fd.s2_responded_at)}` : ''}
                 </p>
               )}
@@ -470,7 +470,7 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
               )}
 
               {code > 20 && fd.s2_approver && (
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-earth-ink3">
                   ผู้อนุมัติ: {fd.s2_approver}{fd.s2_approved_at ? ` · ${fmtDate(fd.s2_approved_at)}` : ''}
                 </p>
               )}
@@ -482,7 +482,7 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
             <>
               <SecHeader n="4" title="ติดตามผลการแก้ไข / ป้องกัน" active={code === 30 || code === 40} />
               <div className="px-1 space-y-3">
-                <p className="text-xs font-semibold text-gray-500">ติดตามผล ครั้งที่ 1</p>
+                <p className="text-xs font-semibold text-earth-ink2">ติดตามผล ครั้งที่ 1</p>
 
                 {code === 30 ? (
                   <>
@@ -535,8 +535,8 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
                     <p className={`text-sm font-medium ${fd.s4_check1_result === 'pass' ? 'text-green-700' : 'text-red-700'}`}>
                       {fd.s4_check1_result === 'pass' ? '✅ เป็นไปตามที่กำหนด' : '❌ ไม่เป็นไปตามที่กำหนด'}
                     </p>
-                    {fd.s4_check1_notes && <p className="text-xs text-gray-600">{fd.s4_check1_notes}</p>}
-                    <p className="text-xs text-gray-400">
+                    {fd.s4_check1_notes && <p className="text-xs text-earth-ink2">{fd.s4_check1_notes}</p>}
+                    <p className="text-xs text-earth-ink3">
                       {fd.s4_check1_by}{fd.s4_check1_by_pos ? ` (${fd.s4_check1_by_pos})` : ''}{fd.s4_check1_date ? ` · ${fmtDate(fd.s4_check1_date)}` : ''}
                     </p>
                   </div>
@@ -545,7 +545,7 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
                 {/* Check 2 */}
                 {(code === 40 || fd.s4_check2_result) && (
                   <>
-                    <p className="text-xs font-semibold text-gray-500 pt-2 border-t border-gray-100">ติดตามผล ครั้งที่ 2</p>
+                    <p className="text-xs font-semibold text-earth-ink2 pt-2 border-t border-earth-border">ติดตามผล ครั้งที่ 2</p>
                     {fd.s4_check2_deadline && <p className="text-xs text-purple-600">กำหนด: {fmtDate(fd.s4_check2_deadline)}</p>}
 
                     {code === 40 ? (
@@ -585,8 +585,8 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
                         <p className={`text-sm font-medium ${fd.s4_check2_result === 'pass' ? 'text-green-700' : 'text-red-700'}`}>
                           {fd.s4_check2_result === 'pass' ? '✅ เป็นไปตามที่กำหนด' : '❌ ไม่เป็นไปตามที่กำหนด'}
                         </p>
-                        {fd.s4_check2_notes && <p className="text-xs text-gray-600">{fd.s4_check2_notes}</p>}
-                        <p className="text-xs text-gray-400">
+                        {fd.s4_check2_notes && <p className="text-xs text-earth-ink2">{fd.s4_check2_notes}</p>}
+                        <p className="text-xs text-earth-ink3">
                           {fd.s4_check2_by}{fd.s4_check2_by_pos ? ` (${fd.s4_check2_by_pos})` : ''}{fd.s4_check2_date ? ` · ${fmtDate(fd.s4_check2_date)}` : ''}
                         </p>
                       </div>
@@ -641,7 +641,7 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
                     {fd.s5_reason && <Field label="เหตุผล" value={fd.s5_reason} />}
                     {fd.s5_action && <Field label="การดำเนินการ" value={fd.s5_action} />}
                     {fd.s5_approver && (
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-earth-ink3">
                         {fd.s5_approver} (ผอ.ฝ.){fd.s5_approved_at ? ` · ${fmtDate(fd.s5_approved_at)}` : ''}
                       </p>
                     )}
@@ -716,10 +716,10 @@ function AdminPanel({ onClose }) {
   return (
     <>
       <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
-      <div className="fixed inset-4 md:inset-10 bg-white z-50 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
-          <h2 className="font-bold text-gray-900 text-lg">จัดการ Whitelist</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl px-2">✕</button>
+      <div className="fixed inset-4 md:inset-10 bg-earth-card z-50 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-earth-border shrink-0">
+          <h2 className="font-bold text-earth-ink text-lg">จัดการ Whitelist</h2>
+          <button onClick={onClose} className="text-earth-ink3 hover:text-earth-ink text-xl px-2">✕</button>
         </div>
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
 
@@ -735,19 +735,19 @@ function AdminPanel({ onClose }) {
           </div>
 
           {/* Add manual entry (Group 3 / Admin) */}
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
-            <p className="text-sm font-semibold text-gray-700">เพิ่มรายชื่อด้วยตนเอง (ผู้บริหาร / Admin)</p>
+          <div className="bg-earth-card border border-earth-border rounded-xl p-4 space-y-3">
+            <p className="text-sm font-semibold text-earth-ink">เพิ่มรายชื่อด้วยตนเอง (ผู้บริหาร / Admin)</p>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
-                <label className="block text-xs font-medium text-gray-600 mb-1">ชื่อ-สกุล (ต้องตรงกับที่ login)</label>
+                <label className="block text-xs font-medium text-earth-ink2 mb-1">ชื่อ-สกุล (ต้องตรงกับที่ login)</label>
                 <input value={addForm.name} onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))}
                   placeholder="นาย/นาง/น.ส. ชื่อ สกุล"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">กลุ่ม</label>
+                <label className="block text-xs font-medium text-earth-ink2 mb-1">กลุ่ม</label>
                 <select value={addForm.group_code} onChange={e => setAddForm(f => ({ ...f, group_code: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm">
                   <option value="1">กลุ่ม 1 — นักวิทยาศาสตร์</option>
                   <option value="2">กลุ่ม 2 — Operator</option>
                   <option value="3a">กลุ่ม 3a — ผอ.กผจ.</option>
@@ -755,19 +755,19 @@ function AdminPanel({ onClose }) {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">ผลัด (เฉพาะ Operator)</label>
+                <label className="block text-xs font-medium text-earth-ink2 mb-1">ผลัด (เฉพาะ Operator)</label>
                 <input type="number" min="1" max="4" value={addForm.shift} onChange={e => setAddForm(f => ({ ...f, shift: e.target.value }))}
-                  placeholder="1-4" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  placeholder="1-4" className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">ชื่อหน่วยงาน/ส่วน</label>
+                <label className="block text-xs font-medium text-earth-ink2 mb-1">ชื่อหน่วยงาน/ส่วน</label>
                 <input value={addForm.dept_label} onChange={e => setAddForm(f => ({ ...f, dept_label: e.target.value }))}
-                  placeholder="เช่น ผอ.กผจ.ฝผม." className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+                  placeholder="เช่น ผอ.กผจ.ฝผม." className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm" />
               </div>
               <div className="flex items-center gap-2 pt-4">
                 <input type="checkbox" id="isAdminChk" checked={addForm.is_admin}
                   onChange={e => setAddForm(f => ({ ...f, is_admin: e.target.checked }))} />
-                <label htmlFor="isAdminChk" className="text-sm text-gray-700">ให้สิทธิ์ Admin</label>
+                <label htmlFor="isAdminChk" className="text-sm text-earth-ink">ให้สิทธิ์ Admin</label>
               </div>
             </div>
             <button onClick={handleAdd} disabled={!addForm.name}
@@ -777,11 +777,11 @@ function AdminPanel({ onClose }) {
           </div>
 
           {/* Whitelist table */}
-          {isLoading ? <p className="text-sm text-gray-400">กำลังโหลด...</p> : (
+          {isLoading ? <p className="text-sm text-earth-ink3">กำลังโหลด...</p> : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm border-collapse">
                 <thead>
-                  <tr className="bg-gray-100 text-left text-xs text-gray-600">
+                  <tr className="bg-earth-card text-left text-xs text-earth-ink2">
                     <th className="px-3 py-2 rounded-tl-lg">ชื่อ-สกุล</th>
                     <th className="px-3 py-2">กลุ่ม</th>
                     <th className="px-3 py-2">ผลัด</th>
@@ -792,14 +792,14 @@ function AdminPanel({ onClose }) {
                 </thead>
                 <tbody>
                   {whitelist.map(e => (
-                    <tr key={e.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr key={e.id} className="border-b border-earth-border hover:bg-earth-DEFAULT">
                       <td className="px-3 py-2 font-medium">{e.name}</td>
                       <td className="px-3 py-2">{GROUP_LABEL[e.group_code] || e.group_code}</td>
                       <td className="px-3 py-2 text-center">{e.shift || '—'}</td>
-                      <td className="px-3 py-2 text-gray-500 text-xs">{e.dept_label || '—'}</td>
+                      <td className="px-3 py-2 text-earth-ink2 text-xs">{e.dept_label || '—'}</td>
                       <td className="px-3 py-2 text-center">
                         <button onClick={() => handleToggleAdmin(e)}
-                          className={`px-2 py-0.5 rounded text-xs font-medium ${e.is_admin ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-400'}`}>
+                          className={`px-2 py-0.5 rounded text-xs font-medium ${e.is_admin ? 'bg-yellow-100 text-yellow-700' : 'bg-earth-card text-earth-ink3'}`}>
                           {e.is_admin ? 'Admin' : '—'}
                         </button>
                       </td>
@@ -810,7 +810,7 @@ function AdminPanel({ onClose }) {
                   ))}
                 </tbody>
               </table>
-              {whitelist.length === 0 && <p className="text-center py-4 text-gray-400 text-sm">ยังไม่มีรายชื่อ — กด Sync EHR ก่อน</p>}
+              {whitelist.length === 0 && <p className="text-center py-4 text-earth-ink3 text-sm">ยังไม่มีรายชื่อ — กด Sync EHR ก่อน</p>}
             </div>
           )}
         </div>
@@ -912,11 +912,11 @@ export default function CARLog() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 flex-wrap">
-          <h1 className="text-2xl font-bold text-gray-900">CAR Log</h1>
+          <h1 className="text-2xl font-bold text-earth-ink">CAR Log</h1>
           {(myRole?.groups?.length > 0 || myRole?.group) && (() => {
             const gs = myRole.groups || [myRole.group];
             return gs.map(g => (
-              <span key={g} className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+              <span key={g} className="px-2 py-0.5 rounded-full text-xs font-medium bg-earth-card text-earth-ink2 border border-earth-border">
                 {GROUP_LABEL[g] || g}
                 {g === '2' && myRole.shift ? ` ผลัด ${myRole.shift}` : ''}
               </span>
@@ -934,18 +934,18 @@ export default function CARLog() {
         </div>
         <div className="flex gap-2">
           <button onClick={() => setTab('list')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium touch-target ${tab === 'list' ? 'bg-brand text-white' : 'bg-gray-100 text-gray-700'}`}>
+            className={`px-4 py-2 rounded-lg text-sm font-medium touch-target ${tab === 'list' ? 'bg-brand text-white' : 'bg-earth-card text-earth-ink'}`}>
             รายการ
           </button>
           {(!myRole?.group || (myRole.groups || [myRole.group]).includes('1') || myRole.isAdmin) && (
             <button onClick={() => setTab('create')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium touch-target ${tab === 'create' ? 'bg-brand text-white' : 'bg-gray-100 text-gray-700'}`}>
+              className={`px-4 py-2 rounded-lg text-sm font-medium touch-target ${tab === 'create' ? 'bg-brand text-white' : 'bg-earth-card text-earth-ink'}`}>
               + สร้าง CAR
             </button>
           )}
           {myRole?.isAdmin && (
             <button onClick={() => setShowAdmin(true)}
-              className="px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 touch-target"
+              className="px-3 py-2 rounded-lg text-sm font-medium bg-earth-card text-earth-ink hover:bg-earth-card touch-target"
               title="จัดการ Whitelist">
               ⚙
             </button>
@@ -957,7 +957,7 @@ export default function CARLog() {
       {tab === 'list' && (
         <>
           {isLoading
-            ? <div className="text-center py-8 text-gray-400">กำลังโหลด...</div>
+            ? <div className="text-center py-8 text-earth-ink3">กำลังโหลด...</div>
             : (
               <div className="space-y-6">
                 <Bucket title="กำลังดำเนินการ" cars={inProgress} onSelect={setSelectedCar} badge={inProgress.length} />
@@ -971,12 +971,12 @@ export default function CARLog() {
 
       {/* Create form */}
       {tab === 'create' && (
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 space-y-4">
-          <h2 className="font-semibold text-gray-900">ส่วนที่ 1 — รายละเอียดสิ่งที่ไม่เป็นไปตามข้อกำหนด</h2>
+        <div className="bg-earth-DEFAULT rounded-xl p-5 shadow-sm border border-earth-border space-y-4">
+          <h2 className="font-semibold text-earth-ink">ส่วนที่ 1 — รายละเอียดสิ่งที่ไม่เป็นไปตามข้อกำหนด</h2>
           <div className="grid grid-cols-2 gap-4">
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-2">ประเภท</label>
+              <label className="block text-xs font-medium text-earth-ink2 mb-2">ประเภท</label>
               <div className="flex gap-4">
                 {['CAR','PAR'].map(t => (
                   <label key={t} className="flex items-center gap-1.5 text-sm cursor-pointer">
@@ -988,9 +988,9 @@ export default function CARLog() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">ระบบ</label>
+              <label className="block text-xs font-medium text-earth-ink2 mb-1">ระบบ</label>
               <select name="system_type" value={form.system_type} onChange={setF}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
                 <option value="">—</option>
                 <option>HACCP</option>
                 <option>ISO14001:2015</option>
@@ -1001,9 +1001,9 @@ export default function CARLog() {
             <Inp label="เลข CAR/PAR" name="car_number" value={form.car_number} onChange={setF} />
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">ประเภทของปัญหา</label>
+              <label className="block text-xs font-medium text-earth-ink2 mb-1">ประเภทของปัญหา</label>
               <select name="issue_type" value={form.issue_type} onChange={setF}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
                 <option value="">—</option>
                 <option value="ผลิตภัณฑ์ที่ไม่เป็นไปตามข้อกำหนด">ผลิตภัณฑ์ NC</option>
                 <option value="การตรวจติดตามภายใน">การตรวจติดตามภายใน</option>
@@ -1013,31 +1013,31 @@ export default function CARLog() {
             </div>
 
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-600 mb-1">1.1 เรื่องที่พบ <span className="text-red-500">*</span></label>
+              <label className="block text-xs font-medium text-earth-ink2 mb-1">1.1 เรื่องที่พบ <span className="text-red-500">*</span></label>
               <textarea name="parameter_name" value={form.parameter_name} onChange={setF} rows={3} required
                 placeholder="ระบุสิ่งที่ไม่เป็นไปตามข้อกำหนด..."
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+                className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
             </div>
 
             <Inp label="ค่าที่พบ" name="recorded_value" type="number" value={form.recorded_value} onChange={setF} />
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">เกณฑ์</label>
+              <label className="block text-xs font-medium text-earth-ink2 mb-1">เกณฑ์</label>
               <div className="flex gap-2">
                 <select name="threshold_direction" value={form.threshold_direction} onChange={setF}
-                  className="border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                  className="border border-earth-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
                   <option value="above">เกิน (≤)</option>
                   <option value="below">ต่ำกว่า (≥)</option>
                 </select>
                 <input type="number" step="any" name="threshold_value" value={form.threshold_value} onChange={setF}
-                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+                  className="flex-1 border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
               </div>
             </div>
 
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-600 mb-1">วันที่-เวลาที่พบ <span className="text-red-500">*</span></label>
+              <label className="block text-xs font-medium text-earth-ink2 mb-1">วันที่-เวลาที่พบ <span className="text-red-500">*</span></label>
               <input type="datetime-local" name="record_datetime" value={form.record_datetime} onChange={setF}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+                className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
             </div>
 
             <Inp label="1.2 ผู้ออก *" name="issuer_name" value={form.issuer_name} onChange={setF} readOnly={!!myRole?.name} />

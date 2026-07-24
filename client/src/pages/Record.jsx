@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+﻿import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { get, post } from '../api.js';
 import { getRefDate, setRefDate } from '../utils/refDate.js';
@@ -54,18 +54,18 @@ const COLS = 4;
 
 // Per-node color palette: [nodeHeader, subgroupEven, subgroupOdd, cellEven, cellOdd, border]
 const NODE_PALETTE = {
-  RW:        ['bg-emerald-700 text-white',  'bg-emerald-100', 'bg-emerald-50',  'bg-emerald-50',  'bg-white',        'border-emerald-100'],
-  Incoming:  ['bg-teal-700 text-white',     'bg-teal-100',    'bg-teal-50',     'bg-teal-50',     'bg-white',        'border-teal-100'],
-  JarTest:   ['bg-violet-700 text-white',   'bg-violet-100',  'bg-violet-50',   'bg-violet-50',   'bg-white',        'border-violet-100'],
-  JarTestSummary: ['bg-fuchsia-700 text-white', 'bg-fuchsia-100', 'bg-fuchsia-50', 'bg-fuchsia-50', 'bg-white', 'border-fuchsia-100'],
-  CW_Phase1: ['bg-blue-800 text-white',     'bg-blue-200',    'bg-blue-100',    'bg-blue-50',     'bg-white',        'border-blue-100'],
-  CW_Phase2: ['bg-indigo-800 text-white',   'bg-indigo-200',  'bg-indigo-100',  'bg-indigo-50',   'bg-white',        'border-indigo-100'],
-  CW_Phase3: ['bg-sky-800 text-white',      'bg-sky-200',     'bg-sky-100',     'bg-sky-50',      'bg-white',        'border-sky-100'],
-  CW_Phase4: ['bg-cyan-800 text-white',     'bg-cyan-200',    'bg-cyan-100',    'bg-cyan-50',     'bg-white',        'border-cyan-100'],
-  TW12:      ['bg-orange-700 text-white',   'bg-orange-100',  'bg-orange-50',   'bg-orange-50',   'bg-white',        'border-orange-100'],
-  TW34:      ['bg-amber-700 text-white',    'bg-amber-100',   'bg-amber-50',    'bg-amber-50',    'bg-white',        'border-amber-100'],
+  RW:        ['bg-emerald-700 text-white',  'bg-emerald-100', 'bg-emerald-50',  'bg-emerald-50',  'bg-earth-DEFAULT',        'border-emerald-100'],
+  Incoming:  ['bg-teal-700 text-white',     'bg-teal-100',    'bg-teal-50',     'bg-teal-50',     'bg-earth-DEFAULT',        'border-teal-100'],
+  JarTest:   ['bg-violet-700 text-white',   'bg-violet-100',  'bg-violet-50',   'bg-violet-50',   'bg-earth-DEFAULT',        'border-violet-100'],
+  JarTestSummary: ['bg-fuchsia-700 text-white', 'bg-fuchsia-100', 'bg-fuchsia-50', 'bg-fuchsia-50', 'bg-earth-DEFAULT', 'border-fuchsia-100'],
+  CW_Phase1: ['bg-blue-800 text-white',     'bg-blue-200',    'bg-blue-100',    'bg-blue-50',     'bg-earth-DEFAULT',        'border-blue-100'],
+  CW_Phase2: ['bg-indigo-800 text-white',   'bg-indigo-200',  'bg-indigo-100',  'bg-indigo-50',   'bg-earth-DEFAULT',        'border-indigo-100'],
+  CW_Phase3: ['bg-sky-800 text-white',      'bg-sky-200',     'bg-sky-100',     'bg-sky-50',      'bg-earth-DEFAULT',        'border-sky-100'],
+  CW_Phase4: ['bg-cyan-800 text-white',     'bg-cyan-200',    'bg-cyan-100',    'bg-cyan-50',     'bg-earth-DEFAULT',        'border-cyan-100'],
+  TW12:      ['bg-orange-700 text-white',   'bg-orange-100',  'bg-orange-50',   'bg-orange-50',   'bg-earth-DEFAULT',        'border-orange-100'],
+  TW34:      ['bg-amber-700 text-white',    'bg-amber-100',   'bg-amber-50',    'bg-amber-50',    'bg-earth-DEFAULT',        'border-amber-100'],
 };
-const DEFAULT_PALETTE = ['bg-gray-700 text-white', 'bg-gray-100', 'bg-gray-50', 'bg-gray-50', 'bg-white', 'border-gray-100'];
+const DEFAULT_PALETTE = ['bg-gray-700 text-white', 'bg-gray-100', 'bg-earth-DEFAULT', 'bg-earth-DEFAULT', 'bg-earth-DEFAULT', 'border-earth-border'];
 
 function groupBySubgroup(params) {
   const order = [];
@@ -246,7 +246,7 @@ function AlgaeSpeciesPanel({ selectedDate, onSpeciesChange, canRecord = true }) 
               key={st}
               onClick={() => setStation(st)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium border transition-colors
-                ${station === st ? 'bg-rose-700 text-white border-rose-700' : 'bg-white text-rose-700 border-rose-200 hover:border-rose-500'}`}
+                ${station === st ? 'bg-rose-700 text-white border-rose-700' : 'bg-earth-DEFAULT text-rose-700 border-rose-200 hover:border-rose-500'}`}
             >
               {st}
             </button>
@@ -259,12 +259,12 @@ function AlgaeSpeciesPanel({ selectedDate, onSpeciesChange, canRecord = true }) 
           placeholder="ค้นหาชนิดสาหร่าย..."
           value={query}
           onChange={e => setQuery(e.target.value)}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300"
+          className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-300"
         />
 
         {/* Search results */}
         {searchResults.length > 0 && (
-          <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto divide-y divide-gray-100">
+          <div className="border border-earth-border rounded-lg max-h-48 overflow-y-auto divide-y divide-earth-border">
             {searchResults.map(sp => {
               const already = selectedIds.has(sp.id);
               return (
@@ -277,7 +277,7 @@ function AlgaeSpeciesPanel({ selectedDate, onSpeciesChange, canRecord = true }) 
                 >
                   <span>
                     <span className="font-medium">{sp.species_name}</span>
-                    {sp.category && <span className="ml-2 text-xs text-gray-400">{sp.category}</span>}
+                    {sp.category && <span className="ml-2 text-xs text-earth-ink3">{sp.category}</span>}
                   </span>
                   {already ? <span className="text-xs text-green-600">✓</span> : <span className="text-xs text-rose-400">+ เลือก</span>}
                 </button>
@@ -289,10 +289,10 @@ function AlgaeSpeciesPanel({ selectedDate, onSpeciesChange, canRecord = true }) 
         {/* Selected species */}
         {stationSelected.length > 0 ? (
           <div className="space-y-1">
-            <p className="text-xs font-bold text-gray-500">รายการที่เลือก ({station})</p>
+            <p className="text-xs font-bold text-earth-ink2">รายการที่เลือก ({station})</p>
             {stationSelected.map(sp => (
               <div key={sp.species_id} className="flex items-center gap-2 bg-rose-50 border border-rose-100 rounded-lg px-3 py-1.5">
-                <span className="flex-1 text-sm font-medium text-gray-700">{sp.species_name}</span>
+                <span className="flex-1 text-sm font-medium text-earth-ink">{sp.species_name}</span>
                 <input
                   type="number"
                   step="any"
@@ -300,15 +300,15 @@ function AlgaeSpeciesPanel({ selectedDate, onSpeciesChange, canRecord = true }) 
                   value={sp.count}
                   onChange={e => setCount(sp.species_id, e.target.value)}
                   placeholder="—"
-                  className="w-28 border border-rose-200 rounded-md px-2 py-1 text-sm text-center font-semibold focus:outline-none focus:ring-2 focus:ring-rose-300 bg-white"
+                  className="w-28 border border-rose-200 rounded-md px-2 py-1 text-sm text-center font-semibold focus:outline-none focus:ring-2 focus:ring-rose-300 bg-earth-DEFAULT"
                 />
-                <span className="text-xs text-gray-400 whitespace-nowrap">cells/100mL</span>
+                <span className="text-xs text-earth-ink3 whitespace-nowrap">cells/100mL</span>
                 <button onClick={() => removeSpecies(sp.species_id)} className="text-rose-400 hover:text-rose-600 text-base leading-none">×</button>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-center text-gray-400 text-sm py-2">ยังไม่มีรายการ — ค้นหาและเลือกสาหร่าย</p>
+          <p className="text-center text-earth-ink3 text-sm py-2">ยังไม่มีรายการ — ค้นหาและเลือกสาหร่าย</p>
         )}
 
         {/* Save button */}
@@ -636,19 +636,19 @@ export default function Record() {
       {/* Retroactive confirm modal */}
       {confirmDialog.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <h2 className="text-base font-bold text-gray-900">ยืนยันการบันทึกย้อนหลัง</h2>
-            <p className="text-sm text-gray-500">ค่าต่อไปนี้ต่างจากข้อมูล AquaDAT — จะบันทึกเฉพาะค่าที่มีการเปลี่ยนแปลง:</p>
+          <div className="bg-earth-DEFAULT rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <h2 className="text-base font-bold text-earth-ink">ยืนยันการบันทึกย้อนหลัง</h2>
+            <p className="text-sm text-earth-ink2">ค่าต่อไปนี้ต่างจากข้อมูล AquaDAT — จะบันทึกเฉพาะค่าที่มีการเปลี่ยนแปลง:</p>
             <div className="max-h-60 overflow-y-auto space-y-1.5">
               {confirmDialog.diffs.map(d => (
                 <div key={d.key} className="flex justify-between text-sm px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
-                  <span className="font-medium text-gray-700">{d.label}</span>
-                  <span className="text-gray-500">
+                  <span className="font-medium text-earth-ink">{d.label}</span>
+                  <span className="text-earth-ink2">
                     {d.snapshotVal !== null
-                      ? <><span className="text-gray-400">{d.snapshotVal}</span>{' → '}<span className="text-amber-700 font-semibold">{d.myVal}</span></>
+                      ? <><span className="text-earth-ink3">{d.snapshotVal}</span>{' → '}<span className="text-amber-700 font-semibold">{d.myVal}</span></>
                       : <span className="text-blue-700 font-semibold">{d.myVal} (ใหม่)</span>
                     }
-                    {d.unit && <span className="ml-1 text-gray-400">{d.unit}</span>}
+                    {d.unit && <span className="ml-1 text-earth-ink3">{d.unit}</span>}
                   </span>
                 </div>
               ))}
@@ -656,7 +656,7 @@ export default function Record() {
             <div className="flex gap-3">
               <button
                 onClick={() => setConfirmDialog(d => ({ ...d, open: false }))}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2.5 rounded-xl border border-earth-border text-sm text-earth-ink2 hover:bg-earth-DEFAULT transition-colors"
               >
                 ยกเลิก
               </button>
@@ -673,7 +673,7 @@ export default function Record() {
       )}
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-earth-ink">
           บันทึกข้อมูล
           {isRetroactive && (
             <span className="ml-2 text-sm font-normal text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
@@ -692,9 +692,9 @@ export default function Record() {
       </div>
 
       {/* Time slot selector */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 space-y-2">
+      <div className="bg-earth-DEFAULT rounded-xl p-4 shadow-sm border border-earth-border space-y-2">
         <div className="flex items-center justify-between">
-          <p className="text-xs text-gray-400">เลือกรอบเวลา</p>
+          <p className="text-xs text-earth-ink3">เลือกรอบเวลา</p>
           <div className="flex items-center gap-2">
             <span className={`flex items-center gap-1 text-xs font-medium ${
               stage === 0 ? 'text-red-500' : stage === 2 ? 'text-amber-500' : 'text-emerald-600'
@@ -732,7 +732,7 @@ export default function Record() {
                     ? 'bg-green-100 border-green-400 text-green-800 hover:bg-green-200'
                     : color === 'red'
                     ? 'bg-red-100 border-red-400 text-red-800 hover:bg-red-200'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-brand hover:text-brand'
+                    : 'bg-earth-DEFAULT text-earth-ink2 border-earth-border hover:border-brand hover:text-brand'
                   }`}
               >
                 {slot}
@@ -754,7 +754,7 @@ export default function Record() {
                     ? 'bg-green-100 border-green-400 text-green-800 hover:bg-green-200'
                     : color === 'red'
                     ? 'bg-red-100 border-red-400 text-red-800 hover:bg-red-200'
-                    : 'bg-white text-purple-600 border-purple-200 hover:border-purple-600'
+                    : 'bg-earth-DEFAULT text-purple-600 border-purple-200 hover:border-purple-600'
                   }`}
               >
                 วันละ 1 ครั้ง
@@ -769,7 +769,7 @@ export default function Record() {
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors touch-target
                   ${isActive
                     ? 'bg-rose-700 text-white border-rose-700'
-                    : 'bg-white text-rose-700 border-rose-200 hover:border-rose-700 hover:text-rose-700'
+                    : 'bg-earth-DEFAULT text-rose-700 border-rose-200 hover:border-rose-700 hover:text-rose-700'
                   }`}
               >
                 สัปดาห์ละ 1 ครั้ง
@@ -788,7 +788,7 @@ export default function Record() {
       )}
 
       {visibleNodes.length === 0 ? (
-        <div className="text-center text-gray-400 py-8">ไม่มีพารามิเตอร์สำหรับรอบนี้</div>
+        <div className="text-center text-earth-ink3 py-8">ไม่มีพารามิเตอร์สำหรับรอบนี้</div>
       ) : (
         <div className="space-y-3">
           {visibleNodes.map(node => {
@@ -806,7 +806,7 @@ export default function Record() {
               {/* Sub-group rows */}
               {groups.map(({ subgroup, params: sgParams }, sgIdx) => {
                 const isEven = sgIdx % 2 === 0;
-                const sgBg = subgroup ? (isEven ? sgEven : sgOdd) : 'bg-white';
+                const sgBg = subgroup ? (isEven ? sgEven : sgOdd) : 'bg-earth-DEFAULT';
                 const cellBg = isEven ? cellEven : cellOdd;
                 return (
                 <div key={subgroup ?? 'flat'}>
@@ -830,8 +830,8 @@ export default function Record() {
                         >
                           {/* Inline label row */}
                           <div className="flex flex-wrap items-baseline gap-x-1 mb-1.5 leading-tight">
-                            <span className="text-xs font-bold text-gray-700">{p.label}</span>
-                            {p.unit && <span className="text-xs text-gray-400">({p.unit})</span>}
+                            <span className="text-xs font-bold text-earth-ink">{p.label}</span>
+                            {p.unit && <span className="text-xs text-earth-ink3">({p.unit})</span>}
                             {threshold && (
                               <span className="text-xs font-semibold text-blue-600">{threshold}</span>
                             )}
@@ -840,8 +840,8 @@ export default function Record() {
                             <select
                               value={val}
                               onChange={e => setValues(v => ({ ...v, [p.param_key]: e.target.value }))}
-                              className={`w-full border rounded-md px-2 py-1.5 text-base font-semibold text-center focus:outline-none focus:ring-2 bg-white
-                                ${val === 'found' ? 'border-red-300 text-red-700 focus:ring-red-300' : 'border-gray-200 focus:ring-brand'}`}
+                              className={`w-full border rounded-md px-2 py-1.5 text-base font-semibold text-center focus:outline-none focus:ring-2 bg-earth-DEFAULT
+                                ${val === 'found' ? 'border-red-300 text-red-700 focus:ring-red-300' : 'border-earth-border focus:ring-brand'}`}
                             >
                               <option value="">—</option>
                               <option value="none">none</option>
@@ -855,10 +855,10 @@ export default function Record() {
                               value={val}
                               onChange={e => setValues(v => ({ ...v, [p.param_key]: e.target.value }))}
                               placeholder="—"
-                              className={`w-full border rounded-md px-2 py-1.5 text-base font-semibold text-center focus:outline-none focus:ring-2 bg-white
+                              className={`w-full border rounded-md px-2 py-1.5 text-base font-semibold text-center focus:outline-none focus:ring-2 bg-earth-DEFAULT
                                 ${oor
                                   ? 'border-red-300 text-red-700 focus:ring-red-300'
-                                  : 'border-gray-200 focus:ring-brand'
+                                  : 'border-earth-border focus:ring-brand'
                                 }`}
                             />
                           )}

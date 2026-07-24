@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { get, post } from '../api.js';
 import { Link, useNavigate } from 'react-router-dom';
@@ -80,21 +80,21 @@ function DotItem({ slot, label, status, modifiedCount, onClickSlot }) {
     status === 'green'  ? 'bg-green-500 border-green-700 ring-green-200' :
     status === 'red'    ? 'bg-red-400 border-red-600 ring-red-200 cursor-pointer' :
     status === 'amber'  ? 'bg-amber-400 border-amber-600 ring-amber-200 cursor-pointer' :
-    status === 'future' ? 'bg-gray-200 border-gray-300' : 'bg-gray-100 border-gray-200';
+    status === 'future' ? 'bg-gray-200 border-earth-border' : 'bg-gray-100 border-earth-border';
   const tooltipStatus =
     status === 'green'  ? { text: '✓ บันทึกแล้ว', cls: 'text-green-600' } :
     status === 'red'    ? { text: '✗ ยังไม่บันทึก', cls: 'text-red-600' } :
     status === 'amber'  ? { text: `✎ แก้ไขแล้ว (${modifiedCount} ค่า)`, cls: 'text-amber-600' } :
-    status === 'future' ? { text: 'ยังไม่ถึงเวลา', cls: 'text-gray-400' } :
-                          { text: 'ไม่มีรอบนี้', cls: 'text-gray-400' };
+    status === 'future' ? { text: 'ยังไม่ถึงเวลา', cls: 'text-earth-ink3' } :
+                          { text: 'ไม่มีรอบนี้', cls: 'text-earth-ink3' };
   return (
     <div className="relative flex items-center justify-center"
       onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}
       onClick={() => isClickable && onClickSlot(slot)}>
       <div className={`w-2.5 h-2.5 rounded-full border-2 transition-transform duration-100 ${dotCls} ${isClickable ? 'hover:scale-150 hover:ring-2' : ''}`} />
       {show && (
-        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none bg-white border border-gray-200 rounded-lg px-2 py-1.5 shadow-md whitespace-nowrap">
-          <span className="block text-xs font-mono font-semibold text-gray-800">{label}</span>
+        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none bg-earth-card border border-earth-border rounded-lg px-2 py-1.5 shadow-md whitespace-nowrap">
+          <span className="block text-xs font-mono font-semibold text-earth-ink">{label}</span>
           <span className={`block text-xs ${tooltipStatus.cls}`}>{tooltipStatus.text}</span>
         </div>
       )}
@@ -106,7 +106,7 @@ function TimelineDots({ node, onClickSlot }) {
   const dots = buildNodeDots(node);
   return (
     <div className="relative flex-1 flex items-center h-6">
-      <div className="absolute inset-x-0 h-0.5 bg-gray-200 rounded-full" />
+      <div className="absolute inset-x-0 h-0.5 bg-earth-border rounded-full" />
       <div className="relative w-full flex justify-between items-center">
         {dots.map((d, i) => <DotItem key={i} {...d} onClickSlot={onClickSlot} />)}
       </div>
@@ -309,7 +309,7 @@ function AquadatQueueBanner() {
               item.status === 'dead' ? 'bg-red-50 border border-red-200' : 'bg-amber-100'
             }`}
           >
-            <span className="font-mono text-gray-600">{item.script_name}</span>
+            <span className="font-mono text-earth-ink2">{item.script_name}</span>
             <span className={`font-semibold ${item.status === 'dead' ? 'text-red-600' : 'text-amber-700'}`}>
               {item.status === 'dead' ? `ล้มเหลว ${item.attempts} ครั้ง` : `รอส่ง (${item.attempts} ครั้ง)`}
             </span>
@@ -435,13 +435,13 @@ function AquadatRemarks({ selectedDate }) {
             <button
               onClick={() => setIdx(i => Math.max(0, i - 1))}
               disabled={safeIdx === 0}
-              className="w-6 h-6 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default text-sm leading-none"
+              className="w-6 h-6 flex items-center justify-center rounded border border-earth-border text-earth-ink2 hover:bg-earth-card disabled:opacity-30 disabled:cursor-default text-sm leading-none"
             >‹</button>
-            <span className="text-xs text-gray-400 font-mono">{safeIdx + 1}/{total}</span>
+            <span className="text-xs text-earth-ink3 font-mono">{safeIdx + 1}/{total}</span>
             <button
               onClick={() => setIdx(i => Math.min(total - 1, i + 1))}
               disabled={safeIdx === total - 1}
-              className="w-6 h-6 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-default text-sm leading-none"
+              className="w-6 h-6 flex items-center justify-center rounded border border-earth-border text-earth-ink2 hover:bg-earth-card disabled:opacity-30 disabled:cursor-default text-sm leading-none"
             >›</button>
           </div>
         )}
@@ -475,10 +475,10 @@ function AquadatRemarks({ selectedDate }) {
           ) : (
             <div className="bg-earth-DEFAULT rounded-lg px-2.5 py-2 h-full">
               <div className="flex items-center gap-1.5 mb-1">
-                <span className="text-xs font-mono text-gray-400">{r.trans_remark_date}</span>
-                <span className="text-xs text-gray-500 truncate">{r.created_user || r.user_fullname}</span>
+                <span className="text-xs font-mono text-earth-ink3">{r.trans_remark_date}</span>
+                <span className="text-xs text-earth-ink2 truncate">{r.created_user || r.user_fullname}</span>
               </div>
-              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{r.description.replace(/\|/g, '\n')}</p>
+              <p className="text-sm text-earth-ink leading-relaxed whitespace-pre-line">{r.description.replace(/\|/g, '\n')}</p>
             </div>
           )}
         </div>
@@ -533,13 +533,13 @@ function ManualRemarks({ selectedDate, me }) {
           {/* Remarks list — bordered box */}
           <div className="overflow-y-auto border border-earth-border rounded-lg p-2" style={{ minHeight: '6rem', maxHeight: '10rem' }}>
             {myRemarks.length === 0 ? (
-              <p className="text-sm text-gray-400">ยังไม่มีหมายเหตุของคุณสัปดาห์นี้</p>
+              <p className="text-sm text-earth-ink3">ยังไม่มีหมายเหตุของคุณสัปดาห์นี้</p>
             ) : (
               <div className="space-y-1.5">
                 {myRemarks.map(r => (
                   <div key={r.trans_remark_id} className="bg-blue-50 border border-blue-100 rounded-lg px-2.5 py-2">
                     <span className="text-xs font-mono text-blue-400 block mb-0.5">{r.trans_remark_date}</span>
-                    <p className="text-base text-gray-700">{r.description}</p>
+                    <p className="text-base text-earth-ink">{r.description}</p>
                   </div>
                 ))}
               </div>
@@ -748,7 +748,7 @@ function MiniChartsSection() {
         </div>
 
         {isLoading ? (
-          <div className="col-span-2 flex items-center justify-center h-32 text-gray-400 text-sm" style={{ gridRow: '1 / 3' }}>
+          <div className="col-span-2 flex items-center justify-center h-32 text-earth-ink3 text-sm" style={{ gridRow: '1 / 3' }}>
             กำลังโหลด...
           </div>
         ) : isSingle ? (
@@ -771,7 +771,7 @@ function MiniChartsSection() {
             onChange={e => setCarMsg(e.target.value)}
             rows={selectedBad.size > 1 ? selectedBad.size + 1 : 2}
             readOnly={selectedBad.size === 0}
-            className={`flex-1 text-xs border border-red-200 rounded-lg px-2.5 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-red-400 bg-white ${selectedBad.size === 0 ? 'text-gray-400 italic' : ''}`}
+            className={`flex-1 text-xs border border-red-200 rounded-lg px-2.5 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-red-400 bg-earth-DEFAULT ${selectedBad.size === 0 ? 'text-earth-ink3 italic' : ''}`}
           />
           <button
             onClick={goCreateCAR}
@@ -902,7 +902,7 @@ export default function Dashboard() {
         {/* Left column */}
         <div className={`${leftCls} space-y-3 transition-all duration-300`}>
           {isLoading ? (
-            <div className="text-center py-8 text-gray-400">กำลังโหลดข้อมูล...</div>
+            <div className="text-center py-8 text-earth-ink3">กำลังโหลดข้อมูล...</div>
           ) : progress ? (
             <>
               <ProgressBar value={progress.totalRecorded} max={progress.totalExpected} />
@@ -911,7 +911,7 @@ export default function Dashboard() {
               <WeeklyProgress selectedDate={selectedDate} progressNodes={progress.nodes} />
 
               <div>
-                <h2 className="text-sm font-semibold text-gray-700 mb-2">สถานะรายหัวข้อ</h2>
+                <h2 className="text-sm font-semibold text-earth-ink mb-2">สถานะรายหัวข้อ</h2>
                 <div className="space-y-2">
                   {NODE_GROUPS.map(group => {
                     const nodeMap = Object.fromEntries((progress.nodes || []).map(n => [n.id, n]));

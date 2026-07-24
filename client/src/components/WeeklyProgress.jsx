@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { get } from '../api.js';
@@ -58,13 +58,13 @@ export default function WeeklyProgress({ selectedDate, progressNodes }) {
             const done = (algaeStatus?.stations?.[s] ?? 0) > 0;
             return (
               <div key={s} className={`flex-1 rounded-lg px-1 py-1 text-center text-xs font-medium border
-                ${done ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-400'}`}>
+                ${done ? 'bg-green-50 border-green-200 text-green-700' : 'bg-earth-DEFAULT border-earth-border text-earth-ink3'}`}>
                 {done ? '✓' : '–'} {STATION_LABELS[s]}
               </div>
             );
           })}
         </div>
-        <p className="text-xs text-gray-400 mt-1.5">บันทึกแล้ว {totalDone}/{STATIONS.length} สถานี</p>
+        <p className="text-xs text-earth-ink3 mt-1.5">บันทึกแล้ว {totalDone}/{STATIONS.length} สถานี</p>
       </div>
 
       {/* Chemical Analysis card */}
@@ -89,10 +89,10 @@ export default function WeeklyProgress({ selectedDate, progressNodes }) {
                 style={{ width: `${chemExpected ? Math.round((chemDone / chemExpected) * 100) : 0}%` }}
               />
             </div>
-            <p className="text-xs text-gray-400 mt-1.5">{chemDone}/{chemExpected} พารามิเตอร์</p>
+            <p className="text-xs text-earth-ink3 mt-1.5">{chemDone}/{chemExpected} พารามิเตอร์</p>
           </>
         ) : (
-          <p className="text-xs text-gray-400 mt-1">ไม่มีข้อมูล</p>
+          <p className="text-xs text-earth-ink3 mt-1">ไม่มีข้อมูล</p>
         )}
       </div>
     </div>

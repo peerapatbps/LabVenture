@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { GridLayout } from 'react-grid-layout';
 import { get, post, patch, del, BASE } from '../api.js';
@@ -6,7 +6,7 @@ import { getRefDate, setRefDate } from '../utils/refDate.js';
 import DateSyncBar from '../components/DateSyncBar.jsx';
 import MiniChartCard from '../components/MiniChart.jsx';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { ResponsiveSankey } from '@nivo/sankey';
+import { sankey as d3Sankey, sankeyLinkHorizontal } from 'd3-sankey';
 import { PieChart, Pie, Cell } from 'recharts';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
@@ -56,7 +56,7 @@ const TOPIC_COLORS = {
   'Energy Pump':   { header: 'bg-indigo-700 text-white',  border: 'border-indigo-300',  tag: 'bg-indigo-100 text-indigo-800'   },
   'Temperature':   { header: 'bg-rose-700 text-white',    border: 'border-rose-300',    tag: 'bg-rose-100 text-rose-800'       },
   'Compensate':    { header: 'bg-cyan-700 text-white',    border: 'border-cyan-300',    tag: 'bg-cyan-100 text-cyan-800'       },
-  'Other':         { header: 'bg-gray-600 text-white',    border: 'border-gray-300',    tag: 'bg-gray-100 text-gray-700'       },
+  'Other':         { header: 'bg-gray-600 text-white',    border: 'border-earth-border',    tag: 'bg-earth-card text-earth-ink'       },
   'Overview':      { header: 'bg-teal-700 text-white',    border: 'border-teal-300',    tag: 'bg-teal-100 text-teal-800'       },
   'Property':      { header: 'bg-blue-700 text-white',    border: 'border-blue-300',    tag: 'bg-blue-100 text-blue-800'       },
   'Energy':        { header: 'bg-amber-700 text-white',   border: 'border-amber-300',   tag: 'bg-amber-100 text-amber-800'     },
@@ -79,9 +79,9 @@ const TOPIC_COLORS = {
   'PUMP TOTALIZER & IHM':   { header: 'bg-teal-700 text-white',    border: 'border-teal-300',    tag: 'bg-teal-100 text-teal-800'       },
   'FEEDER 5&6':              { header: 'bg-purple-700 text-white',  border: 'border-purple-300',  tag: 'bg-purple-100 text-purple-800'   },
   'COMPENSATE':              { header: 'bg-cyan-700 text-white',    border: 'border-cyan-300',    tag: 'bg-cyan-100 text-cyan-800'       },
-  'other':                   { header: 'bg-gray-600 text-white',    border: 'border-gray-300',    tag: 'bg-gray-100 text-gray-700'       },
+  'other':                   { header: 'bg-gray-600 text-white',    border: 'border-earth-border',    tag: 'bg-earth-card text-earth-ink'       },
 };
-const DEFAULT_TOPIC_COLOR = { header: 'bg-gray-700 text-white', border: 'border-gray-300', tag: 'bg-gray-100 text-gray-700' };
+const DEFAULT_TOPIC_COLOR = { header: 'bg-gray-700 text-white', border: 'border-earth-border', tag: 'bg-earth-card text-earth-ink' };
 
 // ── Cell type detection ──────────────────────────────────────────────────────
 
@@ -136,8 +136,8 @@ function WidgetBody({ widget, history, stationDef }) {
         <table className="text-xs border-collapse w-full">
           <thead>
             <tr>
-              <th className="px-1 pb-1 text-gray-400 font-normal text-left text-[11px]">Topic</th>
-              {SLOTS_2H.map(s => <th key={s} className="px-0.5 text-gray-400 font-normal text-[10px]">{s.replace(':00','')}</th>)}
+              <th className="px-1 pb-1 text-earth-ink3 font-normal text-left text-[11px]">Topic</th>
+              {SLOTS_2H.map(s => <th key={s} className="px-0.5 text-earth-ink3 font-normal text-[10px]">{s.replace(':00','')}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -145,7 +145,7 @@ function WidgetBody({ widget, history, stationDef }) {
               const tSlots = topicSlots(t);
               return (
                 <tr key={t.topic}>
-                  <td className="pr-2 text-gray-600 font-medium whitespace-nowrap text-[11px]">{t.topic}</td>
+                  <td className="pr-2 text-earth-ink2 font-medium whitespace-nowrap text-[11px]">{t.topic}</td>
                   {SLOTS_2H.map(s => {
                     const ok = tSlots.includes(s);
                     const filled = ok && t.params.some(p => history[p.configparam_id]?.[s] !== undefined);
@@ -178,7 +178,7 @@ function WidgetBody({ widget, history, stationDef }) {
           const st = vals['STATUS PUMP'];
           const isOn = st === 'ON' || st === '1' || st === 'RUN';
           return (
-            <div key={pump} className={`rounded-lg px-2 py-1 text-xs font-semibold border ${isOn ? 'bg-green-100 border-green-300 text-green-800' : st == null ? 'bg-gray-100 border-gray-200 text-gray-400' : 'bg-red-100 border-red-200 text-red-700'}`}>
+            <div key={pump} className={`rounded-lg px-2 py-1 text-xs font-semibold border ${isOn ? 'bg-green-100 border-green-300 text-green-800' : st == null ? 'bg-gray-100 border-earth-border text-earth-ink3' : 'bg-red-100 border-red-200 text-red-700'}`}>
               {pump}
               <div className="text-[10px] font-normal">{isOn ? 'RUN' : st == null ? '—' : st}</div>
             </div>
@@ -196,10 +196,10 @@ function WidgetBody({ widget, history, stationDef }) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-2 p-4">
         <div className="text-3xl font-bold text-blue-700">{val !== null ? `${val} m` : '—'}</div>
-        <div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden">
+        <div className="w-full h-4 bg-earth-border rounded-full overflow-hidden">
           <div className="h-full bg-blue-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
         </div>
-        <div className="text-xs text-gray-400">Basin Level</div>
+        <div className="text-xs text-earth-ink3">Basin Level</div>
       </div>
     );
   }
@@ -210,7 +210,7 @@ function WidgetBody({ widget, history, stationDef }) {
 
 function Empty({ icon, children }) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-1 p-4 text-center">
+    <div className="flex-1 flex flex-col items-center justify-center text-earth-ink3 gap-1 p-4 text-center">
       <span className="text-3xl">{icon}</span>
       <span className="text-xs">{children}</span>
     </div>
@@ -223,18 +223,18 @@ function WidgetCard({ widget, history, stationDef, onRemove, onConfigure }) {
   const meta         = WIDGET_CATALOG.find(c => c.type === widget.widget_type);
   const configurable = CONFIGURABLE.has(widget.widget_type);
   return (
-    <div className="h-full flex flex-col bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="h-full flex flex-col bg-earth-DEFAULT rounded-xl border border-earth-border shadow-sm overflow-hidden">
       <div className="drag-handle flex items-center justify-between px-2 py-1.5 bg-gray-800 text-white shrink-0 cursor-grab select-none">
         <span className="text-xs font-semibold flex items-center gap-1.5">{meta?.icon} {meta?.label}</span>
         <div className="flex items-center gap-1 no-drag">
           {configurable && (
             <button
               onClick={() => onConfigure(widget)}
-              className="text-gray-400 hover:text-white text-xs px-1.5 py-0.5 rounded transition-colors"
+              className="text-earth-ink3 hover:text-white text-xs px-1.5 py-0.5 rounded transition-colors"
               title="ตั้งค่า parameter"
             >⚙️</button>
           )}
-          <button onClick={() => onRemove(widget.id)} className="text-gray-400 hover:text-white text-sm px-1 leading-none">✕</button>
+          <button onClick={() => onRemove(widget.id)} className="text-earth-ink3 hover:text-white text-sm px-1 leading-none">✕</button>
         </div>
       </div>
       <WidgetBody widget={widget} history={history} stationDef={stationDef} />
@@ -281,25 +281,25 @@ function WidgetConfigModal({ widget, stationDef, onSave, onClose }) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-[480px] max-h-[80vh] flex flex-col overflow-hidden"
+        className="bg-earth-DEFAULT rounded-2xl shadow-2xl w-[480px] max-h-[80vh] flex flex-col overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         {/* Modal header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-earth-border">
           <div className="flex items-center gap-2">
             <span className="text-xl">{meta?.icon}</span>
             <div>
-              <p className="font-bold text-gray-900 text-sm">ตั้งค่า {meta?.label}</p>
-              <p className="text-xs text-gray-400">เลือก topic และ parameter ที่ต้องการแสดง</p>
+              <p className="font-bold text-earth-ink text-sm">ตั้งค่า {meta?.label}</p>
+              <p className="text-xs text-earth-ink3">เลือก topic และ parameter ที่ต้องการแสดง</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none">✕</button>
+          <button onClick={onClose} className="text-earth-ink3 hover:text-earth-ink text-xl leading-none">✕</button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
           {/* Step 1 — Topic */}
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">① Topic</p>
+            <p className="text-xs font-semibold text-earth-ink2 uppercase tracking-wider mb-2">① Topic</p>
             <div className="flex flex-wrap gap-2">
               {stationDef?.topics?.map(t => {
                 const tc  = TOPIC_COLORS[t.topic] ?? DEFAULT_TOPIC_COLOR;
@@ -309,7 +309,7 @@ function WidgetConfigModal({ widget, stationDef, onSave, onClose }) {
                     key={t.topic}
                     onClick={() => handleTopicChange(t.topic)}
                     className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-all
-                      ${on ? `${tc.header} border-transparent shadow-sm` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}
+                      ${on ? `${tc.header} border-transparent shadow-sm` : 'bg-earth-DEFAULT text-earth-ink2 border-earth-border hover:border-earth-border'}`}
                   >
                     {t.topic}
                     <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full ${on ? 'bg-white/25' : tc.tag}`}>{t.params.length}</span>
@@ -322,8 +322,8 @@ function WidgetConfigModal({ widget, stationDef, onSave, onClose }) {
           {/* Step 2 — Parameter */}
           {topicDef && (
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">② Parameter</p>
-              <div className="border border-gray-100 rounded-xl overflow-hidden max-h-52 overflow-y-auto">
+              <p className="text-xs font-semibold text-earth-ink2 uppercase tracking-wider mb-2">② Parameter</p>
+              <div className="border border-earth-border rounded-xl overflow-hidden max-h-52 overflow-y-auto">
                 {paramList.map((p, i) => {
                   const on = selParam === p.configparam_id;
                   return (
@@ -332,14 +332,14 @@ function WidgetConfigModal({ widget, stationDef, onSave, onClose }) {
                       onClick={() => setSelParam(p.configparam_id)}
                       className={`w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors
                         ${i > 0 ? 'border-t border-gray-50' : ''}
-                        ${on ? 'bg-blue-50 border-l-2 border-l-blue-500' : 'hover:bg-gray-50'}`}
+                        ${on ? 'bg-blue-50 border-l-2 border-l-blue-500' : 'hover:bg-earth-DEFAULT'}`}
                     >
                       <div>
-                        <span className="text-sm font-semibold text-gray-800">{p.equipment_name}</span>
-                        <span className="text-sm text-gray-500 ml-2">{p.param_name}</span>
+                        <span className="text-sm font-semibold text-earth-ink">{p.equipment_name}</span>
+                        <span className="text-sm text-earth-ink2 ml-2">{p.param_name}</span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {p.unit && <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{p.unit}</span>}
+                        {p.unit && <span className="text-xs text-earth-ink3 bg-earth-card px-2 py-0.5 rounded-full">{p.unit}</span>}
                         {on && <span className="text-blue-500 text-base">✓</span>}
                       </div>
                     </button>
@@ -352,17 +352,17 @@ function WidgetConfigModal({ widget, stationDef, onSave, onClose }) {
           {/* Step 3 — Range (gauge only) */}
           {widget.widget_type === 'gauge' && selParam && (
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">③ Range (ตัวเลือก)</p>
+              <p className="text-xs font-semibold text-earth-ink2 uppercase tracking-wider mb-2">③ Range (ตัวเลือก)</p>
               <div className="flex gap-3">
                 <label className="flex-1">
-                  <span className="text-xs text-gray-400 block mb-1">Min</span>
+                  <span className="text-xs text-earth-ink3 block mb-1">Min</span>
                   <input type="number" step="any" value={rangeMin} onChange={e => setRangeMin(e.target.value)}
-                    placeholder="auto" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                    placeholder="auto" className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
                 </label>
                 <label className="flex-1">
-                  <span className="text-xs text-gray-400 block mb-1">Max</span>
+                  <span className="text-xs text-earth-ink3 block mb-1">Max</span>
                   <input type="number" step="any" value={rangeMax} onChange={e => setRangeMax(e.target.value)}
-                    placeholder="auto" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                    placeholder="auto" className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
                 </label>
               </div>
             </div>
@@ -381,8 +381,8 @@ function WidgetConfigModal({ widget, stationDef, onSave, onClose }) {
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-100 mt-2">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-gray-600 border border-gray-200 hover:border-gray-400 transition-colors">
+        <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-earth-border mt-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-earth-ink2 border border-earth-border hover:border-gray-400 transition-colors">
             ยกเลิก
           </button>
           <button
@@ -404,22 +404,22 @@ function WidgetPicker({ open, onClose, onAdd }) {
   if (!open) return null;
   return (
     <div className="absolute inset-0 z-50 flex justify-end" onClick={onClose}>
-      <div className="w-72 bg-white border-l border-gray-200 shadow-2xl h-full overflow-y-auto flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
-          <span className="font-bold text-gray-800">เพิ่ม Widget</span>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-lg leading-none">✕</button>
+      <div className="w-72 bg-earth-card border-l border-earth-border shadow-2xl h-full overflow-y-auto flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-earth-border shrink-0">
+          <span className="font-bold text-earth-ink">เพิ่ม Widget</span>
+          <button onClick={onClose} className="text-earth-ink3 hover:text-earth-ink text-lg leading-none">✕</button>
         </div>
         <div className="flex-1 p-3 space-y-2">
           {WIDGET_CATALOG.map(wt => (
             <button
               key={wt.type}
               onClick={() => { onAdd(wt); onClose(); }}
-              className="w-full text-left flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+              className="w-full text-left flex items-start gap-3 p-3 rounded-xl border border-earth-border hover:border-blue-300 hover:bg-blue-50 transition-colors"
             >
               <span className="text-2xl shrink-0 mt-0.5">{wt.icon}</span>
               <div>
-                <div className="text-sm font-semibold text-gray-800">{wt.label}</div>
-                <div className="text-xs text-gray-400 mt-0.5">{wt.desc}</div>
+                <div className="text-sm font-semibold text-earth-ink">{wt.label}</div>
+                <div className="text-xs text-earth-ink3 mt-0.5">{wt.desc}</div>
               </div>
             </button>
           ))}
@@ -461,7 +461,7 @@ const STATUS_COLOR = {
   PASSED:  'text-emerald-600',
   WARNING: 'text-amber-500',
   FAILED:  'text-red-600',
-  SKIPPED: 'text-gray-400',
+  SKIPPED: 'text-earth-ink3',
 };
 
 function ValidationPanel({ result, loading, stationId }) {
@@ -477,7 +477,7 @@ function ValidationPanel({ result, loading, stationId }) {
 
   if (loading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-sm text-gray-400">
+      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-sm text-earth-ink3">
         <svg className="w-5 h-5 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="12" cy="12" r="10" strokeOpacity="0.2"/><path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round"/>
         </svg>
@@ -488,7 +488,7 @@ function ValidationPanel({ result, loading, stationId }) {
 
   if (!result) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-sm text-gray-400 p-4 text-center">
+      <div className="flex-1 flex flex-col items-center justify-center gap-2 text-sm text-earth-ink3 p-4 text-center">
         <svg className="w-8 h-8 opacity-30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
@@ -510,7 +510,7 @@ function ValidationPanel({ result, loading, stationId }) {
   return (
     <div className="flex-1 overflow-auto flex flex-col">
       {/* Summary bar */}
-      <div className="px-3 py-2 border-b border-gray-100 bg-gray-50 flex items-center gap-3 text-sm shrink-0">
+      <div className="px-3 py-2 border-b border-earth-border bg-earth-DEFAULT flex items-center gap-3 text-sm shrink-0">
         <span className={`font-bold ${summary.errors > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
           {summary.errors > 0 ? `✗ ${summary.errors} error` : '✓ No errors'}
         </span>
@@ -520,36 +520,36 @@ function ValidationPanel({ result, loading, stationId }) {
       </div>
 
       {/* Steps */}
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-earth-border">
         {steps.map(s => {
           const isOpen = expanded.has(s.index);
           const hasDetail = s.messages.length > 0;
           return (
             <div key={s.index} className="text-xs">
               <button
-                className={`w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 ${hasDetail ? 'cursor-pointer' : 'cursor-default'}`}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-earth-DEFAULT ${hasDetail ? 'cursor-pointer' : 'cursor-default'}`}
                 onClick={() => hasDetail && toggle(s.index)}
               >
                 <span className={`font-bold text-sm w-4 shrink-0 ${STATUS_COLOR[s.status]}`}>
                   {STATUS_ICON[s.status]}
                 </span>
-                <span className="flex-1 font-medium text-gray-700">{s.label}</span>
+                <span className="flex-1 font-medium text-earth-ink">{s.label}</span>
                 <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                   s.status === 'PASSED'  ? 'bg-emerald-100 text-emerald-700' :
                   s.status === 'WARNING' ? 'bg-amber-100 text-amber-700' :
                   s.status === 'FAILED'  ? 'bg-red-100 text-red-700' :
-                  'bg-gray-100 text-gray-500'
+                  'bg-earth-card text-earth-ink3'
                 }`}>{s.status}</span>
                 {hasDetail && (
-                  <svg className={`w-3 h-3 text-gray-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} viewBox="0 0 16 16" fill="currentColor">
+                  <svg className={`w-3 h-3 text-earth-ink3 transition-transform ${isOpen ? 'rotate-90' : ''}`} viewBox="0 0 16 16" fill="currentColor">
                     <path d="M6 4l4 4-4 4"/>
                   </svg>
                 )}
               </button>
               {isOpen && hasDetail && (
-                <div className="px-3 pb-2 bg-gray-50 space-y-0.5">
+                <div className="px-3 pb-2 bg-earth-DEFAULT space-y-0.5">
                   {s.messages.map((m, i) => (
-                    <div key={i} className="text-gray-600 leading-snug pl-5">• {m}</div>
+                    <div key={i} className="text-earth-ink2 leading-snug pl-5">• {m}</div>
                   ))}
                 </div>
               )}
@@ -923,41 +923,41 @@ function RecordingTable({ topic, history, allHistory, dirtyValues, onCellChange,
         ref={wrapRef}
         tabIndex={0}
         onKeyDown={handleWrapKeyDown}
-        className="flex-1 overflow-auto bg-white focus:outline-none"
+        className="flex-1 overflow-auto bg-earth-DEFAULT focus:outline-none"
       >
         <table className="text-xs border-collapse w-max">
           <thead className="sticky top-0 z-10">
             {/* Date / topic row */}
             <tr>
-              <th className="border border-gray-300 bg-[#1a3a5c] text-white font-bold px-2 py-1 text-center whitespace-nowrap sticky left-0 z-20 text-xs">
+              <th className="border border-earth-border bg-[#1a3a5c] text-white font-bold px-2 py-1 text-center whitespace-nowrap sticky left-0 z-20 text-xs">
                 Time (Hour)
               </th>
-              <th colSpan={params.length} className="border border-gray-300 bg-[#1a3a5c] text-white font-bold px-3 py-1 text-left text-xs">
+              <th colSpan={params.length} className="border border-earth-border bg-[#1a3a5c] text-white font-bold px-3 py-1 text-left text-xs">
                 {topic.topic}
               </th>
             </tr>
             {/* Column header row */}
             <tr>
-              <th className="border border-gray-300 bg-[#1a3a5c] text-white font-bold px-2 py-1 text-center whitespace-nowrap sticky left-0 z-20 text-[11px]">
+              <th className="border border-earth-border bg-[#1a3a5c] text-white font-bold px-2 py-1 text-center whitespace-nowrap sticky left-0 z-20 text-[11px]">
                 เวลา
               </th>
               {params.map(p => (
                 <th key={p.configparam_id} className={[
-                  'border border-gray-300 whitespace-nowrap text-center leading-snug px-2 py-1',
+                  'border border-earth-border whitespace-nowrap text-center leading-snug px-2 py-1',
                   p.formula ? 'bg-[#b3d1f0]' : p.readonly ? 'bg-[#d0d8e4]' : 'bg-[#bdd7ee]',
-                  'text-gray-900',
+                  'text-earth-ink',
                 ].join(' ')}>
                   <div className="font-bold text-[11px]">{p.equipment_name}</div>
-                  <div className="font-normal text-gray-600 text-[10px]">{p.param_name}{p.formula ? ' ƒ' : p.readonly ? ' ●' : ''}</div>
-                  {p.unit && <div className="text-gray-400 text-[10px]">({p.unit})</div>}
+                  <div className="font-normal text-earth-ink2 text-[10px]">{p.param_name}{p.formula ? ' ƒ' : p.readonly ? ' ●' : ''}</div>
+                  {p.unit && <div className="text-earth-ink3 text-[10px]">({p.unit})</div>}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {slots.map((slot, si) => (
-              <tr key={slot} className="bg-white">
-                <td className="px-2 py-0 border border-gray-300 font-bold text-white whitespace-nowrap sticky left-0 bg-[#1a3a5c] text-xs text-center w-16">
+              <tr key={slot} className="bg-earth-DEFAULT">
+                <td className="px-2 py-0 border border-earth-border font-bold text-white whitespace-nowrap sticky left-0 bg-[#1a3a5c] text-xs text-center w-16">
                   {slot}
                 </td>
                 {params.map((p, pi) => {
@@ -986,10 +986,10 @@ function RecordingTable({ topic, history, allHistory, dirtyValues, onCellChange,
                       key={p.configparam_id}
                       ref={el => { cellRefs.current[`${si}:${pi}`] = el; }}
                       className={[
-                        'border border-gray-300 relative p-0 h-7',
+                        'border border-earth-border relative p-0 h-7',
                         isEdit && opts ? 'overflow-visible z-50' : 'overflow-hidden',
                         isFormulaSlot  ? 'bg-[#ddeeff]' : '',
-                        isReadonly && !isFormulaSlot ? 'bg-gray-50' : '',
+                        isReadonly && !isFormulaSlot ? 'bg-earth-DEFAULT' : '',
                         isRng && !isSel && !isReadonly ? 'bg-blue-50' : '',
                         isDirty && !isEdit ? 'bg-amber-50' : '',
                         markMap.get(`${p.configparam_id}:${slot}`) === 'red'    ? 'bg-red-100'    : '',
@@ -1044,7 +1044,7 @@ function RecordingTable({ topic, history, allHistory, dirtyValues, onCellChange,
                                 else if (e.key === 'Tab') { e.preventDefault(); stopEdit(); pi < params.length - 1 ? navigate(si, pi + 1) : navigate(si + 1, 0); }
                               }}
                               onBlur={() => stopEdit()}
-                              className="absolute top-0 left-0 text-xs focus:outline-none bg-white border border-blue-500 shadow-lg cursor-pointer"
+                              className="absolute top-0 left-0 text-xs focus:outline-none bg-earth-DEFAULT border border-blue-500 shadow-lg cursor-pointer"
                               style={{ minWidth: '90px', zIndex: 200 }}
                             >
                               <option value="">—</option>
@@ -1086,13 +1086,13 @@ function RecordingTable({ topic, history, allHistory, dirtyValues, onCellChange,
                         <div className={[
                           'w-full h-full flex items-center text-xs select-none',
                           isFormulaSlot ? 'text-blue-800 font-medium' : '',
-                          isDirty ? 'font-semibold text-amber-800' : (isFormulaSlot ? '' : 'text-gray-800'),
-                          val === '' ? 'text-gray-300' : '',
+                          isDirty ? 'font-semibold text-amber-800' : (isFormulaSlot ? '' : 'text-earth-ink'),
+                          val === '' ? 'text-earth-ink3' : '',
                         ].join(' ')}>
                           <span className="flex-1 text-center">{val !== '' && val != null ? formatDisplayVal(val, p.type) : '—'}</span>
                           {opts && (
                             <span
-                              className="shrink-0 pr-0.5 text-[9px] text-gray-400 cursor-pointer hover:text-gray-600 leading-none"
+                              className="shrink-0 pr-0.5 text-[9px] text-earth-ink3 cursor-pointer hover:text-earth-ink2 leading-none"
                               onMouseDown={e => { e.stopPropagation(); startEdit(si, pi); }}
                             >🔻</span>
                           )}
@@ -1124,8 +1124,8 @@ function SubmissionPanel({ stationDef, dirtyValues, submitStatus, onSubmitTopic,
   if (pendingTopics.length === 0) return null;
 
   return (
-    <div className="shrink-0 bg-white border-t border-gray-200 shadow-inner px-4 py-2.5 flex items-center gap-3 flex-wrap">
-      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">รอส่งข้อมูล</span>
+    <div className="shrink-0 bg-earth-card border-t border-earth-border shadow-inner px-4 py-2.5 flex items-center gap-3 flex-wrap">
+      <span className="text-xs font-semibold text-earth-ink2 uppercase tracking-wide">รอส่งข้อมูล</span>
       {pendingTopics.map(t => {
         const st = submitStatus[t.topic];
         const tc = TOPIC_COLORS[t.topic] ?? DEFAULT_TOPIC_COLOR;
@@ -1140,7 +1140,7 @@ function SubmissionPanel({ stationDef, dirtyValues, submitStatus, onSubmitTopic,
               'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all',
               st === 'success' ? 'bg-green-50 text-green-700 border-green-300' :
               st === 'error'   ? 'bg-red-50 text-red-700 border-red-300' :
-              st === 'sending' ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-wait' :
+              st === 'sending' ? 'bg-earth-DEFAULT text-earth-ink3 border-earth-border cursor-wait' :
               tc.tag + ' border-transparent hover:shadow-sm',
             ].join(' ')}
           >
@@ -1154,7 +1154,261 @@ function SubmissionPanel({ stationDef, dirtyValues, submitStatus, onSubmitTopic,
           </button>
         );
       })}
-      <span className="text-xs text-gray-400 ml-1">คลิก topic เพื่อส่งข้อมูล</span>
+      <span className="text-xs text-earth-ink3 ml-1">คลิก topic เพื่อส่งข้อมูล</span>
+    </div>
+  );
+}
+
+// ── Water Sankey Chart (d3-sankey based) ─────────────────────────────────────
+
+const SANKEY_NODE_COLORS = {
+  'Raw Water':     '#3b82f6',
+  'TPS Water':     '#8b5cf6',
+  'DPS Water':     '#06b6d4',
+  'DPS Line A':    '#0891b2',
+  'DPS Line B':    '#0e7490',
+  'Prod Use':      '#f59e0b',
+  'Sludge Drain':  '#78716c',
+  'Service Water': '#10b981',
+  'Loss':          '#ef4444',
+};
+
+// Custom fixed-position Sankey — no d3-sankey auto layout needed
+function WaterSankeyChart({ rw, tps, dpsA, dpsB, sludge, serviceWater, washWater = 0, loss: lossProp = null }) {
+  const containerRef = useRef(null);
+  const [dims, setDims] = useState({ w: 600, h: 300 });
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const ro = new ResizeObserver(([e]) => {
+      setDims({ w: Math.max(e.contentRect.width, 300), h: Math.max(e.contentRect.height, 200) });
+    });
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  const { w, h } = dims;
+
+  const layout = useMemo(() => {
+    if (!rw || rw <= 0) return null;
+
+    const dpsTotal = (dpsA ?? 0) + (dpsB ?? 0);
+    const slg      = sludge      ?? 0;
+    const svc      = serviceWater ?? 0;
+    const wash     = washWater    ?? 0;
+    const loss     = lossProp != null ? Math.max(0, lossProp) : Math.max(0, rw - (tps ?? 0) - dpsTotal - slg - svc - wash);
+
+    // Layout margins
+    const ML = 72, MR = 100, MT = 8, MB = 52;
+    const cw = w - ML - MR;
+    const ch = h - MT - MB;
+
+    // Scale: rw fills 80% of chart height
+    const totalBar = ch * 0.80;
+    const px = v => (v / rw) * totalBar;
+    const BW = 18; // bar rect width
+
+    // RW bar (left, vertically centered)
+    const rwH  = px(rw);
+    const rwX  = ML;
+    const rwY0 = MT + (ch - rwH) / 2;
+
+    // Allocate exits from right edge of RW: right-links first, then down-links
+    const rightSeq = [
+      { id: 'tps', val: tps ?? 0 },
+      { id: 'dps', val: dpsTotal },
+    ].filter(l => l.val > 0);
+
+    // Bottom nodes: fixed x positions as fractions of chart width
+    const downSeq = [
+      { id: 'loss', val: loss, label: 'Loss',          xFrac: 0.10, color: '#ef4444' },
+      { id: 'wash', val: wash, label: 'Wash Water',    xFrac: 0.40, color: '#f97316' },
+      { id: 'svc',  val: svc,  label: 'Service Water', xFrac: 0.70, color: '#10b981' },
+      { id: 'slg',  val: slg,  label: 'Sludge Drain',  xFrac: 1.00, color: '#78716c' },
+    ].filter(l => l.val > 0);
+
+    // Build exit map (y slices inside RW bar)
+    let cur = rwY0;
+    const exits = {};
+    for (const l of [...rightSeq, ...downSeq]) {
+      const lh = px(l.val);
+      exits[l.id] = { y0: cur, y1: cur + lh };
+      cur += lh;
+    }
+
+    // TPS node: top-right
+    const tpsH  = px(tps ?? 0);
+    const tpsX  = ML + cw * 0.90;
+    const tpsY0 = MT + ch * 0.02;
+
+    // DPS intermediate node (shows "DPS Water" label, splits into A/B)
+    const dpsH    = px(dpsTotal);
+    const dpsX    = ML + cw * 0.55;
+    const dpsExit = exits['dps'];
+    const dpsY0   = dpsExit
+      ? (dpsExit.y0 + dpsExit.y1) / 2 - dpsH / 2
+      : MT + ch * 0.30;
+
+    // DPS Line A and B (right side, below TPS — never overlap TPS)
+    const dpsAH  = px(dpsA ?? 0);
+    const dpsBH  = px(dpsB ?? 0);
+    const dpsRX  = ML + cw * 0.90;
+    const dpsAY0 = tpsY0 + tpsH + 10;   // always starts after TPS bar ends
+    const dpsBY0 = dpsAY0 + dpsAH + 6;
+
+    // Bottom nodes
+    const botY0 = MT + ch + 8;
+    const botBarH = BW; // horizontal bar height
+    const botNodes = downSeq.map(l => ({
+      ...l,
+      cx: ML + cw * l.xFrac,
+      y0: botY0,
+      bw: Math.max(px(l.val), 4),       // bar width (proportional to flow)
+    }));
+
+    return {
+      rw, tps: tps ?? 0, dpsTotal, dpsAVal: dpsA ?? 0, dpsBVal: dpsB ?? 0, slg, svc, wash, loss,
+      rwX, rwY0, rwH,
+      tpsX, tpsY0, tpsH,
+      dpsX, dpsY0, dpsH,
+      dpsRX, dpsAY0, dpsAH, dpsBY0, dpsBH,
+      exits, botNodes,
+      BW, botBarH, ML, MR, MT, MB, cw, ch, px,
+    };
+  }, [w, h, rw, tps, dpsA, dpsB, sludge, serviceWater, washWater]);
+
+  function fmtV(v) {
+    if (!v && v !== 0) return '—';
+    return Math.round(Number(v)).toLocaleString('en-US');
+  }
+  function pct(v) {
+    return rw > 0 ? ` (${((v / rw) * 100).toFixed(1)}%)` : '';
+  }
+
+  // Horizontal bezier band: right edge of A → left edge of B
+  function hBand(x1, ya1, yb1, x2, ya2, yb2) {
+    const mx = (x1 + x2) / 2;
+    return `M ${x1} ${ya1} C ${mx} ${ya1}, ${mx} ${ya2}, ${x2} ${ya2} L ${x2} ${yb2} C ${mx} ${yb2}, ${mx} ${yb1}, ${x1} ${yb1} Z`;
+  }
+
+  // Rainbow arc band: exits RW going RIGHT (CP1 at destination x, same y as source),
+  // curves gracefully DOWN to arrive at bottom bar — wider arcs for farther destinations.
+  function dBand(sx, sy0, sy1, cx, ty, bw) {
+    // Outer edge (top of band): horizontal exit → vertical arrival
+    // CP1 = (cx, sy0)          → forces horizontal tangent at source (goes right first)
+    // CP2 = (cx-bw/2, midOuter) → same x as endpoint → vertical approach from above
+    const midOuter = sy0 + (ty - sy0) * 0.45;
+    const midInner = sy1 + (ty - sy1) * 0.45;
+    return [
+      `M ${sx} ${sy0}`,
+      `C ${cx} ${sy0}, ${cx - bw / 2} ${midOuter}, ${cx - bw / 2} ${ty}`,
+      `L ${cx + bw / 2} ${ty}`,
+      `C ${cx + bw / 2} ${midInner}, ${cx} ${sy1}, ${sx} ${sy1}`,
+      'Z',
+    ].join(' ');
+  }
+
+  if (!layout) {
+    return (
+      <div ref={containerRef} className="w-full h-full flex items-center justify-center text-earth-ink3 text-sm">
+        ไม่มีข้อมูล
+      </div>
+    );
+  }
+
+  const l   = layout;
+  const rwR = l.rwX + l.BW; // right edge of RW bar
+
+  const FF = "'Segoe UI',sans-serif";
+
+  return (
+    <div ref={containerRef} className="w-full h-full">
+      <svg width={w} height={h} style={{ display: 'block', overflow: 'visible' }}>
+
+        {/* ── BANDS ── */}
+
+        {/* RW → TPS */}
+        {l.tpsH > 1 && l.exits.tps && (
+          <path d={hBand(rwR, l.exits.tps.y0, l.exits.tps.y1, l.tpsX - l.BW, l.tpsY0, l.tpsY0 + l.tpsH)}
+            fill="#8b5cf6" fillOpacity={0.30} />
+        )}
+
+        {/* RW → DPS intermediate */}
+        {l.dpsH > 1 && l.exits.dps && (
+          <path d={hBand(rwR, l.exits.dps.y0, l.exits.dps.y1, l.dpsX, l.dpsY0, l.dpsY0 + l.dpsH)}
+            fill="#06b6d4" fillOpacity={0.30} />
+        )}
+
+        {/* DPS → Line A */}
+        {l.dpsAH > 1 && (
+          <path d={hBand(l.dpsX + l.BW, l.dpsY0, l.dpsY0 + l.dpsAH, l.dpsRX - l.BW, l.dpsAY0, l.dpsAY0 + l.dpsAH)}
+            fill="#0891b2" fillOpacity={0.30} />
+        )}
+
+        {/* DPS → Line B */}
+        {l.dpsBH > 1 && (
+          <path d={hBand(l.dpsX + l.BW, l.dpsY0 + l.dpsAH, l.dpsY0 + l.dpsH, l.dpsRX - l.BW, l.dpsBY0, l.dpsBY0 + l.dpsBH)}
+            fill="#0e7490" fillOpacity={0.30} />
+        )}
+
+        {/* RW → bottom nodes (diagonal) */}
+        {l.botNodes.map(bn => {
+          const ex = l.exits[bn.id];
+          if (!ex) return null;
+          return (
+            <path key={bn.id}
+              d={dBand(rwR, ex.y0, ex.y1, bn.cx, bn.y0, bn.bw)}
+              fill={bn.color} fillOpacity={0.28}
+            />
+          );
+        })}
+
+        {/* ── NODE BARS ── */}
+
+        {/* Raw Water (vertical bar, left) */}
+        <rect x={l.rwX} y={l.rwY0} width={l.BW} height={l.rwH} fill="#3b82f6" rx={3} />
+        <text x={l.rwX - 6} y={l.rwY0 + l.rwH / 2 - 7} textAnchor="end" fontSize={13} fontWeight="700" fill="#1e293b" fontFamily={FF}>Raw Water</text>
+        <text x={l.rwX - 6} y={l.rwY0 + l.rwH / 2 + 9} textAnchor="end" fontSize={11.5} fill="#64748b" fontFamily={FF}>{fmtV(l.rw)} m³</text>
+
+        {/* TPS Water */}
+        {l.tpsH > 1 && <>
+          <rect x={l.tpsX - l.BW} y={l.tpsY0} width={l.BW} height={l.tpsH} fill="#8b5cf6" rx={3} />
+          <text x={l.tpsX + 5} y={l.tpsY0 + l.tpsH / 2 - 7} textAnchor="start" fontSize={13} fontWeight="700" fill="#1e293b" fontFamily={FF}>TPS Water</text>
+          <text x={l.tpsX + 5} y={l.tpsY0 + l.tpsH / 2 + 9} textAnchor="start" fontSize={11.5} fill="#64748b" fontFamily={FF}>{fmtV(l.tps)} m³{pct(l.tps)}</text>
+        </>}
+
+        {/* DPS intermediate (no label — just the routing bar) */}
+        {l.dpsH > 1 && (
+          <rect x={l.dpsX} y={l.dpsY0} width={l.BW} height={l.dpsH} fill="#06b6d4" rx={3} />
+        )}
+
+        {/* DPS Line A */}
+        {l.dpsAH > 1 && <>
+          <rect x={l.dpsRX - l.BW} y={l.dpsAY0} width={l.BW} height={l.dpsAH} fill="#0891b2" rx={3} />
+          <text x={l.dpsRX + 5} y={l.dpsAY0 + l.dpsAH / 2 - 7} textAnchor="start" fontSize={13} fontWeight="700" fill="#1e293b" fontFamily={FF}>DPS Line A</text>
+          <text x={l.dpsRX + 5} y={l.dpsAY0 + l.dpsAH / 2 + 9} textAnchor="start" fontSize={11.5} fill="#64748b" fontFamily={FF}>{fmtV(l.dpsAVal)} m³{pct(l.dpsAVal)}</text>
+        </>}
+
+        {/* DPS Line B */}
+        {l.dpsBH > 1 && <>
+          <rect x={l.dpsRX - l.BW} y={l.dpsBY0} width={l.BW} height={l.dpsBH} fill="#0e7490" rx={3} />
+          <text x={l.dpsRX + 5} y={l.dpsBY0 + l.dpsBH / 2 - 7} textAnchor="start" fontSize={13} fontWeight="700" fill="#1e293b" fontFamily={FF}>DPS Line B</text>
+          <text x={l.dpsRX + 5} y={l.dpsBY0 + l.dpsBH / 2 + 9} textAnchor="start" fontSize={11.5} fill="#64748b" fontFamily={FF}>{fmtV(l.dpsBVal)} m³{pct(l.dpsBVal)}</text>
+        </>}
+
+        {/* Bottom nodes (horizontal bars) */}
+        {l.botNodes.map(bn => {
+          const lx = bn.id === 'slg' ? bn.cx + bn.bw / 2 + 3 : bn.cx;
+          const anchor = bn.id === 'slg' ? 'start' : 'middle';
+          return (
+            <g key={bn.id}>
+              <rect x={bn.cx - bn.bw / 2} y={bn.y0} width={bn.bw} height={l.botBarH} fill={bn.color} rx={3} />
+              <text x={lx} y={bn.y0 + l.botBarH + 15} textAnchor={anchor} fontSize={12} fontWeight="700" fill="#1e293b" fontFamily={FF}>{bn.label}</text>
+              <text x={lx} y={bn.y0 + l.botBarH + 29} textAnchor={anchor} fontSize={11} fill="#64748b" fontFamily={FF}>{fmtV(bn.val)} m³{pct(bn.val)}</text>
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
 }
@@ -1183,27 +1437,9 @@ const DR_KPI = [
   { key: 'energy', label: 'ENERGY',         value: '189.79',    unit: 'MWh',         color: '#d97706' },
 ];
 
-const SANKEY_DATA = {
-  nodes: [
-    { id: 'Raw Water' },
-    { id: 'TPS Water' },
-    { id: 'DPS Water' },
-    { id: 'Production' },
-    { id: 'Service Water' },
-    { id: 'CWT' },
-    { id: 'Loss' },
-    { id: 'Filter BW' },
-    { id: 'Sludge' },
-  ],
+const SANKEY_DATA_UNUSED = {
+  nodes: [],
   links: [
-    { source: 'Raw Water',   target: 'TPS Water',     value: 1507000 },
-    { source: 'TPS Water',   target: 'DPS Water',     value: 890900  },
-    { source: 'TPS Water',   target: 'Filter BW',     value: 8510    },
-    { source: 'TPS Water',   target: 'Sludge',        value: 2985    },
-    { source: 'DPS Water',   target: 'Production',    value: 1377100 },
-    { source: 'DPS Water',   target: 'Service Water', value: 6564    },
-    { source: 'DPS Water',   target: 'Loss',          value: 68000   },
-    { source: 'Production',  target: 'CWT',           value: 1377100 },
   ],
 };
 
@@ -1298,20 +1534,20 @@ function DailyTableCardUI({ title, rows, compact = false, grow = false }) {
   const sz = compact ? 'text-sm' : 'text-base';
   const titlePad = compact ? 'px-2 py-0.5' : 'px-2 py-1';
   return (
-    <div className={`rounded border border-gray-200 bg-white overflow-hidden ${sz} ${grow ? 'flex flex-col flex-1 min-h-0' : ''}`}>
+    <div className={`rounded border border-earth-border bg-earth-DEFAULT overflow-hidden ${sz} ${grow ? 'flex flex-col flex-1 min-h-0' : ''}`}>
       <div className={`${titlePad} bg-gray-700 text-white font-bold tracking-wide shrink-0`}>{title}</div>
       <table className={`w-full ${grow ? 'h-full' : ''}`}>
         <tbody className={grow ? 'h-full' : ''}>
           {rows.map((r, i) => {
-            const base = i % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+            const base = i % 2 === 0 ? 'bg-earth-DEFAULT' : 'bg-earth-card';
             const hi   = r.highlight ? 'bg-orange-100' : r.highlightRed ? 'bg-red-100' : base;
             return (
               <tr key={i} className={`${hi} ${grow ? 'h-px' : ''}`}>
-                <td className={`${cell} text-gray-600 border-b border-gray-100 align-middle w-full`}>{r.label}</td>
-                <td className={`${cell} text-right font-mono font-semibold border-b border-gray-100 align-middle whitespace-nowrap ${r.bold ? 'font-extrabold' : ''}`}>
-                  {r.value != null ? r.value : <span className="text-gray-400">0</span>}
+                <td className={`${cell} text-earth-ink2 border-b border-earth-border align-middle w-full`}>{r.label}</td>
+                <td className={`${cell} text-right font-mono font-semibold border-b border-earth-border align-middle whitespace-nowrap ${r.bold ? 'font-extrabold' : ''}`}>
+                  {r.value != null ? r.value : <span className="text-earth-ink3">0</span>}
                 </td>
-                <td className={`${cell} text-right text-gray-400 border-b border-gray-100 whitespace-nowrap align-middle pl-1`}>{r.unit}</td>
+                <td className={`${cell} text-right text-earth-ink3 border-b border-earth-border whitespace-nowrap align-middle pl-1`}>{r.unit}</td>
               </tr>
             );
           })}
@@ -1333,7 +1569,7 @@ function ChemDonutCard({ phase, useUnit, doseUnit, use, target, actual, pct, noD
     ? [{ value: 0 }, { value: 100 }]
     : [{ value: pct }, { value: 100 - pct }];
   return (
-    <div className="border border-gray-200 rounded bg-white p-1.5 flex gap-2 items-center">
+    <div className="border border-earth-border rounded bg-earth-DEFAULT p-1.5 flex gap-2 items-center">
       <div className="relative shrink-0" style={{ width: 60, height: 60 }}>
         <PieChart width={60} height={60}>
           <Pie data={data} cx={25} cy={25} innerRadius={17} outerRadius={27} startAngle={90} endAngle={-270} dataKey="value" stroke="none">
@@ -1348,12 +1584,12 @@ function ChemDonutCard({ phase, useUnit, doseUnit, use, target, actual, pct, noD
         </div>
       </div>
       <div className="flex-1 min-w-0">
-        <div className="font-bold text-gray-700 leading-tight mb-1" style={{ fontSize: 14 }}>{phase}</div>
-        <div className="grid grid-cols-3 gap-x-1 text-gray-500" style={{ fontSize: 14 }}>
+        <div className="font-bold text-earth-ink leading-tight mb-1" style={{ fontSize: 14 }}>{phase}</div>
+        <div className="grid grid-cols-3 gap-x-1 text-earth-ink2" style={{ fontSize: 14 }}>
           <span>USE</span><span>TARGET</span><span>ACTUAL</span>
-          <span className="font-mono text-gray-800">{use}<span className="text-gray-400 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{useUnit}</span></span>
-          <span className="font-mono text-gray-800">{inactive ? '—' : (target ?? 0)}<span className="text-gray-400 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{doseUnit}</span></span>
-          <span className="font-mono text-gray-800">{inactive ? '—' : actual}<span className="text-gray-400 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{doseUnit}</span></span>
+          <span className="font-mono text-earth-ink">{use}<span className="text-earth-ink3 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{useUnit}</span></span>
+          <span className="font-mono text-earth-ink">{inactive ? '—' : (target ?? 0)}<span className="text-earth-ink3 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{doseUnit}</span></span>
+          <span className="font-mono text-earth-ink">{inactive ? '—' : actual}<span className="text-earth-ink3 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{doseUnit}</span></span>
         </div>
       </div>
     </div>
@@ -1362,7 +1598,7 @@ function ChemDonutCard({ phase, useUnit, doseUnit, use, target, actual, pct, noD
 
 // ── DailyReportTab ───────────────────────────────────────────────────────────
 
-const DR_RIGHT_SUB_TABS = ['SUMMARY', 'CHEMICAL', 'FILTRATION'];
+const DR_RIGHT_SUB_TABS = ['SUMMARY', 'CHEMICAL', 'FILTRATION', 'RECYCLE WATER'];
 
 const DR_CHEM_REMAINING_ROWS = [
   { label: 'PA1', value: null, unit: 'm³' },
@@ -1459,8 +1695,9 @@ function ReportSettingsModal({ onClose }) {
   function setField(section, key, val) {
     setCfg(prev => {
       if (!prev) return prev;
-      if (section) return { ...prev, [section]: { ...prev[section], [key]: val === '' ? '' : Number(val) } };
-      return { ...prev, [key]: val === '' ? '' : Number(val) };
+      const num = val === '' ? '' : Number(val);
+      if (section) return { ...prev, [section]: { ...prev[section], [key]: num } };
+      return { ...prev, [key]: num };
     });
   }
 
@@ -1475,38 +1712,44 @@ function ReportSettingsModal({ onClose }) {
     } finally { setSaving(false); }
   }
 
-  const NI = ({ section, field, label, unit }) => (
-    <div className="flex items-center gap-2">
-      <label className="w-44 text-sm text-gray-600 shrink-0">{label}</label>
-      <input
-        type="number"
-        step="any"
-        value={cfg ? (section ? cfg[section]?.[field] ?? '' : cfg[field] ?? '') : ''}
-        onChange={e => setField(section, field, e.target.value)}
-        className="w-32 border border-gray-300 rounded px-2 py-1 text-sm font-mono text-right focus:outline-none focus:ring-1 focus:ring-blue-400"
-      />
-      {unit && <span className="text-sm text-gray-400 whitespace-nowrap">{unit}</span>}
-    </div>
-  );
+  const NI = ({ section, field, label, unit }) => {
+    const cfgVal = cfg ? (section ? cfg[section]?.[field] ?? '' : cfg[field] ?? '') : '';
+    const [local, setLocal] = useState(String(cfgVal));
+    useEffect(() => { setLocal(String(cfgVal)); }, [cfgVal]);
+    return (
+      <div className="flex items-center gap-2">
+        <label className="w-44 text-sm text-earth-ink2 shrink-0">{label}</label>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={local}
+          onChange={e => setLocal(e.target.value)}
+          onBlur={() => setField(section, field, local)}
+          className="w-32 border border-earth-border rounded px-2 py-1 text-sm font-mono text-right focus:outline-none focus:ring-1 focus:ring-blue-400"
+        />
+        {unit && <span className="text-sm text-earth-ink3 whitespace-nowrap">{unit}</span>}
+      </div>
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl w-[480px] max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="bg-earth-DEFAULT rounded-xl shadow-2xl w-[480px] max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="px-5 py-3 bg-gray-800 text-white flex items-center justify-between shrink-0">
           <span className="font-bold text-base">⚙ ตั้งค่ารายงานประจำวัน</span>
-          <button onClick={onClose} className="text-gray-300 hover:text-white text-xl leading-none">×</button>
+          <button onClick={onClose} className="text-earth-ink3 hover:text-white text-xl leading-none">×</button>
         </div>
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-          {!cfg && !msg && <div className="text-gray-400 text-sm text-center py-8">กำลังโหลด…</div>}
+          {!cfg && !msg && <div className="text-earth-ink3 text-sm text-center py-8">กำลังโหลด…</div>}
 
           {cfg && (
             <>
               {/* ต้นทุนสารเคมี */}
               <section>
-                <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 border-b border-gray-200 pb-1">ต้นทุนสารเคมี</div>
+                <div className="text-xs font-bold text-earth-ink2 uppercase tracking-widest mb-2 border-b border-earth-border pb-1">ต้นทุนสารเคมี</div>
                 <div className="space-y-2">
                   <NI section="chem_cost" field="alum_ton"     label="ราคา ALUM"     unit="บาท/ตัน" />
                   <NI section="chem_cost" field="pacl_ton"     label="ราคา PACl"     unit="บาท/ตัน" />
@@ -1517,7 +1760,7 @@ function ReportSettingsModal({ onClose }) {
 
               {/* ต้นทุนพลังงาน */}
               <section>
-                <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 border-b border-gray-200 pb-1">ต้นทุนพลังงาน</div>
+                <div className="text-xs font-bold text-earth-ink2 uppercase tracking-widest mb-2 border-b border-earth-border pb-1">ต้นทุนพลังงาน</div>
                 <div className="space-y-2">
                   <NI section="energy_cost" field="peak_price"    label="ราคา Peak"      unit="บาท/kWh" />
                   <NI section="energy_cost" field="offpeak_price" label="ราคา Off-Peak"  unit="บาท/kWh" />
@@ -1528,11 +1771,11 @@ function ReportSettingsModal({ onClose }) {
 
               {/* ค่าคงที่ระบบ */}
               <section>
-                <div className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 border-b border-gray-200 pb-1">ค่าคงที่ระบบ</div>
+                <div className="text-xs font-bold text-earth-ink2 uppercase tracking-widest mb-2 border-b border-earth-border pb-1">ค่าคงที่ระบบ</div>
                 <div className="space-y-2">
                   <NI section={null} field="rw_cost"     label="ต้นทุนน้ำดิบ"          unit="บาท/ลบ.ม." />
                   <NI section={null} field="cwt_area_m2" label="พื้นที่หน้าตัด CWT"   unit="ตร.ม." />
-                  <p className="text-xs text-gray-400 ml-46">ใช้แปลง Δระดับ (ม.) → Δปริมาตร (ลบ.ม.) เพื่อคำนวณ Water Loss</p>
+                  <p className="text-xs text-earth-ink3 ml-46">ใช้แปลง Δระดับ (ม.) → Δปริมาตร (ลบ.ม.) เพื่อคำนวณ Water Loss</p>
                 </div>
               </section>
             </>
@@ -1540,12 +1783,12 @@ function ReportSettingsModal({ onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between shrink-0">
+        <div className="px-5 py-3 bg-earth-DEFAULT border-t border-earth-border flex items-center justify-between shrink-0">
           <div className={`text-sm ${msg?.ok === false ? 'text-red-600' : 'text-green-600'}`}>
             {typeof msg === 'string' ? msg : msg?.text}
           </div>
           <div className="flex gap-2">
-            <button onClick={onClose} className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-100">ยกเลิก</button>
+            <button onClick={onClose} className="px-3 py-1.5 text-sm text-earth-ink2 border border-earth-border rounded hover:bg-earth-card">ยกเลิก</button>
             <button
               onClick={handleSave}
               disabled={saving || !cfg}
@@ -1568,6 +1811,12 @@ function DailyReportTab({ selectedDate, stage }) {
   const [saveMsg, setSaveMsg]         = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [fwsBW, setFwsBW]             = useState(null);
+  const [recycleSettings, setRecycleSettings] = useState([
+    { on: true, pct: 100 },
+    { on: true, pct: 100 },
+    { on: true, pct: 100 },
+    { on: true, pct: 100 },
+  ]);
 
   // Restore cached query results from sessionStorage when date changes (or on mount)
   useEffect(() => {
@@ -1718,9 +1967,21 @@ function DailyReportTab({ selectedDate, stage }) {
     return { totalVol, avgFRT, hasRed };
   });
 
+  const recycleVols = recycleSettings.map((s, i) => {
+    const vol = washSummary[i]?.totalVol ?? 0;
+    return s.on ? vol * s.pct / 100 : 0;
+  });
+  const totalRecycled = recycleVols.reduce((s, v) => s + v, 0);
+  const adjWaterLoss = (() => {
+    if (!d || d.summary.water_loss_pct == null) return null;
+    const rwTotal = d.card1_raw_water.total;
+    if (!rwTotal) return d.summary.water_loss_pct;
+    return d.summary.water_loss_pct - (totalRecycled / rwTotal * 100);
+  })();
+
   const kpi = [
     { key: 'water',  label: 'WATER PRODUCED', value: d ? fmt(d.card3_pumped.total) : '—',           unit: 'ลบ.ม./วัน', color: '#16a34a' },
-    { key: 'loss',   label: '% LOSS WATER',   value: d ? fmt(d.summary.water_loss_pct, 2) : '—',    unit: '%',           color: '#dc2626' },
+    { key: 'loss',   label: '% LOSS WATER',   value: adjWaterLoss != null ? fmt(adjWaterLoss, 2) : (d ? fmt(d.summary.water_loss_pct, 2) : '—'), unit: '%', color: '#dc2626' },
     { key: 'cost',   label: 'TOTAL COST',     value: d ? fmt(d.summary.total_cost_baht) : '—',       unit: 'Baht',        color: '#9333ea' },
     { key: 'energy', label: 'ENERGY',         value: d ? fmt(d.card12_energy.total, 2) : '—',        unit: 'MWh',         color: '#d97706' },
   ];
@@ -1818,22 +2079,19 @@ function DailyReportTab({ selectedDate, stage }) {
   const alumInc  = d ? ((d.card9_chem1_alum.in   ?? 0) + (d.card10_chem2_alum.in  ?? 0)) : null;
   const clUseKg  = d ? ((d.card7_chem1_cl.use_kg ?? 0) + (d.card8_chem2_cl.use_kg ?? 0)) : null;
 
-  const sankeyData = d && d.card1_raw_water.total && d.card3_pumped.total ? {
-    nodes: [
-      { id: 'Raw Water' }, { id: 'TPS Water' }, { id: 'DPS Water' },
-      { id: 'Production' }, { id: 'Service Water' }, { id: 'CWT' },
-      { id: 'Loss' }, { id: 'Sludge' },
-    ],
-    links: [
-      { source: 'Raw Water',  target: 'TPS Water',     value: Math.round(d.card1_raw_water.total) },
-      { source: 'TPS Water',  target: 'DPS Water',     value: Math.round(d.card3_pumped.tps ?? d.card3_pumped.total) },
-      { source: 'TPS Water',  target: 'Sludge',        value: Math.max(1, Math.round(d.card11_sludge.total ?? 1)) },
-      { source: 'DPS Water',  target: 'Production',    value: Math.round(d.card3_pumped.total) },
-      { source: 'DPS Water',  target: 'Service Water', value: Math.max(1, Math.round(d.summary.service_water_m3 ?? 1)) },
-      { source: 'DPS Water',  target: 'Loss',          value: Math.max(1, Math.round(d.summary.water_loss_pct != null ? d.card3_pumped.total * d.summary.water_loss_pct / 100 : 1)) },
-      { source: 'Production', target: 'CWT',           value: Math.round(d.card3_pumped.total) },
-    ].filter(l => l.value > 0),
-  } : SANKEY_DATA;
+  const totalWashWater = washSummary.reduce((s, ph) => s + (ph?.totalVol ?? 0), 0);
+  const sankeyProps = d ? {
+    rw:           d.card1_raw_water.total ?? 0,
+    tps:          d.card3_pumped.tps ?? 0,
+    dpsA:         d.card3_pumped.dps_lineA ?? 0,
+    dpsB:         d.card3_pumped.dps_lineB ?? 0,
+    sludge:       d.card11_sludge.total ?? 0,
+    serviceWater: d.summary.service_water_m3 ?? 0,
+    washWater:    totalRecycled,
+    loss:         adjWaterLoss != null
+                    ? Math.max(0, (adjWaterLoss / 100) * (d.card1_raw_water.total ?? 0))
+                    : null,
+  } : { rw: 0, tps: 0, dpsA: 0, dpsB: 0, sludge: 0, serviceWater: 0, washWater: 0, loss: null };
 
   const cd = d?.card14_chem_dosing;
   const chemDonutRows = CHEM_DONUT_ROWS.map(r => {
@@ -1904,23 +2162,23 @@ function DailyReportTab({ selectedDate, stage }) {
   const rightDonuts = chemDonutRows.filter(r => r.col === 'right');
 
   return (
-    <div className="h-full min-h-0 flex overflow-hidden bg-white">
+    <div className="h-full min-h-0 flex overflow-hidden bg-earth-DEFAULT">
       {showSettings && <ReportSettingsModal onClose={() => setShowSettings(false)} />}
 
       {/* ── Query Modal ── */}
       {showQueryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-2xl w-96 flex flex-col overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
-              <span className="text-sm font-bold text-gray-700">ดึงข้อมูล AquaDAT</span>
-              <span className="text-xs text-gray-400 ml-1">{selectedDate}</span>
+          <div className="bg-earth-DEFAULT rounded-xl shadow-2xl w-96 flex flex-col overflow-hidden">
+            <div className="px-4 py-3 border-b border-earth-border flex items-center gap-2">
+              <span className="text-sm font-bold text-earth-ink">ดึงข้อมูล AquaDAT</span>
+              <span className="text-xs text-earth-ink3 ml-1">{selectedDate}</span>
               <button
                 onClick={handleAllQuery}
                 disabled={querying}
                 className="ml-auto px-3 py-1 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white text-xs font-bold rounded transition-colors"
               >{querying ? '⏳ กำลังดึง...' : '▶ All Query'}</button>
             </div>
-            <div className="flex flex-col divide-y divide-gray-100">
+            <div className="flex flex-col divide-y divide-earth-border">
               {STATION_LIST.map(sid => {
                 const row = stationRows[sid] || { status: 'pending', count: 0 };
                 const icon = row.status === 'loading' ? '⏳'
@@ -1931,13 +2189,13 @@ function DailyReportTab({ selectedDate, stage }) {
                 return (
                   <div key={sid} className="flex items-center gap-2 px-4 py-2">
                     <span className="text-base w-5 text-center leading-none shrink-0">{icon}</span>
-                    <span className="font-mono text-xs font-semibold text-gray-700 w-16 shrink-0">{sid}</span>
+                    <span className="font-mono text-xs font-semibold text-earth-ink w-16 shrink-0">{sid}</span>
                     <div className="flex items-center gap-1 flex-1 flex-wrap">
-                      <span className="text-xs text-gray-400">{countLabel}</span>
+                      <span className="text-xs text-earth-ink3">{countLabel}</span>
                       {row.patterns && Object.entries(row.patterns).map(([pid, p]) => (
                         <span key={pid} className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold ${
                           p.status === 'done'
-                            ? p.count > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'
+                            ? p.count > 0 ? 'bg-green-100 text-green-700' : 'bg-earth-card text-earth-ink3'
                             : 'bg-red-100 text-red-600'
                         }`}>
                           P{pid}{p.status === 'done' ? (p.count > 0 ? '✓' : '∅') : '✗'}
@@ -1947,17 +2205,17 @@ function DailyReportTab({ selectedDate, stage }) {
                     <button
                       onClick={() => handleReQuery(sid)}
                       disabled={querying}
-                      className="text-xs px-2 py-0.5 border border-gray-300 hover:bg-gray-50 disabled:opacity-40 rounded text-gray-600 transition-colors"
+                      className="text-xs px-2 py-0.5 border border-earth-border hover:bg-earth-DEFAULT disabled:opacity-40 rounded text-earth-ink2 transition-colors"
                     >re-query</button>
                   </div>
                 );
               })}
             </div>
-            <div className="px-4 py-2.5 border-t border-gray-200 flex justify-end">
+            <div className="px-4 py-2.5 border-t border-earth-border flex justify-end">
               <button
                 onClick={() => setShowQueryModal(false)}
                 disabled={querying}
-                className="text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 disabled:opacity-40 rounded text-gray-700 font-medium"
+                className="text-xs px-3 py-1.5 bg-earth-DEFAULT hover:bg-earth-card disabled:opacity-40 rounded text-earth-ink font-medium"
               >ปิด</button>
             </div>
           </div>
@@ -1965,10 +2223,10 @@ function DailyReportTab({ selectedDate, stage }) {
       )}
 
       {/* ── COL 1 (3): ACTION BOX + KPI + Sankey + tables ── */}
-      <div className="flex-[3] min-w-0 border-r border-gray-200 flex flex-col overflow-hidden bg-white">
+      <div className="flex-[3] min-w-0 border-r border-earth-border flex flex-col overflow-hidden bg-earth-DEFAULT">
 
         {/* Row 1: buttons */}
-        <div className="shrink-0 bg-gray-50 border-b border-gray-200 px-2 py-1.5 flex items-center gap-1.5 flex-wrap">
+        <div className="shrink-0 bg-earth-card border-b border-earth-border px-2 py-1.5 flex items-center gap-1.5 flex-wrap">
           <button
             onClick={handleQuery}
             className="px-2.5 py-1 bg-green-500 hover:bg-green-600 text-white text-sm font-bold rounded transition-colors"
@@ -1986,12 +2244,12 @@ function DailyReportTab({ selectedDate, stage }) {
             className="px-2.5 py-1 bg-purple-500 hover:bg-purple-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold rounded transition-colors"
           >{saving ? '⏳...' : 'SAVE DB'}</button>
 
-          <div className="flex items-center gap-1 text-sm text-gray-500 ml-auto">
+          <div className="flex items-center gap-1 text-sm text-earth-ink2 ml-auto">
             Shift:
             <select
               value={shift}
               onChange={e => setShift(Number(e.target.value))}
-              className="border border-gray-300 rounded px-1 py-0.5 text-sm bg-white ml-0.5"
+              className="border border-earth-border rounded px-1 py-0.5 text-sm bg-earth-DEFAULT ml-0.5"
             >
               <option value={1}>1</option><option value={2}>2</option>
               <option value={3}>3</option><option value={4}>4</option>
@@ -2000,14 +2258,14 @@ function DailyReportTab({ selectedDate, stage }) {
 
           <button
             onClick={() => setShowSettings(true)}
-            className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm font-medium rounded border border-gray-300 transition-colors"
+            className="px-2.5 py-1 bg-earth-DEFAULT hover:bg-earth-card text-earth-ink2 text-sm font-medium rounded border border-earth-border transition-colors"
             title="ตั้งค่าราคาและค่าคงที่"
           >⚙ ตั้งค่า</button>
         </div>
 
         {/* Status bar */}
         {(saveMsg || validation) && (
-          <div className={`shrink-0 px-2 py-1 text-xs font-medium border-b ${saveMsg?.ok === false ? 'bg-red-50 text-red-700 border-red-200' : saveMsg?.ok ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-50 border-gray-200'}`}>
+          <div className={`shrink-0 px-2 py-1 text-xs font-medium border-b ${saveMsg?.ok === false ? 'bg-red-50 text-red-700 border-red-200' : saveMsg?.ok ? 'bg-green-50 text-green-700 border-green-200' : 'bg-earth-DEFAULT border-earth-border'}`}>
             {saveMsg && <span>{saveMsg.text}</span>}
             {validation && !saveMsg && (
               <span>
@@ -2019,9 +2277,9 @@ function DailyReportTab({ selectedDate, stage }) {
         )}
 
         {/* Row 2: A. SUMMARY KPI */}
-        <div className="shrink-0 border-b border-gray-200 px-2 py-1.5">
+        <div className="shrink-0 border-b border-earth-border px-2 py-1.5">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-sm font-bold text-gray-500 uppercase tracking-wider">A. SUMMARY KPI</span>
+            <span className="text-sm font-bold text-earth-ink2 uppercase tracking-wider">A. SUMMARY KPI</span>
             {validation && (
               <div className="flex items-center gap-1.5">
                 <div className="flex items-center gap-1 bg-red-100 border border-red-300 rounded px-1.5 py-0.5">
@@ -2037,103 +2295,98 @@ function DailyReportTab({ selectedDate, stage }) {
           </div>
           <div className="grid grid-cols-2 gap-1.5">
             {kpi.map(k => (
-              <div key={k.key} className="rounded border border-gray-200 px-2 py-1">
-                <div className="text-sm text-gray-400 uppercase tracking-wide leading-tight">{k.label}</div>
-                <div className="text-2xl font-black font-mono leading-tight" style={{ color: k.color }}>
-                  {k.value ?? <span className="text-gray-300 text-lg">—</span>}
+              <div key={k.key} className="rounded border border-earth-border px-2 py-1">
+                <div className="flex items-center justify-between leading-tight">
+                  <span className="text-sm text-earth-ink3 uppercase tracking-wide">{k.label}</span>
+                  {k.key === 'energy' && (
+                    <span className="text-xs font-bold px-1.5 py-0.5 rounded"
+                          style={{ background: '#fef3c7', color: '#92400e', whiteSpace: 'nowrap' }}>
+                      ไม่คิด SS3 Bldg.
+                    </span>
+                  )}
                 </div>
-                <div className="text-sm text-gray-400">{k.unit}</div>
+                <div className="text-2xl font-black font-mono leading-tight" style={{ color: k.color }}>
+                  {k.value ?? <span className="text-earth-ink3 text-lg">—</span>}
+                </div>
+                <div className="text-sm text-earth-ink3">{k.unit}</div>
               </div>
             ))}
           </div>
         </div>
 
         {/* Row 3: B. Sankey */}
-        <div className="flex-1 min-h-0 px-2 pt-1.5 pb-1 flex flex-col overflow-hidden">
-          <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 border-b border-gray-200 pb-0.5">B. OPERATION ACCURACY WALL</div>
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <ResponsiveSankey
-              data={sankeyData}
-              margin={{ top: 8, right: 80, bottom: 8, left: 80 }}
-              align="justify"
-              colors={{ scheme: 'category10' }}
-              nodeOpacity={1}
-              nodeThickness={14}
-              nodeInnerPadding={3}
-              nodeSpacing={14}
-              nodeBorderWidth={0}
-              linkOpacity={0.4}
-              enableLinkGradient
-              labelPosition="outside"
-              labelOrientation="horizontal"
-              labelPadding={6}
-              labelTextColor={{ from: 'color', modifiers: [['darker', 1]] }}
-              theme={{ fontSize: 12 }}
-            />
+        <div className="flex-1 px-2 pt-1.5 pb-1 flex flex-col" style={{ minHeight: '260px' }}>
+          <div className="text-sm font-bold text-earth-ink2 uppercase tracking-wider mb-1 border-b border-earth-border pb-0.5">B. OPERATION ACCURACY WALL</div>
+          <div className="flex-1" style={{ minHeight: '220px' }}>
+            <WaterSankeyChart {...sankeyProps} />
           </div>
         </div>
 
-        {/* CHEMICAL REMAINING */}
-        <div className="shrink-0 px-2 py-1 border-t border-gray-100">
-          <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-1">CHEMICAL REMAINING</div>
-          <table className="w-full text-sm">
+        {/* CHEMICAL REMAINING — 2 tables */}
+        <div className="shrink-0 px-2 pt-1 pb-1.5 border-t border-earth-border space-y-1">
+          {/* Table 1 — Remaining stock */}
+          <div className="text-xs font-bold text-earth-ink2 uppercase tracking-wider">CHEMICAL REMAINING</div>
+          <table className="w-full text-xs">
             <thead>
-              <tr className="bg-gray-100">
+              <tr className="bg-earth-card">
                 {['PA1','PA2','AL1','AL2','CL1','CL2','UNIT'].map(h => (
-                  <th key={h} className="px-1 py-0.5 text-gray-600 font-bold text-center border border-gray-200">{h}</th>
+                  <th key={h} className="px-1 py-0.5 text-earth-ink2 font-bold text-center border border-earth-border">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               <tr>
                 {chemRemaining.map(r => (
-                  <td key={r.label} className="px-1 py-0.5 text-center font-mono text-gray-800 border border-gray-200">
-                    {r.value ?? <span className="text-gray-300">—</span>}
+                  <td key={r.label} className="px-1 py-0.5 text-center font-mono text-earth-ink border border-earth-border">
+                    {r.value ?? <span className="text-earth-ink3">—</span>}
                   </td>
                 ))}
-                <td className="px-1 py-0.5 text-center text-gray-400 border border-gray-200">m³/TON</td>
+                <td className="px-1 py-0.5 text-center text-earth-ink3 border border-earth-border whitespace-nowrap">m³/TON</td>
               </tr>
               <tr>
                 {chemDays.map((v, i) => (
-                  <td key={i} className="px-1 py-0.5 text-center font-mono text-gray-800 border border-gray-200">
-                    {v ?? <span className="text-gray-300">—</span>}
+                  <td key={i} className="px-1 py-0.5 text-center font-mono text-earth-ink border border-earth-border">
+                    {v ?? <span className="text-earth-ink3">—</span>}
                   </td>
                 ))}
-                <td className="px-1 py-0.5 text-center text-gray-400 border border-gray-200">Day</td>
+                <td className="px-1 py-0.5 text-center text-earth-ink3 border border-earth-border">Day</td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* Table 2 — Daily usage grouped by chemical */}
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-earth-card">
+                <th colSpan={2} className="px-1 py-0.5 text-center border border-earth-border text-earth-ink2 font-bold">Alum (Ton)</th>
+                <th colSpan={2} className="px-1 py-0.5 text-center border border-earth-border text-earth-ink2 font-bold">PACl (Ton)</th>
+                <th colSpan={3} className="px-1 py-0.5 text-center border border-earth-border text-earth-ink2 font-bold">CHLORINE (Ton)</th>
+              </tr>
+              <tr className="bg-earth-DEFAULT">
+                {['USE','INCOME','USE','INCOME','USE','INCOME','RETURN'].map((h, i) => (
+                  <th key={i} className="px-1 py-0.5 text-center border border-earth-border text-amber-700 font-semibold">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="px-1 py-0.5 text-center font-mono border border-earth-border text-earth-ink">{d ? fmt(alumUse, 2) : '—'}</td>
+                <td className="px-1 py-0.5 text-center font-mono border border-earth-border text-earth-ink">{d ? fmt(alumInc, 2) : '—'}</td>
+                <td className="px-1 py-0.5 text-center font-mono border border-earth-border text-earth-ink">{d ? fmt(paclUse, 2) : '—'}</td>
+                <td className="px-1 py-0.5 text-center font-mono border border-earth-border text-earth-ink">{d ? fmt(paclInc, 2) : '—'}</td>
+                <td className="px-1 py-0.5 text-center font-mono border border-earth-border text-earth-ink">{d ? fmt(clUseKg != null ? clUseKg / 1000 : null, 3) : '—'}</td>
+                <td className="px-1 py-0.5 text-center font-mono border border-earth-border text-earth-ink">{d ? `${fmt(d.cl_income ?? 0, 0)} ท่อ` : '—'}</td>
+                <td className="px-1 py-0.5 text-center font-mono border border-earth-border text-earth-ink">{d ? `${fmt(d.cl_return ?? 0, 0)} ท่อ` : '—'}</td>
               </tr>
             </tbody>
           </table>
         </div>
-
-        {/* Chemical use + costs */}
-        <div className="shrink-0 px-2 py-1 border-t border-gray-100 flex gap-2">
-          <div className="flex-1 text-sm text-gray-700 space-y-0.5">
-            <div>PACL USE: <b>{d ? fmt(paclUse, 2) : '0.00'}</b> TON / INC: {d ? fmt(paclInc, 2) : '0.00'} TON</div>
-            <div>ALUM USE: <b>{d ? fmt(alumUse, 2) : '0.00'}</b> TON / INC: {d ? fmt(alumInc, 2) : '0.00'} TON</div>
-            <div>CHLORINE USE: <b>{d ? fmt(clUseKg ? clUseKg / 1000 : null, 3) : '0.000'}</b> TON</div>
-          </div>
-          <div className="flex-1">
-            <table className="w-full text-sm">
-              <tbody>
-                {costRows.map((r, i) => (
-                  <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="text-gray-600 leading-snug">{r.label}</td>
-                    <td className="text-right font-mono font-semibold text-gray-800 px-1">
-                      {r.value ?? <span className="text-gray-300">—</span>}
-                    </td>
-                    <td className="text-gray-400 whitespace-nowrap">{r.unit}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
 
       {/* ── COL 2 (3.6): C. Chemical Accuracy Wall ── */}
-      <div className="min-w-0 border-r border-gray-200 flex flex-col overflow-hidden bg-gray-50" style={{ flex: '4.04 1 0%' }}>
-        <div className="shrink-0 px-3 py-1 bg-gray-100 border-b border-gray-200">
-          <span className="text-base font-bold text-gray-600 uppercase tracking-wider">C. CHEMICAL ACCURACY WALL</span>
+      <div className="min-w-0 border-r border-earth-border flex flex-col overflow-hidden bg-earth-DEFAULT" style={{ flex: '4.04 1 0%' }}>
+        <div className="shrink-0 px-3 py-1 bg-earth-card border-b border-earth-border">
+          <span className="text-base font-bold text-earth-ink2 uppercase tracking-wider">C. CHEMICAL ACCURACY WALL</span>
         </div>
         <div className="flex-1 min-h-0 flex flex-col gap-0.5 p-1">
           {leftDonuts.map((ld, i) => (
@@ -2146,17 +2399,17 @@ function DailyReportTab({ selectedDate, stage }) {
       </div>
 
       {/* ── COL 3 (4.4): Data tables ── */}
-      <div className="min-w-0 flex flex-col overflow-hidden bg-white" style={{ flex: '3.96 1 0%' }}>
-        <div className="shrink-0 flex border-b border-gray-300 bg-gray-50">
+      <div className="min-w-0 flex flex-col overflow-hidden bg-earth-DEFAULT" style={{ flex: '3.96 1 0%' }}>
+        <div className="shrink-0 flex border-b border-earth-border bg-earth-DEFAULT">
           {DR_RIGHT_SUB_TABS.map(s => (
             <button
               key={s}
               onClick={() => setRightSubTab(s)}
               className={[
-                'px-4 py-1.5 text-base font-semibold border-r border-gray-200 transition-colors',
+                'px-4 py-1.5 text-base font-semibold border-r border-earth-border transition-colors',
                 rightSubTab === s
-                  ? 'bg-white text-gray-900 border-b-2 border-b-blue-500'
-                  : 'bg-gray-50 text-gray-500 hover:bg-white',
+                  ? 'bg-earth-DEFAULT text-earth-ink border-b-2 border-b-blue-500'
+                  : 'bg-earth-card text-earth-ink2 hover:bg-earth-DEFAULT',
               ].join(' ')}
             >{s}</button>
           ))}
@@ -2177,13 +2430,21 @@ function DailyReportTab({ selectedDate, stage }) {
                 <div className="flex flex-col gap-1 min-h-0 overflow-hidden">
                   <DailyTableCardUI title={summaryCards[4].title} rows={summaryCards[4].rows} compact grow />
                   <div className="shrink-0 grid grid-cols-2 gap-1">
-                    <div className="border border-gray-200 rounded bg-white px-1.5 py-1.5">
-                      <div className="text-xs text-gray-500 font-semibold leading-tight">Filter Availability</div>
-                      <div className="text-sm font-black text-gray-800 font-mono">0</div>
+                    <div className="border border-earth-border rounded bg-earth-DEFAULT px-1.5 py-1.5">
+                      <div className="text-xs text-earth-ink2 font-semibold leading-tight">Filter Availability</div>
+                      <div className="text-sm font-black font-mono">
+                        {d?.filter_availability
+                          ? d.filter_availability.map(({ phase, cap, available }, i) => (
+                              <span key={phase} style={{ color: available === cap ? '#16a34a' : '#f97316' }}>
+                                {i > 0 && <span className="text-earth-ink3"> | </span>}{available}
+                              </span>
+                            ))
+                          : <span className="text-earth-ink3">—</span>}
+                      </div>
                     </div>
-                    <div className="border border-gray-200 rounded bg-white px-1.5 py-1.5">
-                      <div className="text-xs text-gray-500 font-semibold leading-tight">SERVICE WATER</div>
-                      <div className="text-sm font-black text-gray-800 font-mono">
+                    <div className="border border-earth-border rounded bg-earth-DEFAULT px-1.5 py-1.5">
+                      <div className="text-xs text-earth-ink2 font-semibold leading-tight">SERVICE WATER</div>
+                      <div className="text-sm font-black text-earth-ink font-mono">
                         {d ? `${fmt(d.summary.service_water_m3)} m³` : '0 m³'}
                       </div>
                     </div>
@@ -2196,14 +2457,14 @@ function DailyReportTab({ selectedDate, stage }) {
                   const ws = washSummary[i];
                   const red = ws?.hasRed;
                   return (
-                    <div key={i} className={`border rounded p-1.5 text-center flex flex-col justify-center ${red ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white'}`}>
-                      <div className={`text-xs font-semibold leading-tight ${red ? 'text-red-500' : 'text-gray-400'}`}>Phase {i + 1} WASH Water</div>
-                      <div className={`text-base font-black ${red ? 'text-red-700' : 'text-gray-800'}`}>
+                    <div key={i} className={`border rounded p-1.5 text-center flex flex-col justify-center ${red ? 'border-red-400 bg-red-50' : 'border-earth-border bg-earth-DEFAULT'}`}>
+                      <div className={`text-xs font-semibold leading-tight ${red ? 'text-red-500' : 'text-earth-ink3'}`}>Phase {i + 1} WASH Water</div>
+                      <div className={`text-base font-black ${red ? 'text-red-700' : 'text-earth-ink'}`}>
                         {ws
                           ? (ws.totalVol > 0 ? `${ws.totalVol.toLocaleString('en-US', { maximumFractionDigits: 0 })} m³` : '0 m³')
                           : (fwsBWLoading ? '…' : '0 m³')}
                       </div>
-                      <div className={`text-sm ${red ? 'text-red-500' : 'text-gray-500'}`}>
+                      <div className={`text-sm ${red ? 'text-red-500' : 'text-earth-ink2'}`}>
                         FRT: <span className="font-bold">{ws?.avgFRT != null ? ws.avgFRT.toFixed(1) : '0'}</span>
                       </div>
                     </div>
@@ -2224,10 +2485,102 @@ function DailyReportTab({ selectedDate, stage }) {
               ].map(c => <DailyTableCardUI key={c.title} {...c} />)}
             </div>
           )}
+          {rightSubTab === 'RECYCLE WATER' && (
+            <div className="flex flex-col gap-2.5 p-3 overflow-y-auto">
+              {[0, 1, 2, 3].map(i => {
+                const s = recycleSettings[i];
+                const totalVol = washSummary[i]?.totalVol ?? 0;
+                const recycled = s.on ? Math.round(totalVol * s.pct / 100) : 0;
+                const PINS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+                return (
+                  <div key={i}
+                    className="rounded-xl border p-3 transition-all duration-300"
+                    style={{
+                      borderColor: s.on ? '#38bdf8' : '#e2e8f0',
+                      background: s.on ? 'linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%)' : '#f8fafc',
+                    }}>
+                    {/* Header row */}
+                    <div className="flex items-center gap-3 mb-3">
+                      <span className="text-sm font-black tracking-wider" style={{ color: s.on ? '#0369a1' : '#94a3b8' }}>
+                        RW#{i + 1}
+                      </span>
+                      {/* Toggle */}
+                      <button
+                        onClick={() => setRecycleSettings(prev => prev.map((x, j) => j === i ? { ...x, on: !x.on } : x))}
+                        className="relative flex-shrink-0 transition-colors duration-300 focus:outline-none"
+                        style={{
+                          width: 44, height: 24, borderRadius: 12,
+                          background: s.on ? '#0ea5e9' : '#cbd5e1',
+                        }}>
+                        <span
+                          className="absolute top-0.5 bg-white rounded-full shadow transition-transform duration-300"
+                          style={{ width: 20, height: 20, left: 2, transform: s.on ? 'translateX(20px)' : 'translateX(0)' }}
+                        />
+                      </button>
+                      <span className="text-xs font-bold w-7" style={{ color: s.on ? '#0ea5e9' : '#94a3b8' }}>
+                        {s.on ? 'ON' : 'OFF'}
+                      </span>
+                      <div className="flex-1" />
+                      <div className="text-right">
+                        <div className="text-base font-black tabular-nums" style={{ color: s.on ? '#0c4a6e' : '#94a3b8' }}>
+                          {s.on && totalVol > 0 ? recycled.toLocaleString('en-US') : '—'}
+                          <span className="text-xs font-normal ml-1" style={{ color: '#94a3b8' }}>m³</span>
+                        </div>
+                        <div className="text-[10px] tabular-nums" style={{ color: '#94a3b8' }}>
+                          BW: {totalVol > 0 ? totalVol.toLocaleString('en-US', { maximumFractionDigits: 0 }) : '—'} m³
+                        </div>
+                      </div>
+                    </div>
+                    {/* Pin bar */}
+                    <div className="flex items-center gap-0.5">
+                      {PINS.map(pct => {
+                        const filled = s.on && pct <= s.pct;
+                        const isSelected = s.on && pct === s.pct;
+                        return (
+                          <button
+                            key={pct}
+                            onClick={() => setRecycleSettings(prev => prev.map((x, j) => j === i ? { ...x, pct } : x))}
+                            disabled={!s.on}
+                            title={`${pct}%`}
+                            style={{
+                              flex: 1, height: 20, borderRadius: 3,
+                              background: filled ? '#0ea5e9' : s.on ? '#bae6fd' : '#e2e8f0',
+                              border: isSelected ? '2px solid #0284c7' : '2px solid transparent',
+                              cursor: s.on ? 'pointer' : 'not-allowed',
+                              transition: 'background 0.15s',
+                            }}
+                          />
+                        );
+                      })}
+                      <span className="ml-1.5 text-xs font-bold tabular-nums w-9 text-right"
+                            style={{ color: s.on ? '#0369a1' : '#94a3b8' }}>
+                        {s.pct}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+              {/* Footer summary */}
+              <div className="mt-1 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 flex flex-col gap-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-semibold text-sky-700 uppercase tracking-wide">Total Recycled</span>
+                  <span className="text-sm font-black tabular-nums text-sky-800">
+                    {totalRecycled > 0 ? Math.round(totalRecycled).toLocaleString('en-US') : '—'} m³
+                  </span>
+                </div>
+                {adjWaterLoss != null && (
+                  <div className="flex justify-between items-center border-t border-sky-200 pt-1.5">
+                    <span className="text-xs font-semibold text-red-500 uppercase tracking-wide">% Loss (adj.)</span>
+                    <span className="text-sm font-black tabular-nums text-red-600">{fmt(adjWaterLoss, 2)} %</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           {rightSubTab === 'FILTRATION' && (
             <div className="flex flex-col gap-2">
               {fwsBWLoading && (
-                <div className="text-xs text-gray-400 text-center py-3">กำลังโหลดข้อมูลบ่อกรอง...</div>
+                <div className="text-xs text-earth-ink3 text-center py-3">กำลังโหลดข้อมูลบ่อกรอง...</div>
               )}
               {FWS_BW_PHASES.map(ph => {
                 const histKey = ph.id === 'P3' ? 'p3' : ph.id === 'P4' ? 'p4' : 'p12';
@@ -2235,7 +2588,7 @@ function DailyReportTab({ selectedDate, stage }) {
                 const washedBeds   = beds ? beds.filter(b => b.washes.length > 0) : [];
                 const totalBWVol   = washedBeds.reduce((s, b) => s + b.washes.reduce((ss, w) => ss + w.washQty, 0), 0);
                 return (
-                  <div key={ph.id} className="border border-slate-200 rounded-md overflow-hidden bg-white">
+                  <div key={ph.id} className="border border-earth-border rounded-md overflow-hidden bg-earth-DEFAULT">
                     {/* Phase header stripe */}
                     <div className="flex items-center gap-2 px-3 py-1.5" style={{ background: '#1a2b3c' }}>
                       <span className="font-black text-sm tracking-wide" style={{ color: '#38bdf8' }}>{ph.id}</span>
@@ -2356,20 +2709,20 @@ function LoginOverlay({ onSuccess }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 animate-fadeSlideUp">
+      <div className="bg-earth-DEFAULT rounded-2xl shadow-2xl w-full max-w-sm p-8 animate-fadeSlideUp">
         <div className="text-center mb-6">
           <div className="text-3xl mb-2">🔄</div>
           <h2 className="text-xl font-bold text-brand">ต่ออายุ Session</h2>
-          <p className="text-gray-500 text-sm mt-1">Aquadat กลับมาแล้ว — กรุณา Login เพื่อ refresh token</p>
+          <p className="text-earth-ink2 text-sm mt-1">Aquadat กลับมาแล้ว — กรุณา Login เพื่อ refresh token</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">AD Username</label>
+            <label className="block text-sm font-medium text-earth-ink mb-1">AD Username</label>
             <input
               type="text"
               value={username}
               onChange={e => setUsername(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-brand"
+              className="w-full border border-earth-border rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-brand"
               placeholder="username"
               autoCapitalize="none"
               autoCorrect="off"
@@ -2378,12 +2731,12 @@ function LoginOverlay({ onSuccess }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <label className="block text-sm font-medium text-earth-ink mb-1">Password</label>
             <input
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-brand"
+              className="w-full border border-earth-border rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-brand"
               placeholder="••••••••"
               required
             />
@@ -2749,10 +3102,10 @@ export default function OpRecord() {
       )}
       {pendingStationSwitch && stationDef && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-[440px] flex flex-col overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100">
-              <p className="font-bold text-gray-900 text-base">ต้องการส่งข้อมูลหรือไม่</p>
-              <p className="text-sm text-gray-500 mt-0.5">
+          <div className="bg-earth-DEFAULT rounded-2xl shadow-2xl w-[440px] flex flex-col overflow-hidden">
+            <div className="px-5 py-4 border-b border-earth-border">
+              <p className="font-bold text-earth-ink text-base">ต้องการส่งข้อมูลหรือไม่</p>
+              <p className="text-sm text-earth-ink2 mt-0.5">
                 {STATION_TABS.find(t => t.id === activeStation)?.label} มีข้อมูลที่ยังไม่ได้ส่ง
               </p>
             </div>
@@ -2767,15 +3120,15 @@ export default function OpRecord() {
                     .reduce((acc, sm) => acc + Object.values(sm).filter(v => v !== '').length, 0);
                   const tc = TOPIC_COLORS[t.topic] ?? DEFAULT_TOPIC_COLOR;
                   return (
-                    <div key={t.topic} className="flex items-center justify-between px-3 py-2 rounded-lg bg-gray-50 border border-gray-200">
+                    <div key={t.topic} className="flex items-center justify-between px-3 py-2 rounded-lg bg-earth-DEFAULT border border-earth-border">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${tc.tag}`}>{t.topic}</span>
-                      <span className="text-xs text-gray-500">{cellCount} ช่อง</span>
+                      <span className="text-xs text-earth-ink2">{cellCount} ช่อง</span>
                     </div>
                   );
                 })
               }
             </div>
-            <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-gray-100">
+            <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-earth-border">
               <button
                 onClick={handleSwitchWithDiscard}
                 className="px-4 py-2 rounded-lg text-sm text-red-600 border border-red-200 hover:bg-red-50 transition-colors"
@@ -2799,9 +3152,9 @@ export default function OpRecord() {
         </div>
       )}
       {/* Top bar — title | tabs (center) | date */}
-      <div className="flex items-center gap-3 shrink-0 bg-white rounded-xl shadow-sm border border-gray-100 px-3 py-2">
+      <div className="flex items-center gap-3 shrink-0 bg-earth-DEFAULT rounded-xl shadow-sm border border-earth-border px-3 py-2">
         {/* Left: title */}
-        <h1 className="text-2xl font-bold text-gray-900 whitespace-nowrap shrink-0">
+        <h1 className="text-2xl font-bold text-earth-ink whitespace-nowrap shrink-0">
           บันทึก Operator
           {isRetroactive && <span className="ml-2 text-sm font-normal text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">ย้อนหลัง</span>}
           {!canRecord && <span className="ml-2 text-sm font-normal text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">Bypass Mode</span>}
@@ -2818,7 +3171,7 @@ export default function OpRecord() {
                 onClick={() => handleStationChange(tab.id)}
                 disabled={!isAvail}
                 className={`px-3 py-1.5 rounded-lg text-sm font-semibold border transition-colors
-                  ${isActive ? `${tab.color} text-white border-transparent` : isAvail ? 'bg-white text-gray-700 border-gray-200 hover:border-gray-400' : 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'}`}
+                  ${isActive ? `${tab.color} text-white border-transparent` : isAvail ? 'bg-earth-DEFAULT text-earth-ink border-earth-border hover:border-earth-border' : 'bg-earth-DEFAULT text-earth-ink3 border-earth-border cursor-not-allowed'}`}
               >
                 {tab.label}
                 {!isAvail && <span className="ml-1 text-xs opacity-60">เร็วๆ นี้</span>}
@@ -2829,7 +3182,7 @@ export default function OpRecord() {
             <button
               onClick={() => setShowPicker(p => !p)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold border transition-colors shrink-0
-                ${showPicker ? `${activeTabMeta?.color ?? 'bg-gray-700'} text-white border-transparent` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}
+                ${showPicker ? `${activeTabMeta?.color ?? 'bg-gray-700'} text-white border-transparent` : 'bg-earth-DEFAULT text-earth-ink2 border-earth-border hover:border-earth-border'}`}
             >
               <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
                 <rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/>
@@ -2869,7 +3222,7 @@ export default function OpRecord() {
                 onMouseDown={e => e.preventDefault()}
                 onClick={() => setActiveTopic(t.topic)}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold border transition-all
-                  ${isOn ? `${tc.header} border-transparent shadow-md scale-105` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}
+                  ${isOn ? `${tc.header} border-transparent shadow-md scale-105` : 'bg-earth-DEFAULT text-earth-ink2 border-earth-border hover:border-earth-border'}`}
               >
                 <span className={`inline-flex items-center w-8 h-4.5 rounded-full relative transition-colors ${isOn ? 'bg-white/30' : 'bg-gray-200'}`}
                   style={{ width: 30, height: 17, display: 'inline-flex', alignItems: 'center' }}>
@@ -2885,20 +3238,20 @@ export default function OpRecord() {
 
       {/* Body — Daily Report tab gets full area */}
       {activeStation === 'DAILY' && (
-        <div className="flex-1 min-h-0 rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="flex-1 min-h-0 rounded-xl shadow-sm border border-earth-border overflow-hidden">
           <DailyReportTab selectedDate={selectedDate} stage={stage} />
         </div>
       )}
 
       {/* Body 70:30 — station recording tabs */}
       {activeStation !== 'DAILY' && !stationDef ? (
-        <div className="text-center py-12 text-gray-400">
+        <div className="text-center py-12 text-earth-ink3">
           {!ACTIVE_STATIONS.has(activeStation) ? 'เร็วๆ นี้' : 'กำลังโหลด...'}
         </div>
       ) : activeStation !== 'DAILY' && (
         <div className="flex gap-3 flex-1 min-h-0">
           {/* 70% — recording */}
-          <div className="flex-[7] min-w-0 min-h-0 flex flex-col rounded-xl shadow-sm border border-gray-100 overflow-hidden relative">
+          <div className="flex-[7] min-w-0 min-h-0 flex flex-col rounded-xl shadow-sm border border-earth-border overflow-hidden relative">
             {currentTopic ? (
               <RecordingTable
                 topic={currentTopic}
@@ -2910,7 +3263,7 @@ export default function OpRecord() {
                 focusId={urlFocus}
               />
             ) : (
-              <div className="flex-1 flex items-center justify-center text-gray-400">เลือก sub-group ด้านบน</div>
+              <div className="flex-1 flex items-center justify-center text-earth-ink3">เลือก sub-group ด้านบน</div>
             )}
             {historyLoading && (
               <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] flex flex-col items-center justify-center gap-2 z-10">
@@ -2923,17 +3276,17 @@ export default function OpRecord() {
           </div>
 
           {/* 30% — widget canvas / validation panel */}
-          <div className="flex-[3] min-w-0 min-h-0 flex flex-col rounded-xl shadow-sm border border-gray-100 bg-gray-50 overflow-hidden relative">
-            <div className="px-3 py-2 border-b border-gray-100 bg-white shrink-0 flex items-center justify-between gap-2">
+          <div className="flex-[3] min-w-0 min-h-0 flex flex-col rounded-xl shadow-sm border border-earth-border bg-earth-DEFAULT overflow-hidden relative">
+            <div className="px-3 py-2 border-b border-earth-border bg-earth-card shrink-0 flex items-center justify-between gap-2">
               {/* Tab toggle */}
-              <div className="flex rounded-lg overflow-hidden border border-gray-200 text-xs font-semibold shrink-0">
+              <div className="flex rounded-lg overflow-hidden border border-earth-border text-xs font-semibold shrink-0">
                 <button
                   onClick={() => setRightPanel('dashboard')}
-                  className={`px-2.5 py-1 transition-colors ${rightPanel === 'dashboard' ? 'bg-slate-700 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                  className={`px-2.5 py-1 transition-colors ${rightPanel === 'dashboard' ? 'bg-slate-700 text-white' : 'text-earth-ink2 hover:bg-earth-DEFAULT'}`}
                 >Dashboard</button>
                 <button
                   onClick={() => setRightPanel('validate')}
-                  className={`px-2.5 py-1 transition-colors flex items-center gap-1 ${rightPanel === 'validate' ? 'bg-slate-700 text-white' : 'text-gray-500 hover:bg-gray-50'}`}
+                  className={`px-2.5 py-1 transition-colors flex items-center gap-1 ${rightPanel === 'validate' ? 'bg-slate-700 text-white' : 'text-earth-ink2 hover:bg-earth-DEFAULT'}`}
                 >
                   Validate
                   {validationResult && !validationResult.error && (
@@ -2969,7 +3322,7 @@ export default function OpRecord() {
 
             <div ref={canvasRef} className={`flex-1 overflow-auto ${rightPanel !== 'dashboard' ? 'hidden' : ''}`}>
               {widgets.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2 p-4">
+                <div className="h-full flex flex-col items-center justify-center text-earth-ink3 gap-2 p-4">
                   <svg className="w-8 h-8 opacity-30" viewBox="0 0 16 16" fill="currentColor">
                     <rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/>
                     <rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/>

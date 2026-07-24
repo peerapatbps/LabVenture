@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { get } from '../api.js';
 import {
@@ -76,21 +76,21 @@ export default function Report() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">รายงานข้อมูล</h1>
+      <h1 className="text-2xl font-bold text-earth-ink">รายงานข้อมูล</h1>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+      <div className="bg-earth-DEFAULT rounded-xl p-4 shadow-sm border border-earth-border">
         {/* Date row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">วันเริ่มต้น</label>
+            <label className="block text-xs font-medium text-earth-ink2 mb-1">วันเริ่มต้น</label>
             <input type="date" value={beginDt} onChange={e => setBeginDt(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+              className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">วันสิ้นสุด</label>
+            <label className="block text-xs font-medium text-earth-ink2 mb-1">วันสิ้นสุด</label>
             <input type="date" value={endDt} onChange={e => setEndDt(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+              className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
           </div>
         </div>
 
@@ -102,7 +102,7 @@ export default function Report() {
                 className="inline-block w-3 h-3 rounded-full flex-shrink-0"
                 style={{ background: LINE_COLORS[i % LINE_COLORS.length] }}
               />
-              <label className="text-xs text-gray-500 w-16 flex-shrink-0">
+              <label className="text-xs text-earth-ink2 w-16 flex-shrink-0">
                 {i === 0 ? 'พารามิเตอร์' : `Overlay ${i}`}
               </label>
               <select
@@ -111,7 +111,7 @@ export default function Report() {
                   const v = Number(e.target.value) || null;
                   setDatasets(prev => prev.map((d, idx) => idx === i ? { ...d, paramId: v } : d));
                 }}
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                className="flex-1 border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
               >
                 <option value="">-- เลือกพารามิเตอร์ --</option>
                 {params.map(p => (
@@ -123,7 +123,7 @@ export default function Report() {
               {datasets.length > 1 && (
                 <button
                   onClick={() => setDatasets(prev => prev.filter((_, idx) => idx !== i))}
-                  className="text-gray-400 hover:text-red-500 text-xl leading-none px-1 flex-shrink-0"
+                  className="text-earth-ink3 hover:text-red-500 text-xl leading-none px-1 flex-shrink-0"
                   title="ลบ"
                 >×</button>
               )}
@@ -142,14 +142,14 @@ export default function Report() {
           </button>
           <div className="flex-1" />
           {chartData.length > 0 && (
-            <button onClick={downloadCSV} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm touch-target">
+            <button onClick={downloadCSV} className="bg-earth-DEFAULT hover:bg-earth-card text-earth-ink px-4 py-2 rounded-lg text-sm touch-target">
               ⬇ Export CSV
             </button>
           )}
           <button
             onClick={() => setDatasets(prev => [...prev, { id: _nextId++, paramId: null }])}
             disabled={!canAddDataset}
-            className="bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed text-gray-700 font-bold w-9 h-9 flex items-center justify-center rounded-lg text-lg touch-target"
+            className="bg-earth-DEFAULT hover:bg-earth-card disabled:opacity-40 disabled:cursor-not-allowed text-earth-ink font-bold w-9 h-9 flex items-center justify-center rounded-lg text-lg touch-target"
             title="เพิ่ม overlay"
           >+</button>
         </div>
@@ -157,8 +157,8 @@ export default function Report() {
 
       {/* Chart */}
       {showFetch && activeDatasets.length > 0 && (
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-          {onlineLoading && <div className="text-center py-12 text-gray-400">กำลังดึงข้อมูลจาก AquaDAT...</div>}
+        <div className="bg-earth-DEFAULT rounded-xl p-4 shadow-sm border border-earth-border">
+          {onlineLoading && <div className="text-center py-12 text-earth-ink3">กำลังดึงข้อมูลจาก AquaDAT...</div>}
           {onlineError && (
             <div className="text-center py-6 text-red-500 text-sm">
               ไม่สามารถดึงข้อมูลออนไลน์ได้ — กรุณาตรวจสอบการเชื่อมต่อ Intranet
@@ -167,11 +167,11 @@ export default function Report() {
           {!onlineLoading && !onlineError && (
             <>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold text-gray-900">
+                <h2 className="font-semibold text-earth-ink">
                   {firstParam?.label || ''}
-                  {firstParam?.unit && <span className="text-gray-400 text-sm ml-2">({firstParam.unit})</span>}
+                  {firstParam?.unit && <span className="text-earth-ink3 text-sm ml-2">({firstParam.unit})</span>}
                   {activeDatasets.length > 1 && (
-                    <span className="text-gray-400 text-sm ml-2">+ {activeDatasets.length - 1} overlay</span>
+                    <span className="text-earth-ink3 text-sm ml-2">+ {activeDatasets.length - 1} overlay</span>
                   )}
                 </h2>
                 {scenario && (
@@ -180,7 +180,7 @@ export default function Report() {
               </div>
 
               {chartData.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">ไม่มีข้อมูลในช่วงเวลานี้</div>
+                <div className="text-center py-12 text-earth-ink3">ไม่มีข้อมูลในช่วงเวลานี้</div>
               ) : (
                 <ResponsiveContainer width="100%" height={350}>
                   <ComposedChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
@@ -236,7 +236,7 @@ export default function Report() {
               )}
 
               {threshold && (
-                <div className="mt-3 text-xs text-gray-500 flex gap-4">
+                <div className="mt-3 text-xs text-earth-ink2 flex gap-4">
                   {threshold.min !== null && <span>เกณฑ์ต่ำสุด: {threshold.min} {firstParam?.unit}</span>}
                   {threshold.max !== null && <span>เกณฑ์สูงสุด: {threshold.max} {firstParam?.unit}</span>}
                   <span className="inline-block w-4 h-2 bg-red-100 border border-red-200 rounded" /> พื้นที่เกินเกณฑ์

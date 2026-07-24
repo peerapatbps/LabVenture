@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, createContext } from 'react';
+﻿import React, { useState, useEffect, useContext, createContext } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { get, post, put, patch, del } from '../api.js';
@@ -39,12 +39,12 @@ function EpidemicToggle() {
 
   return (
     <div className="flex items-center justify-between py-2">
-      <span className="text-sm font-medium text-gray-700">สถานการณ์โรคระบาด</span>
+      <span className="text-sm font-medium text-earth-ink">สถานการณ์โรคระบาด</span>
       <button
         onClick={toggle}
         disabled={isLoading || saving || !canAction}
         className={`relative inline-flex h-7 w-14 shrink-0 cursor-pointer rounded-full border-2 transition-colors duration-200 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed
-          ${isEpidemic ? 'bg-red-500 border-red-500' : 'bg-gray-200 border-gray-200'}`}
+          ${isEpidemic ? 'bg-red-500 border-red-500' : 'bg-gray-200 border-earth-border'}`}
       >
         <span
           className={`inline-block h-5 w-5 rounded-full bg-white shadow-md transform transition-transform duration-200 mt-0.5
@@ -82,13 +82,13 @@ function MarqueeEditor() {
   }
 
   return (
-    <div className="space-y-2 pt-2 border-t border-gray-100">
-      <span className="text-sm font-medium text-gray-700">ข้อความวิ่ง (Header)</span>
+    <div className="space-y-2 pt-2 border-t border-earth-border">
+      <span className="text-sm font-medium text-earth-ink">ข้อความวิ่ง (Header)</span>
       <textarea
         value={text}
         onChange={e => setText(e.target.value)}
         rows={2}
-        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand"
+        className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand"
       />
       <button
         onClick={save}
@@ -128,22 +128,22 @@ function ScenarioTab() {
   }
 
   return (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 space-y-4">
+    <div className="bg-earth-DEFAULT rounded-xl p-6 shadow-sm border border-earth-border space-y-4">
       {/* สถานการณ์ระบบผลิต */}
       <div className="space-y-3">
-        <h2 className="font-semibold text-gray-800">สถานการณ์ระบบผลิต</h2>
-        {isLoading ? <p className="text-sm text-gray-400">กำลังโหลด...</p> : (
+        <h2 className="font-semibold text-earth-ink">สถานการณ์ระบบผลิต</h2>
+        {isLoading ? <p className="text-sm text-earth-ink3">กำลังโหลด...</p> : (
           <>
             <select value={activeId} onChange={e => handleActivate(Number(e.target.value))}
               disabled={pending || !canAction}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50 disabled:cursor-not-allowed">
+              className="w-full border border-earth-border rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50 disabled:cursor-not-allowed">
               {(scenarios || []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
             {activeScenario && (
-              <div className="flex items-center gap-3 bg-gray-50 rounded-lg px-4 py-3">
+              <div className="flex items-center gap-3 bg-earth-DEFAULT rounded-lg px-4 py-3">
                 <span className={`w-3 h-3 rounded-full shrink-0 ${SCENARIO_COLORS[activeScenario.name] ?? 'bg-gray-400'}`} />
-                <p className="text-sm font-medium text-gray-800">{activeScenario.name}</p>
-                <span className="ml-auto text-xs text-gray-400">{activeScenario.thresholds?.length ?? 0} เกณฑ์</span>
+                <p className="text-sm font-medium text-earth-ink">{activeScenario.name}</p>
+                <span className="ml-auto text-xs text-earth-ink3">{activeScenario.thresholds?.length ?? 0} เกณฑ์</span>
               </div>
             )}
           </>
@@ -151,7 +151,7 @@ function ScenarioTab() {
       </div>
 
       {/* สถานการณ์โรคระบาด — single line toggle */}
-      <div className="border-t border-gray-100 pt-4">
+      <div className="border-t border-earth-border pt-4">
         <EpidemicToggle />
       </div>
 
@@ -174,11 +174,11 @@ function AdminBadge({ entry, onToggle, locked }) {
   if (confirming === 'set') {
     return (
       <span className="inline-flex items-center gap-1">
-        <span className="text-xs text-gray-600">ยืนยัน?</span>
+        <span className="text-xs text-earth-ink2">ยืนยัน?</span>
         <button onClick={() => { onToggle(entry, 1); setConfirming(false); }}
           className="px-1.5 py-0.5 rounded text-xs bg-yellow-500 text-white font-medium hover:bg-yellow-600">ใช่</button>
         <button onClick={() => setConfirming(false)}
-          className="px-1.5 py-0.5 rounded text-xs bg-gray-200 text-gray-600 hover:bg-gray-300">ไม่</button>
+          className="px-1.5 py-0.5 rounded text-xs bg-earth-card text-earth-ink2 hover:bg-earth-border">ไม่</button>
       </span>
     );
   }
@@ -186,11 +186,11 @@ function AdminBadge({ entry, onToggle, locked }) {
   if (confirming === 'revoke') {
     return (
       <span className="inline-flex items-center gap-1">
-        <span className="text-xs text-gray-600">ยกเลิก Admin?</span>
+        <span className="text-xs text-earth-ink2">ยกเลิก Admin?</span>
         <button onClick={() => { onToggle(entry, 0); setConfirming(false); }}
           className="px-1.5 py-0.5 rounded text-xs bg-red-500 text-white font-medium hover:bg-red-600">ใช่</button>
         <button onClick={() => setConfirming(false)}
-          className="px-1.5 py-0.5 rounded text-xs bg-gray-200 text-gray-600 hover:bg-gray-300">ไม่</button>
+          className="px-1.5 py-0.5 rounded text-xs bg-earth-card text-earth-ink2 hover:bg-earth-border">ไม่</button>
       </span>
     );
   }
@@ -201,7 +201,7 @@ function AdminBadge({ entry, onToggle, locked }) {
         <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700">⭐ Admin</span>
         {canAction && (
           <button onClick={() => setConfirming('revoke')}
-            className="text-xs text-gray-400 hover:text-red-500 underline">ยกเลิก</button>
+            className="text-xs text-earth-ink3 hover:text-red-500 underline">ยกเลิก</button>
         )}
       </span>
     );
@@ -210,7 +210,7 @@ function AdminBadge({ entry, onToggle, locked }) {
   return (
     <button onClick={() => canAction && setConfirming('set')}
       disabled={!canAction}
-      className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-400 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed">
+      className="px-2 py-0.5 rounded text-xs font-medium bg-earth-card text-earth-ink3 hover:bg-earth-card disabled:opacity-40 disabled:cursor-not-allowed">
       ตั้ง Admin
     </button>
   );
@@ -236,13 +236,13 @@ function WhitelistRow({ entry, onToggleAdmin, onDelete }) {
   }
 
   return (
-    <tr className="border-b border-gray-100 hover:bg-gray-50">
-      <td className="px-3 py-2 text-sm font-medium text-gray-800">
+    <tr className="border-b border-earth-border hover:bg-earth-DEFAULT">
+      <td className="px-3 py-2 text-sm font-medium text-earth-ink">
         {entry.name}
         {isSuperadmin && <span className="ml-1 text-xs text-yellow-600">🔒</span>}
       </td>
-      <td className="px-3 py-2 text-xs text-gray-500">{entry.dept_label || '—'}</td>
-      <td className="px-3 py-2 text-xs text-gray-600">
+      <td className="px-3 py-2 text-xs text-earth-ink2">{entry.dept_label || '—'}</td>
+      <td className="px-3 py-2 text-xs text-earth-ink2">
         {editing ? (
           <span className="flex items-center gap-1">
             <input
@@ -261,7 +261,7 @@ function WhitelistRow({ entry, onToggleAdmin, onDelete }) {
             onClick={() => !isSuperadmin && canAction && setEditing(true)}
             className={`${!isSuperadmin && canAction ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''}`}
           >
-            {entry.position_label || <span className="text-gray-300">— คลิกเพื่อใส่ตำแหน่ง</span>}
+            {entry.position_label || <span className="text-earth-ink3">— คลิกเพื่อใส่ตำแหน่ง</span>}
           </span>
         )}
       </td>
@@ -334,7 +334,7 @@ function Group3Section({ group_code, title, entries, onRefresh }) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="bg-earth-DEFAULT rounded-xl border border-earth-border shadow-sm overflow-hidden">
       <div className="bg-purple-50 px-4 py-3 border-b border-purple-100">
         <h3 className="font-semibold text-purple-900">{title}</h3>
         <p className="text-xs text-purple-600 mt-0.5">{entries.length}/5 คน</p>
@@ -343,7 +343,7 @@ function Group3Section({ group_code, title, entries, onRefresh }) {
       {entries.length > 0 ? (
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 text-xs text-gray-500">
+            <tr className="bg-earth-card text-xs text-earth-ink2">
               <th className="px-3 py-2 text-left">ชื่อ-สกุล</th>
               <th className="px-3 py-2 text-left">หน่วยงาน</th>
               <th className="px-3 py-2 text-left">ตำแหน่ง</th>
@@ -356,17 +356,17 @@ function Group3Section({ group_code, title, entries, onRefresh }) {
           </tbody>
         </table>
       ) : (
-        <p className="text-center py-4 text-gray-400 text-sm">ยังไม่มีรายชื่อ</p>
+        <p className="text-center py-4 text-earth-ink3 text-sm">ยังไม่มีรายชื่อ</p>
       )}
 
       {canAdd && (
-        <div className="border-t border-gray-100 p-4 space-y-3">
-          <p className="text-xs font-semibold text-gray-600">ค้นหาเพิ่ม (รหัสพนักงาน)</p>
+        <div className="border-t border-earth-border p-4 space-y-3">
+          <p className="text-xs font-semibold text-earth-ink2">ค้นหาเพิ่ม (รหัสพนักงาน)</p>
           <div className="flex gap-2">
             <input value={empId} onChange={e => setEmpId(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSearch()}
               placeholder="เช่น 00102616"
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand font-mono" />
+              className="flex-1 border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand font-mono" />
             <button onClick={handleSearch} disabled={searching || !empId.trim() || !canAction}
               className="px-4 py-2 bg-brand hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg">
               {searching ? '...' : 'ค้นหา'}
@@ -376,13 +376,13 @@ function Group3Section({ group_code, title, entries, onRefresh }) {
           {searchResult && (
             <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 space-y-3">
               <div className="text-sm space-y-1">
-                <p><span className="text-gray-500 text-xs">รหัส:</span> <span className="font-mono font-medium">{searchResult.emp_id}</span></p>
-                <p><span className="text-gray-500 text-xs">ชื่อ:</span> <span className="font-medium">{searchResult.name_no_prefix}</span></p>
-                <p><span className="text-gray-500 text-xs">ตำแหน่ง:</span> {searchResult.position}</p>
-                <p><span className="text-gray-500 text-xs">หน่วยงาน:</span> {searchResult.dept}</p>
+                <p><span className="text-earth-ink2 text-xs">รหัส:</span> <span className="font-mono font-medium">{searchResult.emp_id}</span></p>
+                <p><span className="text-earth-ink2 text-xs">ชื่อ:</span> <span className="font-medium">{searchResult.name_no_prefix}</span></p>
+                <p><span className="text-earth-ink2 text-xs">ตำแหน่ง:</span> {searchResult.position}</p>
+                <p><span className="text-earth-ink2 text-xs">หน่วยงาน:</span> {searchResult.dept}</p>
               </div>
               <div className="space-y-1">
-                <p className="text-xs text-gray-600 font-medium">คำนำหน้าชื่อ</p>
+                <p className="text-xs text-earth-ink2 font-medium">คำนำหน้าชื่อ</p>
                 <div className="flex flex-wrap gap-2">
                   {PREFIXES.map(p => (
                     <label key={p} className="flex items-center gap-1 text-sm cursor-pointer">
@@ -392,7 +392,7 @@ function Group3Section({ group_code, title, entries, onRefresh }) {
                     </label>
                   ))}
                 </div>
-                <p className="text-xs text-gray-400">ชื่อที่จะบันทึก: <strong>{prefix + searchResult.name_no_prefix}</strong></p>
+                <p className="text-xs text-earth-ink3">ชื่อที่จะบันทึก: <strong>{prefix + searchResult.name_no_prefix}</strong></p>
               </div>
               <button onClick={handleAdd} disabled={adding || !canAction}
                 className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold py-2 rounded-lg">
@@ -403,7 +403,7 @@ function Group3Section({ group_code, title, entries, onRefresh }) {
         </div>
       )}
       {!canAdd && (
-        <p className="text-center py-2 text-xs text-gray-400 border-t border-gray-100">ครบ 5 คนแล้ว</p>
+        <p className="text-center py-2 text-xs text-earth-ink3 border-t border-earth-border">ครบ 5 คนแล้ว</p>
       )}
     </div>
   );
@@ -441,16 +441,16 @@ function WhitelistTab() {
     qc.invalidateQueries({ queryKey: ['whitelist'] });
   }
 
-  if (isLoading) return <p className="text-sm text-gray-400 py-4">กำลังโหลด...</p>;
+  if (isLoading) return <p className="text-sm text-earth-ink3 py-4">กำลังโหลด...</p>;
 
   return (
     <div className="space-y-6">
       {/* Sync EHR */}
-      <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+      <div className="bg-earth-DEFAULT rounded-xl p-5 shadow-sm border border-earth-border">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h2 className="font-semibold text-gray-800">Sync จาก EHR (กลุ่ม 1 + 2)</h2>
-            <p className="text-xs text-gray-500 mt-0.5">ดึงรายชื่อพนักงานล่าสุดจาก ehr.mwa.co.th</p>
+            <h2 className="font-semibold text-earth-ink">Sync จาก EHR (กลุ่ม 1 + 2)</h2>
+            <p className="text-xs text-earth-ink2 mt-0.5">ดึงรายชื่อพนักงานล่าสุดจาก ehr.mwa.co.th</p>
           </div>
           <button onClick={handleSync} disabled={syncing || !canAction}
             className="px-4 py-2 bg-brand hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg">
@@ -461,14 +461,14 @@ function WhitelistTab() {
       </div>
 
       {/* Group 1 */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-earth-DEFAULT rounded-xl border border-earth-border shadow-sm overflow-hidden">
         <div className="bg-blue-50 px-4 py-3 border-b border-blue-100">
           <h3 className="font-semibold text-blue-900">กลุ่ม 1 — นักวิทยาศาสตร์ / Document Control</h3>
           <p className="text-xs text-blue-600 mt-0.5">{g1.length} คน · เห็น CAR ทั้งหมด · ออกใบได้</p>
         </div>
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 text-xs text-gray-500">
+            <tr className="bg-earth-card text-xs text-earth-ink2">
               <th className="px-3 py-2 text-left">ชื่อ-สกุล</th>
               <th className="px-3 py-2 text-left">หน่วยงาน</th>
               <th className="px-3 py-2 text-left">ตำแหน่ง</th>
@@ -479,25 +479,25 @@ function WhitelistTab() {
             {g1.map(e => <WhitelistRow key={e.id} entry={e} onToggleAdmin={handleToggleAdmin} />)}
           </tbody>
         </table>
-        {g1.length === 0 && <p className="text-center py-3 text-gray-400 text-sm">ยังไม่มีรายชื่อ — กด Sync EHR</p>}
+        {g1.length === 0 && <p className="text-center py-3 text-earth-ink3 text-sm">ยังไม่มีรายชื่อ — กด Sync EHR</p>}
       </div>
 
       {/* Group 2 */}
       <div className="space-y-3">
-        <h2 className="font-semibold text-gray-800">กลุ่ม 2 — Operator (4 ผลัด)</h2>
+        <h2 className="font-semibold text-earth-ink">กลุ่ม 2 — Operator (4 ผลัด)</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {g2s.map((members, i) => {
             const shift = i + 1;
             const deptLabel = members[0]?.dept_label || `สคน${shift}กผจ.ฝผม.`;
             return (
-              <div key={shift} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+              <div key={shift} className="bg-earth-DEFAULT rounded-xl border border-earth-border shadow-sm overflow-hidden">
                 <div className="bg-green-50 px-4 py-3 border-b border-green-100">
                   <h3 className="font-semibold text-green-900">ผลัด {shift}</h3>
                   <p className="text-xs text-green-600 mt-0.5">{deptLabel} · {members.length} คน</p>
                 </div>
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-gray-50 text-xs text-gray-500">
+                    <tr className="bg-earth-card text-xs text-earth-ink2">
                       <th className="px-3 py-2 text-left">ชื่อ-สกุล</th>
                       <th className="px-3 py-2 text-left">หน่วยงาน</th>
                       <th className="px-3 py-2 text-left">ตำแหน่ง</th>
@@ -508,7 +508,7 @@ function WhitelistTab() {
                     {members.map(e => <WhitelistRow key={e.id} entry={e} onToggleAdmin={handleToggleAdmin} />)}
                   </tbody>
                 </table>
-                {members.length === 0 && <p className="text-center py-3 text-gray-400 text-sm">ยังไม่มีรายชื่อ</p>}
+                {members.length === 0 && <p className="text-center py-3 text-earth-ink3 text-sm">ยังไม่มีรายชื่อ</p>}
               </div>
             );
           })}
@@ -517,7 +517,7 @@ function WhitelistTab() {
 
       {/* Group 3 */}
       <div className="space-y-3">
-        <h2 className="font-semibold text-gray-800">กลุ่ม 3 — ผู้บริหาร</h2>
+        <h2 className="font-semibold text-earth-ink">กลุ่ม 3 — ผู้บริหาร</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Group3Section group_code="3a" title="ผอ.กผจ. (อนุมัติ Step 2)" entries={g3a} onRefresh={refetch} />
           <Group3Section group_code="3b" title="ผอ.ฝผม. (อนุมัติปิด Step 5)" entries={g3b} onRefresh={refetch} />
@@ -537,7 +537,7 @@ function KickButton({ ids, onKick }) {
   if (confirming) {
     return (
       <span className="inline-flex items-center gap-1">
-        <span className="text-xs text-gray-600">ถอด Admin?</span>
+        <span className="text-xs text-earth-ink2">ถอด Admin?</span>
         <button
           onClick={async () => {
             setKicking(true);
@@ -550,7 +550,7 @@ function KickButton({ ids, onKick }) {
           {kicking ? '...' : 'ใช่'}
         </button>
         <button onClick={() => setConfirming(false)}
-          className="px-1.5 py-0.5 rounded text-xs bg-gray-200 text-gray-600 hover:bg-gray-300">ไม่</button>
+          className="px-1.5 py-0.5 rounded text-xs bg-earth-card text-earth-ink2 hover:bg-earth-border">ไม่</button>
       </span>
     );
   }
@@ -571,7 +571,7 @@ function AdminListTab() {
     queryFn: () => get('/api/car-admin/whitelist'),
   });
 
-  if (isLoading) return <p className="text-sm text-gray-400 py-4">กำลังโหลด...</p>;
+  if (isLoading) return <p className="text-sm text-earth-ink3 py-4">กำลังโหลด...</p>;
 
   const admins = whitelist.filter(e => e.is_admin === 1);
 
@@ -592,7 +592,7 @@ function AdminListTab() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-earth-DEFAULT rounded-xl border border-earth-border shadow-sm overflow-hidden">
         <div className="bg-yellow-50 px-4 py-3 border-b border-yellow-100 flex items-center justify-between">
           <div>
             <h2 className="font-semibold text-yellow-900">Admin Whitelist</h2>
@@ -601,11 +601,11 @@ function AdminListTab() {
         </div>
 
         {rows.length === 0 ? (
-          <p className="text-center py-6 text-gray-400 text-sm">ยังไม่มี Admin</p>
+          <p className="text-center py-6 text-earth-ink3 text-sm">ยังไม่มี Admin</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 text-xs text-gray-500 text-left">
+              <tr className="bg-earth-card text-xs text-earth-ink2 text-left">
                 <th className="px-4 py-2">ชื่อ-สกุล</th>
                 <th className="px-4 py-2">กลุ่ม</th>
                 <th className="px-4 py-2">หน่วยงาน</th>
@@ -620,15 +620,15 @@ function AdminListTab() {
                 const hasEhr = !!r.synced_at;
                 const isActive = isSuperadmin || hasEhr;
                 return (
-                  <tr key={r.name} className="border-t border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-2.5 font-medium text-gray-800">
+                  <tr key={r.name} className="border-t border-earth-border hover:bg-earth-DEFAULT">
+                    <td className="px-4 py-2.5 font-medium text-earth-ink">
                       {r.name}
                       {isSuperadmin && <span className="ml-1 text-yellow-500 text-xs">🔒</span>}
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-gray-500">
+                    <td className="px-4 py-2.5 text-xs text-earth-ink2">
                       {r.groups.map(g => GROUP_LABEL[g] || g).join(', ')}
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-gray-500">{r.dept_label || '—'}</td>
+                    <td className="px-4 py-2.5 text-xs text-earth-ink2">{r.dept_label || '—'}</td>
                     <td className="px-4 py-2.5 text-center">
                       {isActive ? (
                         <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">✅ ใช้งานได้</span>
@@ -636,7 +636,7 @@ function AdminListTab() {
                         <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600">❌ ไม่ผ่านเงื่อนไข</span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-xs text-gray-400">
+                    <td className="px-4 py-2.5 text-xs text-earth-ink3">
                       {r.synced_at ? new Date(r.synced_at).toLocaleDateString('th-TH') : '—'}
                     </td>
                     <td className="px-4 py-2.5 text-center">
@@ -693,23 +693,23 @@ function CARSettingTab() {
     } finally { setSaving(false); }
   }
 
-  if (isLoading) return <p className="text-sm text-gray-400 py-4">กำลังโหลด...</p>;
+  if (isLoading) return <p className="text-sm text-earth-ink3 py-4">กำลังโหลด...</p>;
 
   return (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 space-y-5">
+    <div className="bg-earth-DEFAULT rounded-xl p-6 shadow-sm border border-earth-border space-y-5">
       <div>
-        <h2 className="font-semibold text-gray-800">ข้อความมาตรฐาน CAR</h2>
-        <p className="text-xs text-gray-500 mt-0.5">ข้อความที่จะ generate อัตโนมัติในช่อง "เรื่องที่พบ" เมื่อกราฟแสดงสถานะ BAD</p>
+        <h2 className="font-semibold text-earth-ink">ข้อความมาตรฐาน CAR</h2>
+        <p className="text-xs text-earth-ink2 mt-0.5">ข้อความที่จะ generate อัตโนมัติในช่อง "เรื่องที่พบ" เมื่อกราฟแสดงสถานะ BAD</p>
       </div>
       <div className="space-y-4">
         {CAR_TEMPLATE_FIELDS.map(({ key, label }) => (
           <div key={key}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+            <label className="block text-sm font-medium text-earth-ink mb-1">{label}</label>
             <textarea
               value={templates[key] ?? ''}
               onChange={e => setTemplates(t => ({ ...t, [key]: e.target.value }))}
               rows={2}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand"
+              className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand"
             />
           </div>
         ))}
@@ -750,9 +750,9 @@ function NumberInput({ value, onChange, unit, disabled }) {
         value={value ?? ''}
         onChange={e => onChange(e.target.value === '' ? 0 : Number(e.target.value))}
         disabled={disabled}
-        className="w-36 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-40 disabled:cursor-not-allowed"
+        className="w-36 border border-earth-border rounded-lg px-3 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-40 disabled:cursor-not-allowed"
       />
-      <span className="text-xs text-gray-400 shrink-0">{unit}</span>
+      <span className="text-xs text-earth-ink3 shrink-0">{unit}</span>
     </div>
   );
 }
@@ -760,7 +760,7 @@ function NumberInput({ value, onChange, unit, disabled }) {
 function FieldRow({ label, value, onChange, unit, disabled }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <label className="text-sm text-gray-700">{label}</label>
+      <label className="text-sm text-earth-ink">{label}</label>
       <NumberInput value={value} onChange={onChange} unit={unit} disabled={disabled} />
     </div>
   );
@@ -804,15 +804,15 @@ function ReportSettingsTab() {
     } finally { setSaving(false); }
   }
 
-  if (isLoading) return <p className="text-sm text-gray-400 py-4">กำลังโหลด...</p>;
+  if (isLoading) return <p className="text-sm text-earth-ink3 py-4">กำลังโหลด...</p>;
 
   return (
     <div className="space-y-5 max-w-xl">
       {/* Chemical cost */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 space-y-4">
+      <div className="bg-earth-DEFAULT rounded-xl p-6 shadow-sm border border-earth-border space-y-4">
         <div>
-          <h2 className="font-semibold text-gray-800">ต้นทุนสารเคมี</h2>
-          <p className="text-xs text-gray-400 mt-0.5">ใช้คำนวณต้นทุน บาท/ลบ.ม. ในรายงานประจำวัน</p>
+          <h2 className="font-semibold text-earth-ink">ต้นทุนสารเคมี</h2>
+          <p className="text-xs text-earth-ink3 mt-0.5">ใช้คำนวณต้นทุน บาท/ลบ.ม. ในรายงานประจำวัน</p>
         </div>
         <div className="space-y-3">
           {CHEM_FIELDS.map(({ key, label, unit }) => (
@@ -829,10 +829,10 @@ function ReportSettingsTab() {
       </div>
 
       {/* Energy cost */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 space-y-4">
+      <div className="bg-earth-DEFAULT rounded-xl p-6 shadow-sm border border-earth-border space-y-4">
         <div>
-          <h2 className="font-semibold text-gray-800">ต้นทุนพลังงาน</h2>
-          <p className="text-xs text-gray-400 mt-0.5">ราคาค่าไฟ TOU — Peak 09:00–22:00</p>
+          <h2 className="font-semibold text-earth-ink">ต้นทุนพลังงาน</h2>
+          <p className="text-xs text-earth-ink3 mt-0.5">ราคาค่าไฟ TOU — Peak 09:00–22:00</p>
         </div>
         <div className="space-y-3">
           {ENERGY_FIELDS.map(({ key, label, unit }) => (
@@ -849,8 +849,8 @@ function ReportSettingsTab() {
       </div>
 
       {/* Raw water + tank */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 space-y-4">
-        <h2 className="font-semibold text-gray-800">ค่าคงที่ระบบ</h2>
+      <div className="bg-earth-DEFAULT rounded-xl p-6 shadow-sm border border-earth-border space-y-4">
+        <h2 className="font-semibold text-earth-ink">ค่าคงที่ระบบ</h2>
         <div className="space-y-3">
           <FieldRow
             label="ต้นทุนน้ำดิบ (RW Cost)"
@@ -866,7 +866,7 @@ function ReportSettingsTab() {
             onChange={setCwtArea}
             disabled={!canAction}
           />
-          <p className="text-xs text-gray-400 leading-relaxed">
+          <p className="text-xs text-earth-ink3 leading-relaxed">
             พื้นที่หน้าตัดถังเก็บน้ำใส (CWT) ใช้แปลง Δระดับน้ำ (ม.) → Δปริมาตร (ลบ.ม.)
             สำหรับคำนวณ Water Loss
           </p>
@@ -918,31 +918,31 @@ function InitSystemTab() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 space-y-5">
+      <div className="bg-earth-DEFAULT rounded-xl p-6 shadow-sm border border-earth-border space-y-5">
         <div>
-          <h2 className="font-semibold text-gray-800">Init System — ดึงข้อมูลจาก AquaDAT</h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <h2 className="font-semibold text-earth-ink">Init System — ดึงข้อมูลจาก AquaDAT</h2>
+          <p className="text-sm text-earth-ink2 mt-1">
             ใช้ตอนเปิดระบบครั้งแรก หรือหลัง reboot — ดึงค่าที่มีอยู่แล้วใน AquaDAT มาลง Daily DB
           </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-600">วันที่</label>
+            <label className="text-xs font-semibold text-earth-ink2">วันที่</label>
             <input
               type="date"
               value={date}
               max={new Date().toISOString().split('T')[0]}
               onChange={e => setDate(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-600">กลุ่มพารามิเตอร์</label>
+            <label className="text-xs font-semibold text-earth-ink2">กลุ่มพารามิเตอร์</label>
             <select
               value={group}
               onChange={e => setGroup(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
             >
               {AQUADAT_GROUPS.map(g => (
                 <option key={g.key} value={g.key}>{g.label}</option>
@@ -969,17 +969,17 @@ function InitSystemTab() {
           <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-4 space-y-2">
             <p className="font-semibold text-green-800">✅ Sync สำเร็จ</p>
             <div className="grid grid-cols-3 gap-3 text-center text-sm">
-              <div className="bg-white rounded-lg py-2 border border-green-100">
-                <p className="text-2xl font-bold text-gray-800">{result.configsFetched}</p>
-                <p className="text-xs text-gray-500">configID ที่ส่ง</p>
+              <div className="bg-earth-DEFAULT rounded-lg py-2 border border-green-100">
+                <p className="text-2xl font-bold text-earth-ink">{result.configsFetched}</p>
+                <p className="text-xs text-earth-ink2">configID ที่ส่ง</p>
               </div>
-              <div className="bg-white rounded-lg py-2 border border-green-100">
+              <div className="bg-earth-DEFAULT rounded-lg py-2 border border-green-100">
                 <p className="text-2xl font-bold text-green-700">{result.inserted}</p>
-                <p className="text-xs text-gray-500">ค่าที่บันทึก</p>
+                <p className="text-xs text-earth-ink2">ค่าที่บันทึก</p>
               </div>
-              <div className="bg-white rounded-lg py-2 border border-green-100">
-                <p className="text-2xl font-bold text-gray-400">{result.skipped}</p>
-                <p className="text-xs text-gray-500">ข้ามค่าว่าง</p>
+              <div className="bg-earth-DEFAULT rounded-lg py-2 border border-green-100">
+                <p className="text-2xl font-bold text-earth-ink3">{result.skipped}</p>
+                <p className="text-xs text-earth-ink2">ข้ามค่าว่าง</p>
               </div>
             </div>
             <p className="text-xs text-green-700">วันที่: {result.date} · dashboard และ record จะแสดงสถานะอัปเดตทันที</p>
@@ -1139,15 +1139,15 @@ function RunTooltip({ tooltip, children }) {
         >
           <div className="bg-gray-900 text-white rounded-xl shadow-xl p-3 space-y-2 text-xs">
             <div>
-              <p className="text-gray-400 font-semibold uppercase tracking-wide text-[10px] mb-0.5">ปัญหา</p>
+              <p className="text-earth-ink3 font-semibold uppercase tracking-wide text-[10px] mb-0.5">ปัญหา</p>
               <p className="text-gray-200 leading-relaxed">{tooltip.problem}</p>
             </div>
             <div>
-              <p className="text-gray-400 font-semibold uppercase tracking-wide text-[10px] mb-0.5">วิธีแก้</p>
+              <p className="text-earth-ink3 font-semibold uppercase tracking-wide text-[10px] mb-0.5">วิธีแก้</p>
               <p className="text-green-300 leading-relaxed">{tooltip.fix}</p>
             </div>
             <div>
-              <p className="text-gray-400 font-semibold uppercase tracking-wide text-[10px] mb-0.5">จะเห็นอะไร</p>
+              <p className="text-earth-ink3 font-semibold uppercase tracking-wide text-[10px] mb-0.5">จะเห็นอะไร</p>
               <p className="text-amber-300 leading-relaxed">{tooltip.expect}</p>
             </div>
           </div>
@@ -1160,18 +1160,18 @@ function RunTooltip({ tooltip, children }) {
 
 function QueueTable({ rows, refetchFn, label }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-700">{label} ({rows.length} rows)</h3>
-        <button onClick={refetchFn} className="text-xs text-gray-400 hover:text-gray-600">↻ refresh</button>
+    <div className="bg-earth-DEFAULT rounded-xl border border-earth-border shadow-sm overflow-hidden">
+      <div className="bg-earth-DEFAULT px-4 py-2.5 border-b border-earth-border flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-earth-ink">{label} ({rows.length} rows)</h3>
+        <button onClick={refetchFn} className="text-xs text-earth-ink3 hover:text-earth-ink2">↻ refresh</button>
       </div>
       {rows.length === 0 ? (
-        <p className="text-center py-6 text-sm text-gray-400">ว่างเปล่า</p>
+        <p className="text-center py-6 text-sm text-earth-ink3">ว่างเปล่า</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="bg-gray-50 text-gray-500 text-left">
+              <tr className="bg-earth-card text-earth-ink2 text-left">
                 <th className="px-3 py-2">id</th>
                 <th className="px-3 py-2">trans_dtm</th>
                 <th className="px-3 py-2">attempts</th>
@@ -1179,14 +1179,14 @@ function QueueTable({ rows, refetchFn, label }) {
                 <th className="px-3 py-2">last_error</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-earth-border">
               {rows.map(row => (
-                <tr key={row.id} className="hover:bg-gray-50">
+                <tr key={row.id} className="hover:bg-earth-DEFAULT">
                   <td className="px-3 py-2 font-mono">{row.id}</td>
                   <td className="px-3 py-2">{row.trans_dtm}</td>
                   <td className="px-3 py-2 text-center">{row.attempts}</td>
                   <td className="px-3 py-2">
-                    <span className={`px-2 py-0.5 rounded-full font-semibold text-xs ${STATUS_COLOR[row.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`px-2 py-0.5 rounded-full font-semibold text-xs ${STATUS_COLOR[row.status] ?? 'bg-earth-card text-earth-ink2'}`}>
                       {row.status}
                     </span>
                   </td>
@@ -1208,16 +1208,16 @@ function TestCaseSection({ title, cases, running, onRun, accent = 'gray', canAct
     ? 'bg-green-900'
     : 'bg-gray-800';
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="bg-earth-DEFAULT rounded-xl border border-earth-border shadow-sm overflow-hidden">
       <div className={`${headerCls} px-4 py-3`}>
         <h2 className="font-semibold text-white text-sm">{title}</h2>
       </div>
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-earth-border">
         {cases.map(tc => (
-          <div key={tc.id} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50">
+          <div key={tc.id} className="flex items-center justify-between px-4 py-3 hover:bg-earth-DEFAULT">
             <div>
-              <p className="text-sm font-semibold text-gray-800">{tc.label}</p>
-              <p className="text-xs text-gray-400">{tc.desc}</p>
+              <p className="text-sm font-semibold text-earth-ink">{tc.label}</p>
+              <p className="text-xs text-earth-ink3">{tc.desc}</p>
             </div>
             <RunTooltip tooltip={tc.tooltip}>
               <button
@@ -1256,15 +1256,15 @@ function AlgaeFileTestSection({ addLog }) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="bg-earth-DEFAULT rounded-xl border border-earth-border shadow-sm overflow-hidden">
       <div className="bg-indigo-900 px-4 py-3">
         <h2 className="font-semibold text-white text-sm">Algae File Test</h2>
       </div>
       <div className="px-4 py-4 space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-semibold text-gray-800">ตรวจสอบไฟล์ Algae2569.xlsx</p>
-            <p className="text-xs text-gray-400">ตรวจว่า algae_excel_path ใน paths.json ชี้ถูกต้อง ไฟล์มีอยู่และอ่าน/เขียนได้</p>
+            <p className="text-sm font-semibold text-earth-ink">ตรวจสอบไฟล์ Algae2569.xlsx</p>
+            <p className="text-xs text-earth-ink3">ตรวจว่า algae_excel_path ใน paths.json ชี้ถูกต้อง ไฟล์มีอยู่และอ่าน/เขียนได้</p>
           </div>
           <button onClick={ping} disabled={pinging || !canAction}
             className="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg shrink-0">
@@ -1275,7 +1275,7 @@ function AlgaeFileTestSection({ addLog }) {
           <div className={`rounded-lg border px-3 py-2.5 text-xs font-mono space-y-1
             ${result.ok ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
             <p className="break-all font-semibold">{result.exists ? '✅ พบไฟล์' : '❌ ไม่พบไฟล์'}</p>
-            <p className="break-all text-gray-600">{result.path}</p>
+            <p className="break-all text-earth-ink2">{result.path}</p>
             {result.stat && (
               <p>
                 {(result.stat.sizeBytes / 1024).toFixed(1)} KB ·
@@ -1429,18 +1429,18 @@ function ModuleTestTab() {
       <TestCaseSection title="AquaDAT Queue Tests" cases={TEST_CASES} running={running} onRun={run} canAction={canAction} />
 
       {/* AquaDAT Queue state */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-700">AquaDAT Queue ({queue.length} rows)</h3>
-          <button onClick={() => refetch()} className="text-xs text-gray-400 hover:text-gray-600">↻ refresh</button>
+      <div className="bg-earth-DEFAULT rounded-xl border border-earth-border shadow-sm overflow-hidden">
+        <div className="bg-earth-DEFAULT px-4 py-2.5 border-b border-earth-border flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-earth-ink">AquaDAT Queue ({queue.length} rows)</h3>
+          <button onClick={() => refetch()} className="text-xs text-earth-ink3 hover:text-earth-ink2">↻ refresh</button>
         </div>
         {queue.length === 0 ? (
-          <p className="text-center py-6 text-sm text-gray-400">ว่างเปล่า</p>
+          <p className="text-center py-6 text-sm text-earth-ink3">ว่างเปล่า</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="bg-gray-50 text-gray-500 text-left">
+                <tr className="bg-earth-card text-earth-ink2 text-left">
                   <th className="px-3 py-2">id</th>
                   <th className="px-3 py-2">script_name</th>
                   <th className="px-3 py-2">trans_dtm</th>
@@ -1449,15 +1449,15 @@ function ModuleTestTab() {
                   <th className="px-3 py-2">last_error</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-earth-border">
                 {queue.map(row => (
-                  <tr key={row.id} className="hover:bg-gray-50">
+                  <tr key={row.id} className="hover:bg-earth-DEFAULT">
                     <td className="px-3 py-2 font-mono">{row.id}</td>
-                    <td className="px-3 py-2 font-mono text-gray-600">{row.script_name}</td>
+                    <td className="px-3 py-2 font-mono text-earth-ink2">{row.script_name}</td>
                     <td className="px-3 py-2">{row.trans_dtm}</td>
                     <td className="px-3 py-2 text-center">{row.attempts}</td>
                     <td className="px-3 py-2">
-                      <span className={`px-2 py-0.5 rounded-full font-semibold text-xs ${STATUS_COLOR[row.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                      <span className={`px-2 py-0.5 rounded-full font-semibold text-xs ${STATUS_COLOR[row.status] ?? 'bg-earth-card text-earth-ink2'}`}>
                         {row.status}
                       </span>
                     </td>
@@ -1492,21 +1492,21 @@ function ModuleTestTab() {
 
       {/* Config files result */}
       {configFilesResult && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-earth-DEFAULT rounded-xl border border-earth-border shadow-sm overflow-hidden">
           <div className={`px-4 py-2.5 border-b text-sm font-semibold
             ${configFilesResult.allOk ? 'bg-green-50 border-green-100 text-green-800' : 'bg-red-50 border-red-100 text-red-800'}`}>
             {configFilesResult.allOk ? '✅ Config files ครบทุกไฟล์' : `❌ พบปัญหา ${configFilesResult.results.filter(r => !r.parseable).length} ไฟล์`}
           </div>
           <table className="w-full text-xs">
             <thead>
-              <tr className="bg-gray-50 text-gray-500 text-left">
+              <tr className="bg-earth-card text-earth-ink2 text-left">
                 <th className="px-3 py-2">filename</th>
                 <th className="px-3 py-2 text-center">exists</th>
                 <th className="px-3 py-2 text-center">parseable</th>
                 <th className="px-3 py-2">error</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-earth-border">
               {configFilesResult.results.map(f => (
                 <tr key={f.filename} className={f.parseable ? '' : 'bg-red-50'}>
                   <td className="px-3 py-2 font-mono">{f.filename}</td>
@@ -1526,11 +1526,11 @@ function ModuleTestTab() {
       {/* Log */}
       <div className="bg-gray-900 rounded-xl p-4 font-mono text-xs space-y-1 max-h-48 overflow-y-auto">
         {log.length === 0 ? (
-          <p className="text-gray-500">— รอ log —</p>
+          <p className="text-earth-ink2">— รอ log —</p>
         ) : (
           log.map((l, i) => (
             <p key={i} className={l.ok ? 'text-green-400' : 'text-red-400'}>
-              <span className="text-gray-500">[{l.ts}]</span> {l.msg}
+              <span className="text-earth-ink2">[{l.ts}]</span> {l.msg}
             </p>
           ))
         )}
@@ -1579,11 +1579,11 @@ export default function ConfigEditor() {
         </div>
       )}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold text-gray-900">Config</h1>
+        <h1 className="text-2xl font-bold text-earth-ink">Config</h1>
         <div className="flex gap-2 flex-wrap">
           {tabs.map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === t.key ? 'bg-brand text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+              className={`px-4 py-2 rounded-lg text-sm font-medium ${tab === t.key ? 'bg-brand text-white' : 'bg-earth-card text-earth-ink hover:bg-earth-card'}`}>
               {t.label}
             </button>
           ))}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { get, post } from '../api.js';
 import { Link, useNavigate } from 'react-router-dom';
@@ -38,16 +38,16 @@ function StationDot({ slot, isActive, isPast, isCurrent }) {
     ? 'bg-gray-300 border-gray-400'
     : isCurrent
     ? 'bg-amber-400 border-amber-600 ring-amber-200'
-    : 'bg-gray-100 border-gray-200';
+    : 'bg-gray-100 border-earth-border';
   const tip = isActive ? '✓ มีข้อมูล' : isPast ? 'ไม่ทราบสถานะ' : isCurrent ? 'รอบปัจจุบัน' : 'ยังไม่ถึงเวลา';
   return (
     <div className="relative flex items-center justify-center"
       onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
       <div className={`w-2.5 h-2.5 rounded-full border-2 ${cls}`} />
       {show && (
-        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none bg-white border border-gray-200 rounded-lg px-2 py-1.5 shadow-md whitespace-nowrap">
-          <span className="block text-xs font-mono font-semibold text-gray-800">{slot}</span>
-          <span className="block text-xs text-gray-500">{tip}</span>
+        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none bg-earth-card border border-earth-border rounded-lg px-2 py-1.5 shadow-md whitespace-nowrap">
+          <span className="block text-xs font-mono font-semibold text-earth-ink">{slot}</span>
+          <span className="block text-xs text-earth-ink2">{tip}</span>
         </div>
       )}
     </div>
@@ -61,8 +61,8 @@ function StationRow({ station, selectedDate, today }) {
   const isToday = selectedDate === todayStr;
   const currentH = now.getHours();
 
-  const colorCls = STATION_COLORS[station.id] ?? 'bg-gray-700 text-white border-gray-300';
-  const borderCls = colorCls.split(' ').find(c => c.startsWith('border-')) ?? 'border-gray-300';
+  const colorCls = STATION_COLORS[station.id] ?? 'bg-gray-700 text-white border-earth-border';
+  const borderCls = colorCls.split(' ').find(c => c.startsWith('border-')) ?? 'border-earth-border';
 
   const topicCount = station.topics?.length ?? 0;
   const paramCount = station.topics?.reduce((s, t) => s + t.params.length, 0) ?? 0;
@@ -98,9 +98,9 @@ function StationRow({ station, selectedDate, today }) {
       </div>
 
       {isActive && (
-        <div className="flex items-center gap-3 px-3 py-2.5 bg-white">
+        <div className="flex items-center gap-3 px-3 py-2.5 bg-earth-DEFAULT">
           <div className="w-28 shrink-0">
-            <p className="text-xs text-gray-400 leading-tight">{topicCount} หัวข้อ · {paramCount} ค่า</p>
+            <p className="text-xs text-earth-ink3 leading-tight">{topicCount} หัวข้อ · {paramCount} ค่า</p>
           </div>
           {/* Timeline dots */}
           <div className="relative flex-1 flex items-center h-6">
@@ -140,14 +140,14 @@ function MiniCalendar({ selectedDate, today, onSelectDate }) {
     return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
   return (
-    <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 select-none">
+    <div className="bg-earth-DEFAULT rounded-xl p-3 shadow-sm border border-earth-border select-none">
       <div className="flex items-center justify-between mb-2">
-        <button onClick={() => setViewDate(v => { const d = new Date(v.year, v.month - 1, 1); return { year: d.getFullYear(), month: d.getMonth() }; })} className="text-gray-400 hover:text-gray-700 px-1 text-xl leading-none">‹</button>
-        <span className="text-sm font-semibold text-gray-700">{monthLabel}</span>
-        <button onClick={() => setViewDate(v => { const d = new Date(v.year, v.month + 1, 1); return { year: d.getFullYear(), month: d.getMonth() }; })} className="text-gray-400 hover:text-gray-700 px-1 text-xl leading-none">›</button>
+        <button onClick={() => setViewDate(v => { const d = new Date(v.year, v.month - 1, 1); return { year: d.getFullYear(), month: d.getMonth() }; })} className="text-earth-ink3 hover:text-earth-ink px-1 text-xl leading-none">‹</button>
+        <span className="text-sm font-semibold text-earth-ink">{monthLabel}</span>
+        <button onClick={() => setViewDate(v => { const d = new Date(v.year, v.month + 1, 1); return { year: d.getFullYear(), month: d.getMonth() }; })} className="text-earth-ink3 hover:text-earth-ink px-1 text-xl leading-none">›</button>
       </div>
       <div className="grid grid-cols-7 gap-0.5 mb-1">
-        {DAY_LABELS.map(d => <div key={d} className="text-center text-xs text-gray-500 font-semibold py-0.5">{d}</div>)}
+        {DAY_LABELS.map(d => <div key={d} className="text-center text-xs text-earth-ink2 font-semibold py-0.5">{d}</div>)}
       </div>
       <div className="grid grid-cols-7 gap-0.5">
         {cells.map((day, i) => {
@@ -162,7 +162,7 @@ function MiniCalendar({ selectedDate, today, onSelectDate }) {
                 ${isSelected ? 'bg-brand text-white font-bold' :
                   isToday ? 'bg-blue-100 text-blue-700 font-semibold' :
                   isFuture ? 'text-gray-200 cursor-default' :
-                  'text-gray-600 hover:bg-gray-100'}`}>
+                  'text-earth-ink2 hover:bg-earth-card'}`}>
               {day}
             </button>
           );
@@ -182,8 +182,8 @@ function OpTodoPanel({ selectedDate, today }) {
   const items = todos?.todos ?? [];
 
   return (
-    <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex flex-col">
-      <h3 className="text-base font-semibold text-gray-700 mb-2">
+    <div className="bg-earth-DEFAULT rounded-xl p-3 shadow-sm border border-earth-border flex flex-col">
+      <h3 className="text-base font-semibold text-earth-ink mb-2">
         รายการค้างวันนี้
         {items.length > 0 && <span className="ml-1.5 text-red-500 font-bold">{items.length}</span>}
       </h3>
@@ -231,16 +231,16 @@ function AquadatRemarks({ selectedDate }) {
   const r = remarks[safeIdx];
 
   return (
-    <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+    <div className="bg-earth-DEFAULT rounded-xl p-3 shadow-sm border border-earth-border">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-base font-semibold text-gray-700">หมายเหตุจาก AquaDAT</h3>
+        <h3 className="text-base font-semibold text-earth-ink">หมายเหตุจาก AquaDAT</h3>
         {total > 1 && (
           <div className="flex items-center gap-1.5">
             <button onClick={() => setIdx(i => Math.max(0, i - 1))} disabled={safeIdx === 0}
-              className="w-6 h-6 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-30 text-sm leading-none">‹</button>
-            <span className="text-xs text-gray-400 font-mono">{safeIdx + 1}/{total}</span>
+              className="w-6 h-6 flex items-center justify-center rounded border border-earth-border text-earth-ink2 hover:bg-earth-card disabled:opacity-30 text-sm leading-none">‹</button>
+            <span className="text-xs text-earth-ink3 font-mono">{safeIdx + 1}/{total}</span>
             <button onClick={() => setIdx(i => Math.min(total - 1, i + 1))} disabled={safeIdx === total - 1}
-              className="w-6 h-6 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:bg-gray-100 disabled:opacity-30 text-sm leading-none">›</button>
+              className="w-6 h-6 flex items-center justify-center rounded border border-earth-border text-earth-ink2 hover:bg-earth-card disabled:opacity-30 text-sm leading-none">›</button>
           </div>
         )}
       </div>
@@ -250,21 +250,21 @@ function AquadatRemarks({ selectedDate }) {
             {AQUADAT_STATIONS.map(st => (
               <button key={st.key} onClick={() => { setActiveStation(st); setIdx(0); }}
                 className={`text-xs font-semibold py-1.5 px-1 rounded-md border transition-colors leading-tight text-center
-                  ${activeStation.key === st.key ? 'bg-brand text-white border-brand' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}>
+                  ${activeStation.key === st.key ? 'bg-brand text-white border-brand' : 'bg-earth-card text-earth-ink2 border-earth-border hover:bg-earth-card'}`}>
                 {st.label}
               </button>
             ))}
           </div>
         </div>
-        <div className="flex-1 min-w-0 border border-gray-200 rounded-lg p-2 overflow-y-auto" style={{ height: '9rem' }}>
-          {isLoading ? <p className="text-sm text-gray-400">กำลังโหลด...</p> :
-            total === 0 ? <p className="text-sm text-gray-400">ไม่มีหมายเหตุ</p> : (
-              <div className="bg-gray-50 rounded-lg px-2.5 py-2 h-full">
+        <div className="flex-1 min-w-0 border border-earth-border rounded-lg p-2 overflow-y-auto" style={{ height: '9rem' }}>
+          {isLoading ? <p className="text-sm text-earth-ink3">กำลังโหลด...</p> :
+            total === 0 ? <p className="text-sm text-earth-ink3">ไม่มีหมายเหตุ</p> : (
+              <div className="bg-earth-DEFAULT rounded-lg px-2.5 py-2 h-full">
                 <div className="flex items-center gap-1.5 mb-1">
-                  <span className="text-xs font-mono text-gray-400">{r.trans_remark_date}</span>
-                  <span className="text-xs text-gray-500 truncate">{r.created_user || r.user_fullname}</span>
+                  <span className="text-xs font-mono text-earth-ink3">{r.trans_remark_date}</span>
+                  <span className="text-xs text-earth-ink2 truncate">{r.created_user || r.user_fullname}</span>
                 </div>
-                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{r.description.replace(/\|/g, '\n')}</p>
+                <p className="text-sm text-earth-ink leading-relaxed whitespace-pre-line">{r.description.replace(/\|/g, '\n')}</p>
               </div>
             )}
         </div>
@@ -313,13 +313,13 @@ function MiniChartsSection() {
           {MINI_FILTERS.map(f => (
             <button key={f.key} onClick={() => setActiveFilter(f.key)}
               className={`flex-1 w-full rounded-lg border text-xs font-semibold leading-snug transition-colors text-center whitespace-pre-line px-1 py-1.5
-                ${activeFilter === f.key ? 'bg-amber-500 border-amber-600 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                ${activeFilter === f.key ? 'bg-amber-500 border-amber-600 text-white' : 'bg-earth-DEFAULT border-earth-border text-earth-ink2 hover:bg-earth-card'}`}>
               {f.label}
             </button>
           ))}
         </div>
         {isLoading ? (
-          <div className="col-span-2 flex items-center justify-center h-32 text-gray-400 text-sm" style={{ gridRow: '1 / 3' }}>กำลังโหลด...</div>
+          <div className="col-span-2 flex items-center justify-center h-32 text-earth-ink3 text-sm" style={{ gridRow: '1 / 3' }}>กำลังโหลด...</div>
         ) : isSingle ? (
           <div style={{ gridRow: '1 / 3' }}>
             <MiniChartCard title={def.cards[0]?.title ?? ''} unit={def.unit} data={cards[0]} rule={rule} {...yProps} />
@@ -378,7 +378,7 @@ export default function OpDashboard() {
   return (
     <div className="space-y-5 w-full">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-earth-ink">
           ภาพรวม Operator
           {isPast && (
             <span className="ml-2 text-sm font-normal text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">ย้อนหลัง</span>
@@ -397,9 +397,9 @@ export default function OpDashboard() {
       <div className="flex gap-5 items-start flex-col lg:flex-row transition-all duration-300">
         {/* Left column — station list */}
         <div className={`${leftCls} space-y-3 transition-all duration-300`}>
-          <h2 className="text-sm font-semibold text-gray-700">สถานะสถานี</h2>
+          <h2 className="text-sm font-semibold text-earth-ink">สถานะสถานี</h2>
           {stations.length === 0 ? (
-            <div className="text-center py-8 text-gray-400">กำลังโหลด...</div>
+            <div className="text-center py-8 text-earth-ink3">กำลังโหลด...</div>
           ) : (
             <div className="space-y-2">
               {[...stations].sort((a, b) => a.sort - b.sort).map(station => (
