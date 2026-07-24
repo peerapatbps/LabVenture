@@ -71,7 +71,7 @@
 
 @layer base {
   html { font-family: 'Sarabun', 'Segoe UI', system-ui, sans-serif; }
-  body { @apply bg-gray-50 text-gray-900; }
+  body { background-color: #FFF9D2; color: #3A2410; }
 }
 
 @layer utilities {

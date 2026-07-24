@@ -61,64 +61,60 @@ export default function Layout() {
   return (
     <SidebarContext.Provider value={{ collapsed: true }}>
       <div className="h-screen flex flex-col overflow-hidden">
-        {/* Top bar */}
-        <header className="bg-brand text-white px-4 py-3 flex items-center justify-between shadow-md sticky top-0 z-30">
+        {/* Top bar — L2 panel surface */}
+        <header className="bg-earth-card border-b border-earth-border px-4 py-3 flex items-center justify-between sticky top-0 z-30 shadow-sm">
           <div className="flex items-center gap-2">
             <button
-              className="md:hidden text-2xl touch-target flex items-center"
+              className="md:hidden text-2xl touch-target flex items-center text-earth-ink2"
               onClick={() => setMenuOpen(o => !o)}
               aria-label="เมนู"
             >☰</button>
-            <span className="font-bold text-lg tracking-wide">LabVenture</span>
+            {/* Logo mark — FOCAL */}
+            <div className="w-7 h-7 rounded-lg bg-brand flex items-center justify-center shrink-0">
+              <span className="text-white font-black text-[10px] tracking-tight">LV</span>
+            </div>
+            <span className="font-bold text-base tracking-wide text-earth-ink">LabVenture</span>
             {scenario && (
-              <div className="flex items-center gap-1.5 border border-white/40 rounded-lg px-2.5 py-1 text-xs text-white/90 ml-1">
+              <div className="flex items-center gap-1.5 border border-earth-border rounded-lg px-2.5 py-1 text-xs text-earth-ink2 ml-1">
                 <span className={`w-2 h-2 rounded-full shrink-0 ${SCENARIO_COLORS[scenario.name] ?? 'bg-gray-400'}`} />
                 สถานการณ์: {scenario.name}
               </div>
             )}
             <div className={`flex items-center gap-1.5 border rounded-lg px-2.5 py-1 text-xs ml-1
               ${isEpidemic
-                ? 'border-red-300 bg-red-500/30 text-white'
-                : 'border-white/30 text-white/70'}`}>
-              <span className={`w-2 h-2 rounded-full shrink-0 ${isEpidemic ? 'bg-red-300' : 'bg-white/40'}`} />
+                ? 'border-red-300 bg-red-100 text-red-700'
+                : 'border-earth-border text-earth-ink3'}`}>
+              <span className={`w-2 h-2 rounded-full shrink-0 ${isEpidemic ? 'bg-red-400' : 'bg-earth-border'}`} />
               โรคระบาด: {isEpidemic ? 'ใช่' : 'ไม่ใช่'}
             </div>
           </div>
           <div className="flex-1 overflow-hidden mx-4">
             {marqueeText && (
-              <marquee className="text-sm text-white/70" scrollamount="3">
+              <marquee className="text-xs text-earth-ink3" scrollamount="3">
                 {marqueeText}
               </marquee>
             )}
           </div>
-          <div className="flex items-center">
-            <div className="flex items-center justify-center px-3 py-2 bg-brand">
-              <span className="text-xl">🔔</span>
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xl text-earth-ink2">🔔</span>
             {me?.avatarUrl && (
-              <div className="flex items-center justify-center px-2 py-1 bg-brand">
-                <img
-                  src={me.avatarUrl}
-                  alt={me.name || ''}
-                  onError={e => { e.currentTarget.style.display = 'none'; }}
-                  className="w-9 h-9 rounded-full object-cover border-2 border-white/40"
-                />
-              </div>
+              <img
+                src={me.avatarUrl}
+                alt={me.name || ''}
+                onError={e => { e.currentTarget.style.display = 'none'; }}
+                className="w-8 h-8 rounded-full object-cover border-2 border-earth-border"
+              />
             )}
             {me?.name && (
-              <div className="flex flex-col justify-center px-3 py-1 bg-brand leading-tight">
-                <span className="text-sm font-semibold whitespace-nowrap">{me.name}</span>
-                <span className="text-xs text-white/70 whitespace-nowrap">{me.position}</span>
+              <div className="flex flex-col leading-tight">
+                <span className="text-sm font-semibold whitespace-nowrap text-earth-ink">{me.name}</span>
+                <span className="text-xs text-earth-ink3 whitespace-nowrap">{me.position}</span>
               </div>
             )}
-            {me?.exp && (
-              <div className="flex flex-col justify-center px-3 py-1 bg-brand leading-tight">
-                <TokenCountdown exp={me.exp} />
-              </div>
-            )}
+            {me?.exp && <TokenCountdown exp={me.exp} />}
             <button
               onClick={logout}
-              className="text-sm bg-white/20 hover:bg-white/30 px-3 py-2 touch-target border border-white/30 rounded-r-lg ml-1"
+              className="text-xs bg-earth-DEFAULT/60 hover:bg-earth-DEFAULT border border-earth-border px-3 py-1.5 rounded-lg text-earth-ink2 transition-colors"
             >
               ออกจากระบบ
             </button>
@@ -126,20 +122,22 @@ export default function Layout() {
         </header>
 
         <div className="flex flex-1 overflow-hidden">
-          {/* Sidebar — desktop: always icon-strip, slides open on hover */}
+          {/* Sidebar — L2 panel, icon-strip collapsed, hover-expand */}
           <div
             onMouseEnter={() => setSidebarHover(true)}
             onMouseLeave={() => setSidebarHover(false)}
-            className={`hidden md:flex flex-col shrink-0 bg-white border-r border-gray-200 transition-[width] duration-200 ease-out overflow-hidden z-20 relative ${sidebarHover ? 'w-52' : 'w-12'}`}
+            className={`hidden md:flex flex-col shrink-0 bg-earth-card border-r border-earth-border transition-[width] duration-200 ease-out overflow-hidden z-20 relative ${sidebarHover ? 'w-52' : 'w-12'}`}
           >
-            <nav className="flex flex-col gap-1 pt-2 overflow-y-auto flex-1">
+            <nav className="flex flex-col gap-1 pt-2 overflow-y-auto flex-1 px-1">
               {NAV.map(n => (
                 <NavLink
                   key={n.to}
                   to={n.to}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors whitespace-nowrap
-                     ${isActive ? 'bg-brand text-white' : 'text-gray-700 hover:bg-gray-100'}`
+                    `flex items-center gap-3 px-2 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap
+                     ${isActive
+                       ? 'bg-brand-light/50 text-[#1A3A5C] border-l-[3px] border-brand font-semibold pl-[5px]'
+                       : 'text-earth-ink2 hover:bg-earth-DEFAULT/60 border-l-[3px] border-transparent'}`
                   }
                 >
                   <span className="shrink-0 w-6 text-center">{n.icon}</span>
@@ -155,7 +153,7 @@ export default function Layout() {
           {menuOpen && (
             <div className="fixed inset-0 z-40 md:hidden" onClick={() => setMenuOpen(false)}>
               <div className="absolute inset-0 bg-black/40" />
-              <nav className="absolute left-0 top-0 bottom-0 w-64 bg-white pt-16 px-3 flex flex-col gap-1 shadow-xl">
+              <nav className="absolute left-0 top-0 bottom-0 w-64 bg-earth-card pt-16 px-3 flex flex-col gap-1 shadow-xl">
                 {NAV.map(n => (
                   <NavLink
                     key={n.to}
@@ -163,7 +161,9 @@ export default function Layout() {
                     onClick={() => setMenuOpen(false)}
                     className={({ isActive }) =>
                       `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium touch-target ${
-                        isActive ? 'bg-brand text-white' : 'text-gray-700 hover:bg-gray-100'
+                        isActive
+                          ? 'bg-brand-light/50 text-[#1A3A5C] border-l-[3px] border-brand font-semibold'
+                          : 'text-earth-ink2 hover:bg-earth-DEFAULT/60 border-l-[3px] border-transparent'
                       }`
                     }
                   >

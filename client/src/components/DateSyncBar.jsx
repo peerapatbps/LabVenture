@@ -20,10 +20,10 @@ export default function DateSyncBar({ date, onDateChange, onSync, syncing, syncM
 
   const pill = (
     <div
-      className={`flex items-center gap-0 border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+      className={`flex items-center gap-0 border border-earth-border rounded-xl overflow-hidden bg-earth-card shadow-sm ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
       onClick={() => !disabled && dateRef.current?.showPicker?.()}
     >
-      <span className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-gray-50 border-r border-gray-200 select-none whitespace-nowrap">
+      <span className="px-3 py-1.5 text-xs font-semibold text-earth-ink bg-earth-DEFAULT border-r border-earth-border select-none whitespace-nowrap">
         {label}
       </span>
       <input
@@ -33,7 +33,7 @@ export default function DateSyncBar({ date, onDateChange, onSync, syncing, syncM
         max={maxDate}
         disabled={disabled}
         onChange={e => !disabled && onDateChange?.(e.target.value)}
-        className="px-3 py-1.5 text-xs font-mono text-gray-600 bg-white focus:outline-none border-none disabled:cursor-not-allowed"
+        className="px-3 py-1.5 text-xs font-mono text-earth-ink2 bg-earth-card focus:outline-none border-none disabled:cursor-not-allowed"
       />
     </div>
   );
@@ -45,15 +45,16 @@ export default function DateSyncBar({ date, onDateChange, onSync, syncing, syncM
   return (
     <div className="flex items-center gap-2">
       {syncMsg && (
-        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg whitespace-nowrap">
+        <span className="text-xs text-earth-ink3 bg-earth-DEFAULT border border-earth-border px-2 py-1 rounded-lg whitespace-nowrap">
           {syncMsg}
         </span>
       )}
+      {/* Sync button — FOCAL */}
       <button
         onClick={onSync}
         disabled={syncing}
         title="ดึงข้อมูลจาก AquaDAT"
-        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-700 transition-colors text-xs disabled:opacity-40"
+        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-brand hover:opacity-90 text-white text-xs font-semibold transition-opacity disabled:opacity-40 shadow-sm"
       >
         <span className={syncing ? 'animate-spin inline-block' : ''}>⟳</span>
         <span>Sync</span>

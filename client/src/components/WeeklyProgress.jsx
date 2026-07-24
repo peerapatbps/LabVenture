@@ -31,14 +31,14 @@ export default function WeeklyProgress({ selectedDate, progressNodes }) {
   return (
     <div className="grid grid-cols-2 gap-3">
       {/* Algae card */}
-      <div className={`bg-white rounded-xl p-3 shadow-sm border ${reqComplete ? 'border-green-200' : 'border-gray-100'}`}>
+      <div className={`bg-earth-card rounded-xl p-3 shadow-sm border ${reqComplete ? 'border-green-200' : 'border-earth-border'}`}>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
             <span className="text-base">🔬</span>
-            <span className="text-xs font-semibold text-gray-700">สาหร่าย (รายสัปดาห์)</span>
+            <span className="text-xs font-semibold text-earth-ink">สาหร่าย (รายสัปดาห์)</span>
             {reqComplete && <span className="text-xs text-green-600 font-semibold">✓ สมบูรณ์</span>}
           </div>
-          <Link to="/record?slot=weekly" className="text-xs text-brand hover:underline font-medium">บันทึก</Link>
+          <Link to="/record?slot=weekly" className="text-xs text-brand-dark hover:underline font-medium">บันทึก</Link>
         </div>
         {/* Required stations */}
         <div className="flex gap-1 mt-1">
@@ -68,22 +68,22 @@ export default function WeeklyProgress({ selectedDate, progressNodes }) {
       </div>
 
       {/* Chemical Analysis card */}
-      <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+      <div className="bg-earth-card rounded-xl p-3 shadow-sm border border-earth-border">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
             <span className="text-base">🧪</span>
-            <span className="text-xs font-semibold text-gray-700">วิเคราะห์น้ำ (รายสัปดาห์)</span>
+            <span className="text-xs font-semibold text-earth-ink">วิเคราะห์น้ำ (รายสัปดาห์)</span>
           </div>
           <Link
             to="/record?slot=weekly"
-            className="text-xs text-brand hover:underline font-medium"
+            className="text-xs text-brand-dark hover:underline font-medium"
           >
             บันทึก
           </Link>
         </div>
         {chemExpected > 0 ? (
           <>
-            <div className="h-2 bg-gray-100 rounded-full overflow-hidden mt-1">
+            <div className="h-2 bg-earth-border rounded-full overflow-hidden mt-1">
               <div
                 className={`h-full rounded-full transition-all ${chemDone === chemExpected ? 'bg-green-500' : 'bg-amber-400'}`}
                 style={{ width: `${chemExpected ? Math.round((chemDone / chemExpected) * 100) : 0}%` }}

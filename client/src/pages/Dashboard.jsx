@@ -25,10 +25,10 @@ const AQUADAT_STATIONS = [
 ];
 
 const NODE_GROUPS = [
-  { key: 'raw',     label: 'กลุ่มน้ำดิบ',        color: 'bg-emerald-700 text-white border-emerald-300', nodeIds: ['Incoming','JarTest','JarTestSummary','RW'] },
-  { key: 'prod',    label: 'กลุ่มน้ำระบบผลิต',    color: 'bg-blue-800 text-white border-blue-300',     nodeIds: ['CW_Phase1','CW_Phase2','CW_Phase3','CW_Phase4'] },
-  { key: 'tap',     label: 'กลุ่มน้ำประปา',        color: 'bg-amber-700 text-white border-amber-300',   nodeIds: ['TW12','TW34'] },
-  { key: 'special', label: 'กลุ่มพิเศษ',           color: 'bg-rose-800 text-white border-rose-300',     nodeIds: ['Biological'] },
+  { key: 'raw',     label: 'กลุ่มน้ำดิบ',        accent: '#4A8C5C', nodeIds: ['Incoming','JarTest','JarTestSummary','RW'] },
+  { key: 'prod',    label: 'กลุ่มน้ำระบบผลิต',    accent: '#5A9EDC', nodeIds: ['CW_Phase1','CW_Phase2','CW_Phase3','CW_Phase4'] },
+  { key: 'tap',     label: 'กลุ่มน้ำประปา',        accent: '#C87830', nodeIds: ['TW12','TW34'] },
+  { key: 'special', label: 'กลุ่มพิเศษ',           accent: '#B06878', nodeIds: ['Biological'] },
 ];
 
 const FIXED_SLOTS = ['01:00','03:00','05:00','07:00','09:00','11:00','13:00','15:00','17:00','19:00','21:00','23:00'];
@@ -124,21 +124,21 @@ function NodeRow({ node, selectedDate }) {
     navigate(slot === 'daily' ? `/record?slot=daily${dateParam}` : `/record?slot=${encodeURIComponent(slot)}${dateParam}`);
   }
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5 bg-white hover:bg-gray-50 transition-colors">
+    <div className="flex items-center gap-3 px-3 py-2.5 bg-earth-card hover:bg-earth-DEFAULT/80 transition-colors">
       <div className="w-32 shrink-0">
-        <p className="text-sm font-semibold text-gray-700 leading-tight truncate">{node.label}</p>
-        <p className="text-xs text-gray-400 leading-tight">{pct}%</p>
+        <p className="text-sm font-semibold text-earth-ink leading-tight truncate">{node.label}</p>
+        <p className="text-xs text-earth-ink3 leading-tight">{pct}%</p>
       </div>
       <TimelineDots node={node} onClickSlot={goToRecord} />
       <div className="shrink-0 w-32 flex justify-end">
         {pending ? (
           <button onClick={() => goToRecord(pending)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition-colors text-xs whitespace-nowrap">
-            <span className="font-medium text-gray-700">บันทึก</span>
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-earth-border bg-earth-DEFAULT hover:bg-earth-card transition-colors text-xs whitespace-nowrap">
+            <span className="font-medium text-earth-ink2">บันทึก</span>
             <span className="font-mono font-semibold bg-red-50 text-red-600 px-1.5 py-0.5 rounded text-xs">{pending}</span>
           </button>
         ) : (
-          <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-gray-100 bg-gray-50 text-xs text-gray-400 whitespace-nowrap">✓ ครบแล้ว</span>
+          <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-earth-border bg-earth-DEFAULT text-xs text-earth-ink3 whitespace-nowrap">✓ ครบแล้ว</span>
         )}
       </div>
     </div>
@@ -150,21 +150,21 @@ function GroupSection({ group, nodes, selectedDate }) {
   const totalRecorded = nodes.reduce((s, n) => s + (n.totalRecorded || 0), 0);
   const totalExpected = nodes.reduce((s, n) => s + (n.totalExpected || 0), 0);
   const pct = totalExpected ? Math.round((totalRecorded / totalExpected) * 100) : 0;
-  const borderCls = group.color.split(' ').find(c => c.startsWith('border-')) ?? 'border-gray-200';
-  const bgCls = group.color.split(' ').filter(c => !c.startsWith('border-')).join(' ');
   return (
-    <div className={`rounded-xl border overflow-hidden shadow-sm ${borderCls}`}>
+    <div className="rounded-xl border border-earth-border overflow-hidden shadow-sm" style={{ borderLeftColor: group.accent, borderLeftWidth: 3 }}>
       <button onClick={() => setOpen(o => !o)}
-        className={`w-full flex items-center justify-between px-4 py-2.5 ${bgCls} hover:opacity-90 transition-opacity`}>
-        <span className="text-sm font-bold tracking-wide">{group.label}</span>
+        className="w-full flex items-center justify-between px-4 py-2.5 bg-earth-DEFAULT/70 hover:bg-earth-DEFAULT transition-colors">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-earth-ink">{group.label}</span>
+        </div>
         <div className="flex items-center gap-3">
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pct === 100 ? 'bg-green-400 text-white' : 'bg-white/20 text-white'}`}>{pct}%</span>
-          <span className="text-white/80 text-xs font-mono w-4 text-right">{open ? '−' : '+'}</span>
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pct === 100 ? 'bg-green-100 text-green-700' : 'bg-earth-card text-earth-ink2'}`}>{pct}%</span>
+          <span className="text-earth-ink3 text-xs font-mono w-4 text-right">{open ? '−' : '+'}</span>
         </div>
       </button>
       {open && (
-        <div className="divide-y divide-gray-100">
-          {nodes.length === 0 ? <p className="text-xs text-gray-400 px-4 py-3">ไม่มีข้อมูล</p> :
+        <div className="divide-y divide-earth-border">
+          {nodes.length === 0 ? <p className="text-xs text-earth-ink3 px-4 py-3">ไม่มีข้อมูล</p> :
             nodes.map(node => <NodeRow key={node.id} node={node} selectedDate={selectedDate} />)}
         </div>
       )}
@@ -174,14 +174,14 @@ function GroupSection({ group, nodes, selectedDate }) {
 
 function ProgressBar({ value, max }) {
   const pct = max ? Math.round((value / max) * 100) : 0;
-  const barColor = pct === 100 ? 'bg-green-500' : pct > 50 ? 'bg-blue-500' : 'bg-yellow-400';
+  const barColor = pct === 100 ? 'bg-green-500' : pct > 50 ? 'bg-brand' : 'bg-yellow-400';
   return (
-    <div className="bg-white rounded-xl px-4 py-3 shadow-sm border border-gray-100 flex items-center gap-3">
-      <span className="text-sm text-gray-600 shrink-0">รอบที่บันทึกแล้ว</span>
-      <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+    <div className="bg-earth-card rounded-xl px-4 py-3 shadow-sm border border-earth-border flex items-center gap-3">
+      <span className="text-sm text-earth-ink2 shrink-0">รอบที่บันทึกแล้ว</span>
+      <div className="flex-1 h-2.5 bg-earth-border rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className={`text-sm font-bold shrink-0 ${pct === 100 ? 'text-green-600' : 'text-brand'}`}>{pct}%</span>
+      <span className={`text-sm font-bold shrink-0 ${pct === 100 ? 'text-green-600' : 'text-brand-dark'}`}>{pct}%</span>
     </div>
   );
 }
@@ -222,15 +222,15 @@ function MiniCalendar({ selectedDate, today, onSelectDate }) {
   }
 
   return (
-    <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 select-none">
+    <div className="bg-earth-card rounded-xl p-3 shadow-sm border border-earth-border select-none">
       <div className="flex items-center justify-between mb-2">
-        <button onClick={prevMonth} className="text-gray-400 hover:text-gray-700 px-1 text-xl leading-none">‹</button>
-        <span className="text-sm font-semibold text-gray-700">{monthLabel}</span>
-        <button onClick={nextMonth} className="text-gray-400 hover:text-gray-700 px-1 text-xl leading-none">›</button>
+        <button onClick={prevMonth} className="text-earth-ink3 hover:text-earth-ink px-1 text-xl leading-none">‹</button>
+        <span className="text-sm font-semibold text-earth-ink">{monthLabel}</span>
+        <button onClick={nextMonth} className="text-earth-ink3 hover:text-earth-ink px-1 text-xl leading-none">›</button>
       </div>
       <div className="grid grid-cols-7 gap-0.5 mb-1">
         {DAY_LABELS.map(d => (
-          <div key={d} className="text-center text-xs text-gray-500 font-semibold py-0.5">{d}</div>
+          <div key={d} className="text-center text-xs text-earth-ink3 font-semibold py-0.5">{d}</div>
         ))}
       </div>
       <div className="grid grid-cols-7 gap-0.5">
@@ -246,10 +246,10 @@ function MiniCalendar({ selectedDate, today, onSelectDate }) {
               disabled={isFuture}
               onClick={() => !isFuture && onSelectDate(ds)}
               className={`text-sm rounded-md py-1 leading-none transition-colors font-medium
-                ${isSelected ? 'bg-brand text-white font-bold' :
-                  isToday ? 'bg-blue-100 text-blue-700 font-semibold' :
-                  isFuture ? 'text-gray-200 cursor-default' :
-                  'text-gray-600 hover:bg-gray-100'}`}
+                ${isSelected ? 'bg-brand-dark text-white font-bold' :
+                  isToday ? 'bg-brand text-white font-semibold' :
+                  isFuture ? 'text-earth-border cursor-default' :
+                  'text-earth-ink hover:bg-earth-DEFAULT/80'}`}
             >
               {day}
             </button>
@@ -352,8 +352,8 @@ function TodayTodo({ progressNodes, selectedDate, today, carAnalytics }) {
   const totalCount = allPending.length + overdueCount;
 
   return (
-    <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 flex flex-col">
-      <h3 className="text-base font-semibold text-gray-700 mb-2">
+    <div className="bg-earth-card rounded-xl p-3 shadow-sm border border-earth-border flex flex-col">
+      <h3 className="text-base font-semibold text-earth-ink mb-2">
         รายการค้างวันนี้
         {totalCount > 0 && (
           <span className="ml-1.5 text-red-500 font-bold">{totalCount}</span>
@@ -426,10 +426,10 @@ function AquadatRemarks({ selectedDate }) {
   }
 
   return (
-    <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+    <div className="bg-earth-card rounded-xl p-3 shadow-sm border border-earth-border">
       {/* Header row */}
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-base font-semibold text-gray-700">หมายเหตุจาก AquaDAT</h3>
+        <h3 className="text-base font-semibold text-earth-ink">หมายเหตุจาก AquaDAT</h3>
         {total > 1 && (
           <div className="flex items-center gap-1.5">
             <button
@@ -457,8 +457,8 @@ function AquadatRemarks({ selectedDate }) {
                 onClick={() => changeStation(st)}
                 className={`text-xs font-semibold py-1.5 px-1 rounded-md border transition-colors leading-tight text-center
                   ${activeStation.key === st.key
-                    ? 'bg-brand text-white border-brand'
-                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}
+                    ? 'bg-brand-dark text-white border-brand-dark'
+                    : 'bg-earth-DEFAULT text-earth-ink2 border-earth-border hover:bg-earth-card'}`}
               >
                 {st.label}
               </button>
@@ -467,13 +467,13 @@ function AquadatRemarks({ selectedDate }) {
         </div>
 
         {/* Right: single remark, fixed height */}
-        <div className="flex-1 min-w-0 border border-gray-200 rounded-lg p-2 overflow-y-auto" style={{ height: '9rem' }}>
+        <div className="flex-1 min-w-0 border border-earth-border rounded-lg p-2 overflow-y-auto" style={{ height: '9rem' }}>
           {isLoading ? (
-            <p className="text-sm text-gray-400">กำลังโหลด...</p>
+            <p className="text-sm text-earth-ink3">กำลังโหลด...</p>
           ) : total === 0 ? (
-            <p className="text-sm text-gray-400">ไม่มีหมายเหตุ</p>
+            <p className="text-sm text-earth-ink3">ไม่มีหมายเหตุ</p>
           ) : (
-            <div className="bg-gray-50 rounded-lg px-2.5 py-2 h-full">
+            <div className="bg-earth-DEFAULT rounded-lg px-2.5 py-2 h-full">
               <div className="flex items-center gap-1.5 mb-1">
                 <span className="text-xs font-mono text-gray-400">{r.trans_remark_date}</span>
                 <span className="text-xs text-gray-500 truncate">{r.created_user || r.user_fullname}</span>
@@ -518,20 +518,20 @@ function ManualRemarks({ selectedDate, me }) {
     : remarks;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div className="bg-earth-card rounded-xl shadow-sm border border-earth-border overflow-hidden">
       {/* Header — clickable to toggle */}
       <button
         onClick={() => setExpanded(e => !e)}
-        className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-50 transition-colors"
+        className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-earth-DEFAULT/60 transition-colors"
       >
-        <span className="text-base font-semibold text-gray-700">หมายเหตุนักวิทยาศาสตร์</span>
-        <span className="text-gray-400 text-lg leading-none font-light">{expanded ? '−' : '+'}</span>
+        <span className="text-base font-semibold text-earth-ink">หมายเหตุนักวิทยาศาสตร์</span>
+        <span className="text-earth-ink3 text-lg leading-none font-light">{expanded ? '−' : '+'}</span>
       </button>
 
       {expanded && (
         <div className="px-3 pb-3 space-y-2">
           {/* Remarks list — bordered box */}
-          <div className="overflow-y-auto border border-gray-200 rounded-lg p-2" style={{ minHeight: '6rem', maxHeight: '10rem' }}>
+          <div className="overflow-y-auto border border-earth-border rounded-lg p-2" style={{ minHeight: '6rem', maxHeight: '10rem' }}>
             {myRemarks.length === 0 ? (
               <p className="text-sm text-gray-400">ยังไม่มีหมายเหตุของคุณสัปดาห์นี้</p>
             ) : (
@@ -552,7 +552,7 @@ function ManualRemarks({ selectedDate, me }) {
             onChange={e => setText(e.target.value)}
             placeholder="บันทึกหมายเหตุ..."
             rows={2}
-            className="w-full text-base border border-gray-200 rounded-lg px-2.5 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-brand"
+            className="w-full text-base border border-earth-border rounded-lg px-2.5 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-brand bg-earth-DEFAULT text-earth-ink"
           />
           {mutation.error && (
             <p className="text-base text-red-500">{mutation.error.message}</p>
@@ -560,7 +560,7 @@ function ManualRemarks({ selectedDate, me }) {
           <button
             onClick={() => text.trim() && mutation.mutate({ description: text.trim() })}
             disabled={!text.trim() || mutation.isPending}
-            className="w-full py-2 rounded-lg bg-brand text-white text-base font-medium
+            className="w-full py-2 rounded-lg bg-brand-dark text-white text-base font-medium
               hover:opacity-90 transition-opacity disabled:opacity-40"
           >
             {mutation.isPending ? 'กำลังบันทึก...' : 'บันทึกหมายเหตุ'}
@@ -739,8 +739,8 @@ function MiniChartsSection() {
               onClick={() => setActiveFilter(f.key)}
               className={`flex-1 w-full rounded-lg border text-xs font-semibold leading-snug transition-colors text-center whitespace-pre-line px-1 py-1.5
                 ${activeFilter === f.key
-                  ? 'bg-amber-500 border-amber-600 text-white'
-                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                  ? 'bg-brand-dark border-brand-dark text-white'
+                  : 'bg-earth-card border-earth-border text-earth-ink2 hover:bg-earth-DEFAULT'}`}
             >
               {f.label}
             </button>
@@ -882,7 +882,7 @@ export default function Dashboard() {
     <div className="space-y-5 w-full">
       {/* Header row */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-earth-ink">
           ภาพรวมประจำวัน
           {isPast && (
             <span className="ml-2 text-sm font-normal text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">ย้อนหลัง</span>

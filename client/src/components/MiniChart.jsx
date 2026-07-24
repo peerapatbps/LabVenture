@@ -87,7 +87,7 @@ export function latestStreakInfo(data, rule) {
 
 // Status badge: mirrors shading color — streak=0 → OK, streak=1 → WARN (blue), streak≥2 → BAD (red)
 function StatusBadge({ data, rule }) {
-  if (!rule) return <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-600 text-gray-200">–</span>;
+  if (!rule) return <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#1A3A5C]/30 text-[#1A3A5C]">–</span>;
   const streak = latestStreak(data, rule);
   if (streak === 0) return <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-500 text-white">OK</span>;
   if (streak === 1) return <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-400 text-white">WARN</span>;
@@ -106,29 +106,29 @@ export default function MiniChartCard({ title, data = [], unit, yMin, yMax, rule
   const bands = buildBands(data, rule);
 
   return (
-    <div className="bg-slate-800 border border-white/10 rounded-xl p-3 flex flex-col gap-2 h-full">
+    <div className="bg-brand-light border border-[#A8D0E8] rounded-xl p-3 flex flex-col gap-2 h-full">
       <div className="flex items-center justify-between shrink-0">
-        <span className="text-sm font-semibold text-gray-200 truncate pr-2">{title}</span>
+        <span className="text-sm font-semibold text-[#1A3A5C] truncate pr-2">{title}</span>
         <StatusBadge data={data} rule={rule} />
       </div>
 
       {data.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
-          <span className="text-sm text-gray-500">ไม่มีข้อมูล</span>
+          <span className="text-sm text-[#1A3A5C]/60">ไม่มีข้อมูล</span>
         </div>
       ) : data.length === 1 ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-1">
-          <span className="text-3xl font-bold text-blue-400 tabular-nums">
+          <span className="text-3xl font-bold text-[#1A3A5C] tabular-nums">
             {latest != null ? Number(latest).toFixed(2) : '—'}
           </span>
-          {unit && <span className="text-xs text-gray-400">{unit}</span>}
-          <span className="text-xs text-gray-500 mt-1">{data[0].slot}</span>
+          {unit && <span className="text-xs text-[#1A3A5C]/60">{unit}</span>}
+          <span className="text-xs text-[#1A3A5C]/50 mt-1">{data[0].slot}</span>
         </div>
       ) : (
         <div className="flex-1 min-h-0">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.6} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#A8D0E8" opacity={0.8} />
 
             {bands.map((band, bi) => (
               <ReferenceArea
@@ -145,7 +145,7 @@ export default function MiniChartCard({ title, data = [], unit, yMin, yMax, rule
             <XAxis
               dataKey="slot"
               tickFormatter={fmtSlot}
-              tick={{ fill: '#6b7280', fontSize: 11 }}
+              tick={{ fill: '#1A3A5C', fontSize: 11 }}
               tickLine={false}
               axisLine={false}
               interval="preserveStartEnd"
@@ -153,7 +153,7 @@ export default function MiniChartCard({ title, data = [], unit, yMin, yMax, rule
             />
             <YAxis
               domain={[domainMin, domainMax]}
-              tick={{ fill: '#9ca3af', fontSize: 11 }}
+              tick={{ fill: '#1A3A5C', fontSize: 11 }}
               tickCount={4}
               width={36}
               axisLine={false}
@@ -161,16 +161,16 @@ export default function MiniChartCard({ title, data = [], unit, yMin, yMax, rule
               tickFormatter={v => Number(v).toFixed(1)}
             />
             <Tooltip
-              contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: 6, fontSize: 13 }}
-              labelStyle={{ color: '#9ca3af' }}
-              itemStyle={{ color: '#60a5fa' }}
+              contentStyle={{ backgroundColor: '#1A3A5C', border: 'none', borderRadius: 6, fontSize: 13 }}
+              labelStyle={{ color: '#A8D0E8' }}
+              itemStyle={{ color: '#8CC0EB' }}
               formatter={v => [v != null ? `${Number(v).toFixed(2)} ${unit || ''}` : '-', '']}
               labelFormatter={v => v}
             />
             <Line
               type="monotone"
               dataKey="value"
-              stroke="#3b82f6"
+              stroke="#5A9EDC"
               strokeWidth={2}
               dot={false}
               isAnimationActive={false}
