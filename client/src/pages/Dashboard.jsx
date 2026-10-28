@@ -8,20 +8,21 @@ import { useSidebar } from '../context/SidebarContext.jsx';
 import WeeklyProgress from '../components/WeeklyProgress.jsx';
 import MiniChartCard, { latestStreak, latestStreakInfo } from '../components/MiniChart.jsx';
 import { MINI_FILTERS, CHART_REFRESH_MS, LAB_CHART_ENDPOINT, getThreshold } from '../config/chartConfig.js';
+import { localDateStr, nowHours, useNow, SlotCell, SlotLegend } from '../components/SlotStrip.jsx';
 
 // Station IDs — update station_id values to match actual AquaDAT IDs
 const AQUADAT_STATIONS = [
-  { key: 'RWS1',  label: 'RWS#1',  station_id: 13 },
-  { key: 'RWS2',  label: 'RWS#2',  station_id: 14 },
-  { key: 'CDS1',  label: 'CDS#1',  station_id: 15 },
-  { key: 'CDS2',  label: 'CDS#2',  station_id: 62 },
-  { key: 'CWS1',  label: 'CWS#1',  station_id: 16 },
-  { key: 'CWS2',  label: 'CWS#2',  station_id: 63 },
-  { key: 'FWS1',  label: 'FWS#1',  station_id: 17 },
-  { key: 'FWS2',  label: 'FWS#2',  station_id: 64 },
-  { key: 'TPS',   label: 'TPS',    station_id: 18 },
-  { key: 'DPS',   label: 'DPS',    station_id: 19 },
-  { key: 'QWS',   label: 'QWS',    station_id: 20 },
+  { key: 'RWS1',  label: 'RWS#1',  station_id: 13, trans_type: 'rws' },
+  { key: 'RWS2',  label: 'RWS#2',  station_id: 14, trans_type: 'rws' },
+  { key: 'CDS1',  label: 'CDS#1',  station_id: 15, trans_type: 'cds' },
+  { key: 'CDS2',  label: 'CDS#2',  station_id: 62, trans_type: 'cds' },
+  { key: 'CWS1',  label: 'CWS#1',  station_id: 16, trans_type: 'cws' },
+  { key: 'CWS2',  label: 'CWS#2',  station_id: 63, trans_type: 'cws' },
+  { key: 'FWS1',  label: 'FWS#1',  station_id: 17, trans_type: 'fws' },
+  { key: 'FWS2',  label: 'FWS#2',  station_id: 64, trans_type: 'fws' },
+  { key: 'TPS',   label: 'TPS',    station_id: 18, trans_type: 'tps' },
+  { key: 'DPS',   label: 'DPS',    station_id: 19, trans_type: 'dps' },
+  { key: 'QWS',   label: 'QWS',    station_id: 20, trans_type: 'qws' },
 ];
 
 const NODE_GROUPS = [
@@ -32,12 +33,26 @@ const NODE_GROUPS = [
 ];
 
 const FIXED_SLOTS = ['01:00','03:00','05:00','07:00','09:00','11:00','13:00','15:00','17:00','19:00','21:00','23:00'];
-const DAILY_POSITION = 6;
+
+// Row layout shared by the time axis, node rows and the "now" line so columns stay aligned
+const ROW_GRID = 'grid grid-cols-[8rem_minmax(0,1fr)_2.5rem_7.5rem] items-center gap-3 px-3';
 
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
-function buildNodeDots(node) {
+// Status per slot: done · modified · due (current round) · overdue · future · none
+function slotStatus(info, slot, isToday, hoursNow) {
+  if (!info) return 'none';
+  if (!info.hasDue) return 'future';
+  if (info.anyNotDone) {
+    if (!isToday) return 'overdue';
+    if (slot === 'daily') return 'due';
+    return hoursNow >= parseInt(slot, 10) + 2 ? 'overdue' : 'due';
+  }
+  return info.anyModified ? 'modified' : 'done';
+}
+
+function buildNodeSlots(node, isToday, hoursNow) {
   const slotMap = {};
   for (const param of node.params) {
     if (param.skip_progress) continue;
@@ -50,95 +65,106 @@ function buildNodeDots(node) {
       }
     }
   }
-  return FIXED_SLOTS.map((hourSlot, idx) => {
-    const slot = (idx === DAILY_POSITION && slotMap['daily']) ? 'daily' : hourSlot;
+  const toItem = slot => {
     const info = slotMap[slot];
-    let status;
-    if (!info) status = 'gray';
-    else if (!info.hasDue) status = 'future';
-    else if (info.anyNotDone) status = 'red';
-    else if (info.anyModified) status = 'amber';
-    else status = 'green';
-    return { slot, label: slot, status, modifiedCount: info?.modifiedCount ?? 0 };
-  });
+    return { slot, status: slotStatus(info, slot, isToday, hoursNow), modifiedCount: info?.modifiedCount ?? 0 };
+  };
+  return {
+    slots: FIXED_SLOTS.map(toItem),
+    daily: slotMap['daily'] ? toItem('daily') : null,
+  };
 }
 
-function nextPendingSlot(node) {
-  return buildNodeDots(node).find(d => d.status === 'red')?.slot ?? null;
+function nextPendingSlot({ slots, daily }) {
+  const pendingStates = ['overdue', 'due'];
+  const all = daily ? [...slots, daily] : slots;
+  return all.find(d => d.status === 'overdue')?.slot
+    ?? all.find(d => pendingStates.includes(d.status))?.slot
+    ?? null;
 }
 
 function toThaiDate(dateStr) {
   return new Date(dateStr + 'T00:00:00').toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
-// ── DotItem ───────────────────────────────────────────────────────────────
+// ── Slot strip ────────────────────────────────────────────────────────────
 
-function DotItem({ slot, label, status, modifiedCount, onClickSlot }) {
-  const [show, setShow] = useState(false);
-  const isClickable = status === 'red' || status === 'amber';
-  const dotCls =
-    status === 'green'  ? 'bg-green-500 border-green-700 ring-green-200' :
-    status === 'red'    ? 'bg-red-400 border-red-600 ring-red-200 cursor-pointer' :
-    status === 'amber'  ? 'bg-amber-400 border-amber-600 ring-amber-200 cursor-pointer' :
-    status === 'future' ? 'bg-gray-200 border-earth-border' : 'bg-gray-100 border-earth-border';
-  const tooltipStatus =
-    status === 'green'  ? { text: '✓ บันทึกแล้ว', cls: 'text-green-600' } :
-    status === 'red'    ? { text: '✗ ยังไม่บันทึก', cls: 'text-red-600' } :
-    status === 'amber'  ? { text: `✎ แก้ไขแล้ว (${modifiedCount} ค่า)`, cls: 'text-amber-600' } :
-    status === 'future' ? { text: 'ยังไม่ถึงเวลา', cls: 'text-earth-ink3' } :
-                          { text: 'ไม่มีรอบนี้', cls: 'text-earth-ink3' };
+function SlotStrip({ slots, onClickSlot }) {
   return (
-    <div className="relative flex items-center justify-center"
-      onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}
-      onClick={() => isClickable && onClickSlot(slot)}>
-      <div className={`w-2.5 h-2.5 rounded-full border-2 transition-transform duration-100 ${dotCls} ${isClickable ? 'hover:scale-150 hover:ring-2' : ''}`} />
-      {show && (
-        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none bg-earth-card border border-earth-border rounded-lg px-2 py-1.5 shadow-md whitespace-nowrap">
-          <span className="block text-xs font-mono font-semibold text-earth-ink">{label}</span>
-          <span className={`block text-xs ${tooltipStatus.cls}`}>{tooltipStatus.text}</span>
-        </div>
-      )}
+    <div className="grid grid-cols-12 gap-[3px]">
+      {slots.map(d => <SlotCell key={d.slot} {...d} onClickSlot={onClickSlot} />)}
     </div>
   );
 }
 
-function TimelineDots({ node, onClickSlot }) {
-  const dots = buildNodeDots(node);
+function DailyChip({ daily, onClickSlot }) {
+  if (!daily) return <div />;
   return (
-    <div className="relative flex-1 flex items-center h-6">
-      <div className="absolute inset-x-0 h-0.5 bg-earth-border rounded-full" />
-      <div className="relative w-full flex justify-between items-center">
-        {dots.map((d, i) => <DotItem key={i} {...d} onClickSlot={onClickSlot} />)}
+    <SlotCell {...daily} onClickSlot={onClickSlot}>
+      {daily.status === 'done' && <span className="text-[11px] leading-none text-[#5E7A40]">✓</span>}
+    </SlotCell>
+  );
+}
+
+function TimeAxis({ hasDaily }) {
+  return (
+    <div className={`${ROW_GRID} pt-2 pb-1 bg-earth-card`}>
+      <div />
+      <div className="grid grid-cols-12 gap-[3px]">
+        {FIXED_SLOTS.map(s => (
+          <span key={s} className="text-center text-[10px] font-mono text-earth-ink3 tabular-nums">{s.slice(0, 2)}</span>
+        ))}
+      </div>
+      <span className="text-center text-[10px] text-earth-ink3">{hasDaily ? 'วัน' : ''}</span>
+      <div />
+    </div>
+  );
+}
+
+// Vertical "now" marker. Column i is centred on its slot hour, so 01:00 → centre of col 0, 23:00 → centre of col 11.
+function NowLine({ hours }) {
+  const pct = Math.min(100, Math.max(0, (((hours - 1) / 2 + 0.5) / 12) * 100));
+  return (
+    <div className={`${ROW_GRID} absolute inset-0 pointer-events-none`} aria-hidden="true">
+      <div />
+      <div className="relative h-full">
+        <div className="absolute top-1 bottom-1 w-0.5 -ml-px rounded-full bg-brand-dark/80" style={{ left: `${pct}%` }} />
       </div>
     </div>
   );
 }
 
-function NodeRow({ node, selectedDate }) {
+function NodeRow({ node, selectedDate, isToday = selectedDate === localDateStr(), hoursNow = nowHours() }) {
   const navigate = useNavigate();
-  const today = new Date().toISOString().split('T')[0];
   const pct = node.totalExpected ? Math.round((node.totalRecorded / node.totalExpected) * 100) : 0;
-  const pending = nextPendingSlot(node);
+  const built = buildNodeSlots(node, isToday, hoursNow);
+  const pending = nextPendingSlot(built);
   function goToRecord(slot) {
-    const dateParam = selectedDate !== today ? `&date=${selectedDate}` : '';
+    const dateParam = isToday ? '' : `&date=${selectedDate}`;
     navigate(slot === 'daily' ? `/record?slot=daily${dateParam}` : `/record?slot=${encodeURIComponent(slot)}${dateParam}`);
   }
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5 bg-earth-card hover:bg-earth-DEFAULT/80 transition-colors">
-      <div className="w-32 shrink-0">
-        <p className="text-sm font-semibold text-earth-ink leading-tight truncate">{node.label}</p>
-        <p className="text-xs text-earth-ink3 leading-tight">{pct}%</p>
+    <div className={`${ROW_GRID} py-2.5 bg-earth-card hover:bg-earth-DEFAULT/60 transition-colors`}>
+      <div className="min-w-0">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="text-sm font-semibold text-earth-ink leading-tight truncate">{node.label}</p>
+          <span className="text-xs text-earth-ink2 tabular-nums">{pct}%</span>
+        </div>
+        <div className="mt-1.5 h-[3px] rounded-full bg-earth-border overflow-hidden">
+          <div className="h-full rounded-full bg-[#A9C08A] transition-all" style={{ width: `${pct}%` }} />
+        </div>
       </div>
-      <TimelineDots node={node} onClickSlot={goToRecord} />
-      <div className="shrink-0 w-32 flex justify-end">
+      <SlotStrip slots={built.slots} onClickSlot={goToRecord} />
+      <DailyChip daily={built.daily} onClickSlot={goToRecord} />
+      <div className="flex justify-end">
         {pending ? (
           <button onClick={() => goToRecord(pending)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-earth-border bg-earth-DEFAULT hover:bg-earth-card transition-colors text-xs whitespace-nowrap">
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-earth-border bg-earth-DEFAULT hover:bg-white/60 transition-colors text-xs whitespace-nowrap">
             <span className="font-medium text-earth-ink2">บันทึก</span>
-            <span className="font-mono font-semibold bg-red-50 text-red-600 px-1.5 py-0.5 rounded text-xs">{pending}</span>
+            <span className="font-mono font-semibold bg-[#FBE3DC] text-[#B84A36] px-1.5 py-0.5 rounded text-xs">{pending === 'daily' ? 'รายวัน' : pending}</span>
           </button>
         ) : (
-          <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-earth-border bg-earth-DEFAULT text-xs text-earth-ink3 whitespace-nowrap">✓ ครบแล้ว</span>
+          <span className="flex items-center gap-1 px-2.5 py-1 text-xs text-[#5E7A40] whitespace-nowrap">✓ ครบแล้ว</span>
         )}
       </div>
     </div>
@@ -147,6 +173,10 @@ function NodeRow({ node, selectedDate }) {
 
 function GroupSection({ group, nodes, selectedDate }) {
   const [open, setOpen] = useState(true);
+  const now = useNow();
+  const isToday = selectedDate === localDateStr(now);
+  const hoursNow = nowHours(now);
+  const hasDaily = nodes.some(n => n.params.some(p => !p.skip_progress && p.slots.some(s => s.slot === 'daily')));
   const totalRecorded = nodes.reduce((s, n) => s + (n.totalRecorded || 0), 0);
   const totalExpected = nodes.reduce((s, n) => s + (n.totalExpected || 0), 0);
   const pct = totalExpected ? Math.round((totalRecorded / totalExpected) * 100) : 0;
@@ -154,19 +184,22 @@ function GroupSection({ group, nodes, selectedDate }) {
     <div className="rounded-xl border border-earth-border overflow-hidden shadow-sm" style={{ borderLeftColor: group.accent, borderLeftWidth: 3 }}>
       <button onClick={() => setOpen(o => !o)}
         className="w-full flex items-center justify-between px-4 py-2.5 bg-earth-DEFAULT/70 hover:bg-earth-DEFAULT transition-colors">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-bold text-earth-ink">{group.label}</span>
-        </div>
+        <span className="text-sm font-bold text-earth-ink">{group.label}</span>
         <div className="flex items-center gap-3">
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pct === 100 ? 'bg-green-100 text-green-700' : 'bg-earth-card text-earth-ink2'}`}>{pct}%</span>
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full tabular-nums ${pct === 100 ? 'bg-[#DCE8C8] text-[#5E7A40]' : 'bg-earth-card text-earth-ink2'}`}>{pct}%</span>
           <span className="text-earth-ink3 text-xs font-mono w-4 text-right">{open ? '−' : '+'}</span>
         </div>
       </button>
       {open && (
-        <div className="divide-y divide-earth-border">
-          {nodes.length === 0 ? <p className="text-xs text-earth-ink3 px-4 py-3">ไม่มีข้อมูล</p> :
-            nodes.map(node => <NodeRow key={node.id} node={node} selectedDate={selectedDate} />)}
-        </div>
+        nodes.length === 0 ? <p className="text-xs text-earth-ink3 px-4 py-3 bg-earth-card">ไม่มีข้อมูล</p> : (
+          <div className="relative">
+            <TimeAxis hasDaily={hasDaily} />
+            <div className="divide-y divide-earth-border">
+              {nodes.map(node => <NodeRow key={node.id} node={node} selectedDate={selectedDate} isToday={isToday} hoursNow={hoursNow} />)}
+            </div>
+            {isToday && <NowLine hours={hoursNow} />}
+          </div>
+        )
       )}
     </div>
   );
@@ -174,14 +207,14 @@ function GroupSection({ group, nodes, selectedDate }) {
 
 function ProgressBar({ value, max }) {
   const pct = max ? Math.round((value / max) * 100) : 0;
-  const barColor = pct === 100 ? 'bg-green-500' : pct > 50 ? 'bg-brand' : 'bg-yellow-400';
+  const barColor = pct === 100 ? 'bg-[#A9C08A]' : pct > 50 ? 'bg-brand' : 'bg-[#E8C47A]';
   return (
     <div className="bg-earth-card rounded-xl px-4 py-3 shadow-sm border border-earth-border flex items-center gap-3">
       <span className="text-sm text-earth-ink2 shrink-0">รอบที่บันทึกแล้ว</span>
       <div className="flex-1 h-2.5 bg-earth-border rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className={`text-sm font-bold shrink-0 ${pct === 100 ? 'text-green-600' : 'text-brand-dark'}`}>{pct}%</span>
+      <span className={`text-sm font-bold shrink-0 tabular-nums ${pct === 100 ? 'text-[#5E7A40]' : 'text-brand-dark'}`}>{pct}%</span>
     </div>
   );
 }
@@ -408,14 +441,15 @@ function AquadatRemarks({ selectedDate }) {
   const [activeStation, setActiveStation] = useState(AQUADAT_STATIONS[0]);
   const [idx, setIdx] = useState(0);
   const dt = selectedDate.replace(/-/g, '');
-  const { data: remarks = [], isLoading } = useQuery({
-    queryKey: ['aquadat-remarks', dt, activeStation.station_id],
-    queryFn: () => get(`/api/data/remarks?plant_id=2&station_id=${activeStation.station_id}&begin_dt=${dt}&end_dt=${dt}&load_file_data=false`),
+  const { data: allRemarks = [], isLoading } = useQuery({
+    queryKey: ['aquadat-remarks', dt],
+    queryFn: () => get(`/api/data/remarks?plant_id=2&station_id=0&begin_dt=${dt}&end_dt=${dt}&load_file_data=false`),
     refetchInterval: 300000,
     retry: false,
-    onSuccess: () => setIdx(0),
   });
 
+  const stationsWithData = new Set(allRemarks.map(r => r.station_id));
+  const remarks = allRemarks.filter(r => r.station_id === activeStation.station_id);
   const total = remarks.length;
   const safeIdx = total > 0 ? Math.min(idx, total - 1) : 0;
   const r = remarks[safeIdx];
@@ -451,18 +485,23 @@ function AquadatRemarks({ selectedDate }) {
         {/* Left: station picker */}
         <div className="shrink-0">
           <div className="grid grid-cols-3 gap-1">
-            {AQUADAT_STATIONS.map(st => (
-              <button
-                key={st.key}
-                onClick={() => changeStation(st)}
-                className={`text-xs font-semibold py-1.5 px-1 rounded-md border transition-colors leading-tight text-center
-                  ${activeStation.key === st.key
-                    ? 'bg-brand-dark text-white border-brand-dark'
-                    : 'bg-earth-DEFAULT text-earth-ink2 border-earth-border hover:bg-earth-card'}`}
-              >
-                {st.label}
-              </button>
-            ))}
+            {AQUADAT_STATIONS.map(st => {
+              const isActive = activeStation.key === st.key;
+              const hasData = stationsWithData.has(st.station_id);
+              return (
+                <button
+                  key={st.key}
+                  onClick={() => changeStation(st)}
+                  className={`text-xs font-semibold py-1.5 px-1 rounded-md border transition-colors leading-tight text-center
+                    ${isActive
+                      ? 'bg-brand-dark text-white border-brand-dark'
+                      : hasData ? 'bg-earth-DEFAULT text-brand border-brand hover:bg-earth-card'
+                      : 'bg-earth-DEFAULT text-earth-ink2 border-earth-border hover:bg-earth-card'}`}
+                >
+                  {st.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -590,9 +629,9 @@ function MiniChartsSection() {
     queryFn: () => get('/api/scenarios/active'),
     refetchInterval: 30000,
   });
-  const scenarioName = scenarioData?.name ?? 'ปกติ';
-
-  const rule = getThreshold(activeFilter, scenarioName, isEpidemic);
+  // one rule per chart card (phase) from the active scenario's LCL/UCL
+  const rules = [0, 1, 2, 3].map(i => getThreshold(activeFilter, scenarioData?.thresholds, i));
+  const rule = rules[0];
 
   const { data, isLoading } = useQuery({
     queryKey: ['lab-chart', activeFilter],
@@ -630,7 +669,7 @@ function MiniChartsSection() {
   // Detect which card indices are BAD (streak ≥ 2) and collect time + value info
   const badInfoMap = {};
   cards.forEach((cardData, i) => {
-    const info = latestStreakInfo(cardData, rule);
+    const info = latestStreakInfo(cardData, rules[i]);
     if (info.streak >= 2) {
       const vals = cardData.map(d => d.value).filter(v => v != null && !isNaN(v));
       const latestVal = vals.at(-1);
@@ -665,6 +704,7 @@ function MiniChartsSection() {
     if (!r) return '';
     if (r.type === 'max')   return `≤ ${r.max}`;
     if (r.type === 'range') return `${r.min}–${r.max}`;
+    if (r.type === 'min')   return `≥ ${r.min}`;
     return '';
   }
 
@@ -679,7 +719,7 @@ function MiniChartsSection() {
       const timeRange = startSlot && endSlot && startSlot !== endSlot
         ? `${startSlot}–${endSlot}` : startSlot ?? '';
       const valStr = latestVal != null ? `${latestVal} ${def.unit}` : '';
-      const threshold = fmtThreshold(rule);
+      const threshold = fmtThreshold(rules[i]);
       return `${title} - ${timeRange} - ${valStr} (เกณฑ์: ${threshold})`;
     });
     setCarMsg(templateText ? `${templateText}\n${lines.join('\n')}` : lines.join('\n'));
@@ -699,7 +739,7 @@ function MiniChartsSection() {
         title={def.cards[i]?.title ?? ''}
         unit={def.unit}
         data={cards[i]}
-        rule={rule}
+        rule={rules[i]}
         {...yProps}
       />
     );
@@ -838,7 +878,9 @@ export default function Dashboard() {
 
   async function syncDateToDb(date) {
     const result = await post('/api/aquadat/sync', { date });
+    const dt = date.replace(/-/g, '');
     qc.invalidateQueries({ queryKey: ['progress-nodes-today', date] });
+    qc.invalidateQueries({ queryKey: ['aquadat-remarks', dt] });
     return result;
   }
 
@@ -911,7 +953,10 @@ export default function Dashboard() {
               <WeeklyProgress selectedDate={selectedDate} progressNodes={progress.nodes} />
 
               <div>
-                <h2 className="text-sm font-semibold text-earth-ink mb-2">สถานะรายหัวข้อ</h2>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <h2 className="text-sm font-semibold text-earth-ink">สถานะรายหัวข้อ</h2>
+                  <SlotLegend />
+                </div>
                 <div className="space-y-2">
                   {NODE_GROUPS.map(group => {
                     const nodeMap = Object.fromEntries((progress.nodes || []).map(n => [n.id, n]));

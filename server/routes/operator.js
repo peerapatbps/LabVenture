@@ -67,6 +67,269 @@ function fetchUroborosHistory(configIds, date) {
 const NODES_PATH = path.join(__dirname, '..', 'config', 'operator_nodes.json');
 const LAYOUTS_DIR = path.join(__dirname, '..', 'config', 'user_layouts');
 
+// ── Schedule overrides (per-configID real recording schedules) ─────────────
+const _overrides = require('../config/schedule_overrides.json');
+const _cidSlots      = _overrides.configid_slots ?? {};
+const _excludedSet   = new Set((_overrides.excluded_configids ?? []).map(String));
+const _optionalSet   = new Set(_overrides.optional_stations ?? []);
+const _customDoneMap = _overrides.custom_slot_done ?? {};
+const _topicRules    = Object.fromEntries(Object.entries(_overrides.topic_rules ?? {}).filter(([k]) => !k.startsWith('_')));
+
+// ── Progress helpers ──────────────────────────────────────────────────────
+
+// FWS custom done: base params must be complete; any backwashing must be in whole sets of 6
+const _fwsBase = {
+  FWS1: { full: 34, shift: 16, only: 16 },
+  FWS2: { full: 58, shift: 28, only: 28 },
+};
+
+function fwsSlotDone(stationId, slot, rec) {
+  const b = _fwsBase[stationId];
+  if (slot === '00:00' || slot === '24:00') return rec >= b.full  && (rec - b.full)  % 6 === 0;
+  if (slot === '08:00' || slot === '16:00') return rec >= b.shift && (rec - b.shift) % 6 === 0;
+  return rec === b.only; // 04:00, 12:00, 20:00
+}
+
+function isSlotDone(stationId, slot, rec, exp) {
+  const mode = _customDoneMap[stationId];
+  if (mode === 'fws') return fwsSlotDone(stationId, slot, rec);
+  return exp > 0 && rec / exp > 0.5;
+}
+
+function thaiDateStr() {
+  return new Date(Date.now() + 7 * 3600000).toISOString().split('T')[0];
+}
+
+function slotsForTopic(topic) {
+  if (Array.isArray(topic.time_slots) && topic.time_slots.length > 0) return topic.time_slots;
+  const count = topic.time_slot ?? 0;
+  if (count <= 0) return [];
+  return Array.from({ length: count }, (_, i) => {
+    const h = Math.round((i * 24) / Math.max(count - 1, 1));
+    return `${String(h).padStart(2, '0')}:00`;
+  });
+}
+
+function slotsForParam(configID, topic) {
+  const cid = String(configID);
+  if (_excludedSet.has(cid)) return [];
+  if (_cidSlots[cid]) return _cidSlots[cid];
+  return slotsForTopic(topic);
+}
+
+function nextDateStr(date) {
+  const d = new Date(date + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+// Per-topic (sheet) rules: a "row" is one topic at one time slot.
+// A row is complete when the share of its params that have a value is > row_threshold.
+// A slot is done when every required row at that slot is complete.
+function topicRuleSlots(rule) {
+  if (Array.isArray(rule.slots)) return rule.slots;
+  const step = rule.every_hours;
+  if (!step) return [];
+  const out = [];
+  for (let h = 0; h <= 24; h += step) out.push(`${String(h).padStart(2, '0')}:00`);
+  return out;
+}
+
+function buildRuleSlotSummary(station, stationRules, recorded) {
+  const defThreshold = stationRules.default_row_threshold ?? 0.5;
+  const rowsBySlot = {};
+  for (const topic of (station.topics ?? [])) {
+    const rule = stationRules.topics?.[topic.topic];
+    if (!rule || rule.required === false) continue;
+    const threshold = rule.row_threshold ?? defThreshold;
+    // row_op ">=" counts a row as complete at exactly the threshold; default is strictly ">"
+    const inclusive = (rule.row_op ?? stationRules.default_row_op) === '>=';
+    const cids = (topic.params ?? [])
+      .filter(p => p.configparam_id && !p.formula && !_excludedSet.has(String(p.configparam_id)))
+      .map(p => String(p.configparam_id));
+    if (cids.length === 0) continue;
+    for (const slot of topicRuleSlots(rule)) {
+      // A param with its own schedule (configid_slots) only counts in the slots it is scheduled for
+      const slotCids = cids.filter(cid => !_cidSlots[cid] || _cidSlots[cid].includes(slot));
+      if (slotCids.length === 0) continue;
+      const rec = slotCids.filter(cid => recorded[cid]?.has(slot)).length;
+      const ratio = rec / slotCids.length;
+      (rowsBySlot[slot] ??= []).push({ topic: topic.topic, rec, exp: slotCids.length, done: inclusive ? ratio >= threshold : ratio > threshold });
+    }
+  }
+  const slotSummary = {};
+  for (const [slot, rows] of Object.entries(rowsBySlot)) {
+    const rowsDone = rows.filter(r => r.done).length;
+    const done = rowsDone === rows.length;
+    slotSummary[slot] = { done, partial: !done && rows.some(r => r.rec > 0), count: rows.length, rec: rowsDone, unit: 'row', rows };
+  }
+  return slotSummary;
+}
+
+function buildProgressData(nodes, rows, date) {
+  // Index recorded rows: { configID_str → Set<slot_str> }
+  // Next-day 00:00 is the day's '24:00' round; rows from other dates are ignored.
+  // Without a usable date, a second '00:00' entry per configID is promoted to '24:00' (seenMidnight logic)
+  const recorded = {};
+  const seenMid = {};
+  const nextDate = date ? nextDateStr(date) : null;
+  const sorted = [...(rows || [])].sort((a, b) => (a.ts ?? '') < (b.ts ?? '') ? -1 : 1);
+  for (const r of sorted) {
+    const cid = String(r.configID ?? r.configparam_id ?? '');
+    const tsDate = (r.ts ?? '').slice(0, 10);
+    const tsTime = (r.ts ?? '').slice(11, 16);
+    if (!cid || !tsTime) continue;
+    if (r.value == null && !r.value_text) continue;
+    let slot = tsTime;
+    if (date && tsDate === nextDate && tsTime === '00:00') slot = '24:00';
+    else if (date && tsDate !== date) continue;
+    else if (tsTime === '00:00') {
+      if (seenMid[cid]) slot = '24:00';
+      else seenMid[cid] = true;
+    }
+    if (!recorded[cid]) recorded[cid] = new Set();
+    recorded[cid].add(slot);
+  }
+
+  let totalExpected = 0, totalRecorded = 0;
+  const stations = [];
+  for (const station of (nodes.stations ?? [])) {
+    const isOptional = _optionalSet.has(station.id);
+    const stationRules = _topicRules[station.id];
+    if (stationRules) {
+      const slotSummary = buildRuleSlotSummary(station, stationRules, recorded);
+      const slotList = Object.values(slotSummary);
+      const stExp = isOptional ? 0 : slotList.length;
+      const stRec = isOptional ? 0 : slotList.filter(s => s.done).length;
+      totalExpected += stExp;
+      totalRecorded += stRec;
+      stations.push({ station_id: station.id, label: station.label,
+        totalExpected: stExp, totalRecorded: stRec, slotSummary, isOptional });
+      continue;
+    }
+    // slotTrack: slot → { exp: count of configIDs expected, rec: count that recorded }
+    const slotTrack = {};
+    for (const topic of (station.topics ?? [])) {
+      const inputParams = (topic.params ?? []).filter(p => p.configparam_id && !p.formula);
+      for (const p of inputParams) {
+        const cid = String(p.configparam_id);
+        const slots = slotsForParam(cid, topic);
+        for (const slot of slots) {
+          const hasRec = recorded[cid]?.has(slot) ?? false;
+          if (!slotTrack[slot]) slotTrack[slot] = { exp: 0, rec: 0 };
+          slotTrack[slot].exp++;
+          if (hasRec) slotTrack[slot].rec++;
+        }
+      }
+    }
+    // Count at slot level: a slot is "done" if > 60% of expected configIDs recorded
+    let stExp = 0, stRec = 0;
+    const slotSummary = {};
+    for (const [slot, { exp, rec }] of Object.entries(slotTrack)) {
+      const done    = isSlotDone(station.id, slot, rec, exp);
+      const partial = !done && rec > 0;
+      slotSummary[slot] = { done, partial, count: exp, rec };
+      if (!isOptional) {
+        stExp++;
+        if (done) stRec++;
+      }
+    }
+    totalExpected += stExp;
+    totalRecorded += stRec;
+    stations.push({ station_id: station.id, label: station.label,
+      totalExpected: stExp, totalRecorded: stRec, slotSummary, isOptional });
+  }
+  return { date, totalExpected, totalRecorded, stations };
+}
+
+// ── Progress cache (server polls Uroboros every 5 min) ────────────────────
+
+let _progressCache = null;
+let _progressDate = null;
+
+async function computeProgress(date) {
+  const nodes = JSON.parse(fs.readFileSync(NODES_PATH, 'utf8'));
+  const allIds = [];
+  for (const st of (nodes.stations ?? []))
+    for (const t of (st.topics ?? []))
+      for (const p of (t.params ?? []))
+        if (p.configparam_id && !p.formula) allIds.push(p.configparam_id);
+  const rows = await fetchUroborosHistory([...new Set(allIds)], date);
+  return buildProgressData(nodes, Array.isArray(rows) ? rows : [], date);
+}
+
+async function refreshProgressCache() {
+  try {
+    const today = thaiDateStr();
+    _progressCache = await computeProgress(today);
+    _progressDate = today;
+    console.log(`[op-progress] refreshed — ${_progressCache.totalRecorded}/${_progressCache.totalExpected}`);
+  } catch (e) {
+    console.warn('[op-progress] refresh failed:', e.message);
+  }
+}
+
+refreshProgressCache();
+setInterval(refreshProgressCache, 5 * 60 * 1000);
+
+// ── Routes ────────────────────────────────────────────────────────────────
+
+// Debug: per-configID recording status for a station
+// GET /api/operator/debug/station/:id?date=YYYY-MM-DD
+router.get('/debug/station/:id', async (req, res) => {
+  try {
+    const stationId = req.params.id;
+    const date = req.query.date || thaiDateStr();
+    const nodes = JSON.parse(fs.readFileSync(NODES_PATH, 'utf8'));
+    const station = (nodes.stations ?? []).find(s => s.id === stationId);
+    if (!station) return res.status(404).json({ error: 'station not found' });
+
+    // Collect all non-formula configIDs for this station
+    const paramMeta = {}; // cid → { param_name, equipment_name, topic, slots }
+    for (const topic of (station.topics ?? [])) {
+      for (const p of (topic.params ?? [])) {
+        if (!p.configparam_id || p.formula) continue;
+        const cid = String(p.configparam_id);
+        if (!paramMeta[cid]) {
+          const slots = slotsForParam(cid, topic);
+          paramMeta[cid] = { param_name: p.param_name, equipment_name: p.equipment_name,
+            topic: topic.topic, slots, excluded: _excludedSet.has(cid) };
+        }
+      }
+    }
+
+    const allIds = Object.keys(paramMeta).map(Number);
+    const rows = await fetchUroborosHistory(allIds, date);
+
+    // Build recorded map
+    const recorded = {};
+    const seenMid = {};
+    const sorted = [...(rows || [])].sort((a, b) => (a.ts ?? '') < (b.ts ?? '') ? -1 : 1);
+    for (const r of sorted) {
+      const cid = String(r.configID ?? r.configparam_id ?? '');
+      const tsTime = (r.ts ?? '').slice(11, 16);
+      if (!cid || !tsTime) continue;
+      let slot = tsTime;
+      if (tsTime === '00:00') { if (seenMid[cid]) slot = '24:00'; else seenMid[cid] = true; }
+      if (!recorded[cid]) recorded[cid] = [];
+      recorded[cid].push(slot);
+    }
+
+    const params = Object.entries(paramMeta).map(([cid, meta]) => {
+      const recSlots = recorded[cid] ?? [];
+      const missing = meta.slots.filter(s => !recSlots.includes(s));
+      return { configparam_id: Number(cid), ...meta,
+        recorded_slots: recSlots, missing_slots: missing,
+        status: meta.excluded ? 'excluded' : missing.length === 0 ? 'complete' : recSlots.length === 0 ? 'none' : 'partial' };
+    });
+
+    const thaiNow = new Date(Date.now() + 7 * 3600000).toISOString().slice(11, 16);
+    res.json({ station_id: stationId, date, now: thaiNow, params });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 router.get('/nodes', (req, res) => {
   try {
     const data = JSON.parse(fs.readFileSync(NODES_PATH, 'utf8'));
@@ -81,9 +344,39 @@ router.get('/nodes', (req, res) => {
   }
 });
 
-// Operator anomaly todos — stub
+router.get('/progress', (req, res) => {
+  const date = req.query.date || thaiDateStr();
+  if (date === _progressDate && _progressCache) return res.json(_progressCache);
+  computeProgress(date).then(r => res.json(r)).catch(e => res.status(500).json({ error: e.message }));
+});
+
 router.get('/todos', (req, res) => {
-  res.json({ todos: [] });
+  const progress = _progressCache;
+  if (!progress) return res.json({ todos: [] });
+
+  // Thai time HH:mm — only count slots that have already passed (00:00–now)
+  const thaiNow = new Date(Date.now() + 7 * 3600000);
+  const nowHHMM = thaiNow.toISOString().slice(11, 16); // "HH:MM"
+
+  const todos = [];
+  for (const s of (progress.stations ?? [])) {
+    if (s.isOptional) continue;
+    const summary = s.slotSummary ?? {};
+    let exp = 0, rec = 0;
+    for (const [slot, info] of Object.entries(summary)) {
+      // "24:00" = next-day midnight — never overdue within the same day
+      if (slot === '24:00') continue;
+      if (slot > nowHHMM) continue; // slot hasn't arrived yet
+      exp++;
+      if (info.done) rec++;
+    }
+    const pending = exp - rec;
+    if (exp > 0 && pending > 0) {
+      todos.push({ station_id: s.station_id, label: s.label,
+        message: `ยังไม่ได้บันทึก ${pending} ช่วงเวลา`, pending });
+    }
+  }
+  res.json({ todos });
 });
 
 // Fetch history from Aquadat GraphQL for stage-1 operation
