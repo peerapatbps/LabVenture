@@ -1,0 +1,24 @@
+{
+  "_comment": "Control Value ในฟอร์ม DailyLab: เซลล์ → เกณฑ์จากสถานการณ์ที่ active (min/max). TW1-4 ใช้ค่าชุดเดียวกัน (อ่านจาก TW1) แม้ฟอร์มเขียนไว้หลายตำแหน่ง",
+  "cells": {
+    "E20": { "param_key": "RW.turb",    "field": "max" },
+    "E21": { "param_key": "RW.DO",      "field": "min" },
+    "H53": { "param_key": "CW1.turb",   "field": "max" },
+    "K53": { "param_key": "CW1.ResCl2", "field": "max" },
+    "H54": { "param_key": "FW1.turb",   "field": "max" },
+    "K54": { "param_key": "FW1.ResCl2", "field": "max" },
+    "E73": { "param_key": "TW1.turb",   "field": "max" },
+    "O73": { "param_key": "TW1.turb",   "field": "max" },
+    "X73": { "param_key": "TW1.turb",   "field": "max" },
+    "H73": { "param_key": "TW1.pH",     "field": "min" },
+    "R73": { "param_key": "TW1.pH",     "field": "min" },
+    "I73": { "param_key": "TW1.pH",     "field": "max" },
+    "S73": { "param_key": "TW1.pH",     "field": "max" },
+    "E74": { "param_key": "TW1.ResCl2", "field": "min" },
+    "O74": { "param_key": "TW1.ResCl2", "field": "min" },
+    "X74": { "param_key": "TW1.ResCl2", "field": "min" },
+    "F74": { "param_key": "TW1.ResCl2", "field": "max" },
+    "P74": { "param_key": "TW1.ResCl2", "field": "max" },
+    "Y74": { "param_key": "TW1.ResCl2", "field": "max" }
+  }
+}

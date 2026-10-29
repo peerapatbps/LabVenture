@@ -3,10 +3,11 @@ const router = express.Router();
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
-const { computeDailyReport } = require('../services/dailyReport');
+const { computeDailyReport, DR_CONFIGIDS } = require('../services/dailyReport');
 const { getDb, nowTH } = require('../services/db');
-const { fetchAquadatHistory, fetchDailyReportHistory, DAILY_REPORT_ENTRIES, DAILY_REPORT_STATIONS } = require('../services/aquadatHistory');
+const { fetchAquadatHistory, fetchDailyReportHistory, fetchOnePattern, DAILY_REPORT_ENTRIES, DAILY_REPORT_STATIONS } = require('../services/aquadatHistory');
 const { getStage } = require('../services/stageMonitor');
+const { readData } = require('../services/aquadat');
 
 const SETTINGS_PATH = path.join(__dirname, '..', 'config', 'app_settings.json');
 const NODES_PATH    = path.join(__dirname, '..', 'config', 'operator_nodes.json');
@@ -14,10 +15,97 @@ const NODES_PATH    = path.join(__dirname, '..', 'config', 'operator_nodes.json'
 const BELLBEAST_HOST = process.env.BELLBEAST_HOST || 'localhost';
 const BELLBEAST_PORT = parseInt(process.env.BELLBEAST_PORT || '443', 10);
 
-function fetchUroborosHistory(configIds) {
+// Reverse lookup: configID string → station ID (built once at module load)
+const CFG_TO_STATION = {};
+for (const [sid, ids] of Object.entries(DR_CONFIGIDS)) {
+  for (const id of ids) CFG_TO_STATION[String(id)] = sid;
+}
+
+// Returns dayshift_id=3 for historical dates; time-based for today (Thai time).
+function getDayshiftId(date) {
+  const todayTH = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+  if (date !== todayTH) return 3;
+  const thHour = new Date(Date.now() + 7 * 3600 * 1000).getUTCHours();
+  return thHour < 8 ? 1 : thHour < 16 ? 2 : 3;
+}
+
+// ── AquaDAT REST (JSON) ─────────────────────────────────────────────────────
+// aquaDATService/Data?format=json returns { configparam_id, trans_dtm,
+// trans_time ('01:00'…'24:00'), trans_value }. A day has no 00:00 row: the
+// start-of-day reading is the previous day's 24:00. So day X = 25 points:
+// (X-1 24:00 → '00:00') + X 01:00…24:00. Missing values stay missing (no 0-fill).
+const AQ_PLANT_ID = '2'; // MS
+const SID_STATIONTYPE = {
+  RWS1: 'RWS', RWS2: 'RWS', CHEM1: 'CDS', CHEM2: 'CDS', TPS: 'TPS', DPS: 'DPS',
+  FWS1: 'FWS', FWS2: 'FWS', CWS1: 'CWS', CWS2: 'CWS',
+};
+
+// configID → [sid, …] (a configID belongs to the station(s) that list it)
+const CFG_TO_SIDS = {};
+for (const [sid, ids] of Object.entries(DR_CONFIGIDS)) {
+  for (const id of ids) (CFG_TO_SIDS[String(id)] ||= []).push(sid);
+}
+
+function prevDateStr(date) {
+  const d = new Date(date + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+// rows → { [sid]: { [cid]: { [slot]: value } } } for the given stations only
+function restRowsToHistoryMap(rows, date, sids) {
+  const prev = prevDateStr(date);
+  const want = new Set(sids);
+  const map = Object.fromEntries(sids.map(s => [s, {}]));
+  for (const r of rows || []) {
+    const cid = String(r.configparam_id ?? '');
+    const owners = CFG_TO_SIDS[cid];
+    if (!owners) continue;
+    const v = r.trans_value;
+    if (v === null || v === undefined || String(v).trim() === '') continue;
+    const d = String(r.trans_dtm ?? '').slice(0, 10);
+    const t = String(r.trans_time ?? '').slice(0, 5);
+    let slot;
+    if (d === prev && t === '24:00') slot = '00:00';
+    else if (d === date && t !== '00:00') slot = t;
+    else if (d === date && t === '00:00') slot = '00:00-own'; // only used if X-1 24:00 is absent
+    else continue;
+    for (const sid of owners) {
+      if (!want.has(sid)) continue;
+      (map[sid][cid] ||= {})[slot] = String(v);
+    }
+  }
+  for (const st of Object.values(map)) {
+    for (const slots of Object.values(st)) {
+      if (slots['00:00-own'] !== undefined) {
+        if (slots['00:00'] === undefined) slots['00:00'] = slots['00:00-own'];
+        delete slots['00:00-own'];
+      }
+    }
+  }
+  return map;
+}
+
+// One REST call covering every station type of `sids` (All query = all sids,
+// Spatial query = one station's sids).
+async function fetchRestHistory(date, token, sids) {
+  const types = [...new Set(sids.map(s => SID_STATIONTYPE[s]).filter(Boolean))];
+  if (!types.length) return {};
+  const t0 = Date.now();
+  const rows = await readData({
+    token, plant_id: AQ_PLANT_ID, stationtype_code: types.join(','),
+    begin_dt: prevDateStr(date), end_dt: date, format: 'json',
+  });
+  if (!Array.isArray(rows)) throw new Error('AquaDAT REST: unexpected response');
+  console.log(`[daily-report/rest] ${date} types=${types.join(',')} rows=${rows.length} ${Date.now() - t0}ms`);
+  return restRowsToHistoryMap(rows, date, sids);
+}
+
+function fetchUroborosHistory(configIds, date) {
   return new Promise((resolve) => {
     if (!configIds || configIds.length === 0) { resolve([]); return; }
-    const qs = `?configIDs=${configIds.join(',')}`;
+    let qs = `?configIDs=${configIds.join(',')}`;
+    if (date) qs += `&date=${date}`;
     const options = {
       hostname: BELLBEAST_HOST,
       port: BELLBEAST_PORT,
@@ -137,9 +225,7 @@ router.get('/stream-station', async (req, res) => {
   if (getStage() === 1) {
     const token = req.cookies?.aquadat_token;
     if (token) {
-      const thHour = new Date(Date.now() + 7 * 3600 * 1000).getUTCHours();
-      const dayshift_id = thHour < 8 ? 1 : thHour < 16 ? 2 : 3;
-      const { fetchOnePattern } = require('../services/aquadatHistory');
+      const dayshift_id = getDayshiftId(date);
       sseSend(res, { type: 'step', station, status: 'loading' });
       const out = {};
       let failed = false;
@@ -184,20 +270,14 @@ router.get('/stream-stage0', async (req, res) => {
   }
   sseHeaders(res);
 
-  let nodes;
-  try { nodes = JSON.parse(fs.readFileSync(NODES_PATH, 'utf8')); }
-  catch { sseSend(res, { type: 'error', msg: 'โหลด operator_nodes ไม่ได้' }); return res.end(); }
-
   const historyMap = {};
 
-  for (const station of nodes.stations || []) {
-    const sid = station.station_id ?? station.id;
-    const allParams = (station.topics || []).flatMap(t => t.params || []);
-    const configIds = [...new Set(allParams.map(p => p.configparam_id).filter(Boolean))];
+  for (const sid of Object.keys(DR_CONFIGIDS)) {
+    const configIds = DR_CONFIGIDS[sid] ?? [];
 
     sseSend(res, { type: 'step', station: sid, status: 'loading', count: 0 });
     try {
-      const rows = await fetchUroborosHistory(configIds);
+      const rows = await fetchUroborosHistory(configIds, date);
       const stMap = remapMidnight(rows);
       historyMap[sid] = stMap;
       const count = Object.keys(stMap).length;
@@ -226,23 +306,16 @@ router.get('/stream-station-stage0', async (req, res) => {
   if (!date || !station) return res.status(400).json({ error: 'date and station required' });
   sseHeaders(res);
 
-  let nodes;
-  try { nodes = JSON.parse(fs.readFileSync(NODES_PATH, 'utf8')); }
-  catch { sseSend(res, { type: 'error', msg: 'โหลด operator_nodes ไม่ได้' }); return res.end(); }
-
-  const stationDef = nodes.stations?.find(s => (s.station_id ?? s.id) === station);
-  if (!stationDef) {
+  const configIds = DR_CONFIGIDS[station] ?? [];
+  if (!DR_CONFIGIDS[station]) {
     sseSend(res, { type: 'step', station, status: 'error', count: 0 });
     sseSend(res, { type: 'error', msg: 'unknown station' });
     return res.end();
   }
 
-  const allParams = (stationDef.topics || []).flatMap(t => t.params || []);
-  const configIds = [...new Set(allParams.map(p => p.configparam_id).filter(Boolean))];
-
   sseSend(res, { type: 'step', station, status: 'loading', count: 0 });
   try {
-    const rows = await fetchUroborosHistory(configIds);
+    const rows = await fetchUroborosHistory(configIds, date);
     const stMap = remapMidnight(rows);
     const cache = getCache(date);
     cache[station] = stMap;
@@ -263,6 +336,215 @@ router.get('/stream-station-stage0', async (req, res) => {
     sseSend(res, { type: 'error', msg: e.message });
   }
   res.end();
+});
+
+// GET /api/daily-report/quick?date=  — instant SQLite-only compute (no AquaDAT/Uroboros fetch)
+router.get('/quick', (req, res) => {
+  const { date } = req.query;
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'date required (YYYY-MM-DD)' });
+  }
+  try {
+    const report = computeDailyReport(date, loadSettings(), null);
+    res.json({ report, source: 'sqlite' });
+  } catch (e) {
+    console.error('[daily-report/quick]', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/daily-report/fetch-db?date=
+// Off-site mode: always read Uroboros data.db (via BellBeast) regardless of stage.
+// Uroboros ignores the date param and serves only its latest day, so rows are
+// filtered by ts: <date> HH:MM → slot, <date+1> 00:00 → '24:00', others dropped.
+router.get('/fetch-db', async (req, res) => {
+  const { date } = req.query;
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date))
+    return res.status(400).json({ error: 'date required (YYYY-MM-DD)' });
+
+  const allConfigIds = [...new Set(Object.values(DR_CONFIGIDS).flat())];
+  const rows = await fetchUroborosHistory(allConfigIds, date);
+  if (!Array.isArray(rows)) {
+    return res.status(502).json({ error: 'อ่าน Uroboros (data.db) ไม่ได้ — BellBeast ไม่ตอบ' });
+  }
+
+  const nextDate = new Date(date + 'T00:00:00Z');
+  nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+  const next = nextDate.toISOString().slice(0, 10);
+
+  const map = {};
+  const datesInDb = new Set();
+  let lastTs = null;
+  let used = 0;
+  for (const r of rows) {
+    const ts = String(r.ts ?? '');
+    const d = ts.slice(0, 10);
+    if (d) datesInDb.add(d);
+    const cid = String(r.configID ?? r.configparam_id ?? '');
+    const sid = CFG_TO_STATION[cid];
+    if (!sid) continue;
+    let slot = null;
+    if (d === date) slot = ts.slice(11, 16);
+    else if (d === next && ts.slice(11, 16) === '00:00') slot = '24:00';
+    if (!slot) continue;
+    const val = r.value_text ?? (r.value != null ? String(r.value) : '');
+    if (val === '') continue;
+    if (!map[sid]) map[sid] = {};
+    if (!map[sid][cid]) map[sid][cid] = {};
+    map[sid][cid][slot] = val;
+    used++;
+    if (!lastTs || ts > lastTs) lastTs = ts;
+  }
+
+  // Replace this date's cache so stale AquaDAT/Uroboros data does not mix in
+  historyCache[date] = map;
+
+  try {
+    const report = computeDailyReport(date, loadSettings(), used ? map : null);
+    res.json({
+      report,
+      fwsMap: { FWS1: map.FWS1 || null, FWS2: map.FWS2 || null },
+      source: 'uroboros-db',
+      coverage: {
+        rows: used,
+        lastTs,
+        datesInDb: [...datesInDb].sort(),
+        stations: Object.fromEntries(Object.entries(map).map(([s, m]) => [s, Object.keys(m).length])),
+      },
+    });
+  } catch (e) {
+    console.error('[fetch-db] compute error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/daily-report/fetch-all?date=
+// Stage=0: single Uroboros call with ALL configIDs from all stations combined.
+// Stage=1: one AquaDAT REST (JSON) call for every station type, X-1..X.
+router.get('/fetch-all', async (req, res) => {
+  const { date } = req.query;
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date))
+    return res.status(400).json({ error: 'date required (YYYY-MM-DD)' });
+
+  const cache = getCache(date);
+
+  if (getStage() === 1) {
+    const token = req.cookies?.aquadat_token;
+    if (!token) return res.status(401).json({ error: 'ยังไม่ได้ login AquaDAT' });
+    try {
+      Object.assign(cache, await fetchRestHistory(date, token, Object.keys(DR_CONFIGIDS)));
+    } catch (e) {
+      console.warn('[fetch-all] AquaDAT REST error:', e.message);
+      return res.status(502).json({ error: 'AquaDAT REST: ' + e.message });
+    }
+  } else {
+    const allConfigIds = [...new Set(Object.values(DR_CONFIGIDS).flat())];
+    try {
+      const rows = await fetchUroborosHistory(allConfigIds, date);
+      if (Array.isArray(rows)) {
+        const byStation = {};
+        for (const r of rows) {
+          const cid = String(r.configID ?? r.configparam_id ?? '');
+          const sid = CFG_TO_STATION[cid];
+          if (!sid) continue;
+          if (!byStation[sid]) byStation[sid] = [];
+          byStation[sid].push(r);
+        }
+        for (const [sid, srows] of Object.entries(byStation)) {
+          cache[sid] = remapMidnight(srows);
+        }
+      }
+    } catch (e) {
+      console.warn('[fetch-all] uroboros error:', e.message);
+    }
+  }
+
+  try {
+    const historyMap = Object.keys(cache).length ? cache : null;
+    const report = computeDailyReport(date, loadSettings(), historyMap);
+    const fwsMap = { FWS1: cache['FWS1'] || null, FWS2: cache['FWS2'] || null };
+    res.json({ report, fwsMap, source: getStage() === 1 ? 'aquadat' : 'uroboros' });
+  } catch (e) {
+    console.error('[fetch-all] compute error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/daily-report/fetch-station?date=&station=
+// Fetches one station using DR_CONFIGIDS, updates historyCache, recomputes full report.
+router.get('/fetch-station', async (req, res) => {
+  const { date, station } = req.query;
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ error: 'date required (YYYY-MM-DD)' });
+  }
+  if (!station || !DR_CONFIGIDS[station]) {
+    return res.status(400).json({ error: `unknown station: ${station}` });
+  }
+
+  const configIds = DR_CONFIGIDS[station] ?? [];
+  const cache = getCache(date);
+
+  if (getStage() === 1) {
+    // Spatial query: one REST call for this station's type. The same call
+    // returns sibling stations of that type (RWS1+RWS2, …), so refresh them too.
+    const token = req.cookies?.aquadat_token;
+    if (!token) return res.status(401).json({ error: 'ยังไม่ได้ login AquaDAT' });
+    const type = SID_STATIONTYPE[station];
+    const sids = Object.keys(SID_STATIONTYPE).filter(s => SID_STATIONTYPE[s] === type);
+    try {
+      Object.assign(cache, await fetchRestHistory(date, token, sids));
+    } catch (e) {
+      console.warn(`[fetch-station] AquaDAT REST ${station}:`, e.message);
+      return res.status(502).json({ error: `AquaDAT REST ${station}: ` + e.message });
+    }
+  } else {
+    // stage=0: Uroboros
+    try {
+      const rows = await fetchUroborosHistory(configIds, date);
+      cache[station] = remapMidnight(rows ?? []);
+    } catch (e) {
+      console.warn(`[fetch-station] uroboros ${station}:`, e.message);
+      cache[station] = {};
+    }
+  }
+
+  try {
+    const historyMap = Object.keys(cache).length ? cache : null;
+    const report = computeDailyReport(date, loadSettings(), historyMap);
+    const source = getStage() === 1 ? 'aquadat' : 'uroboros';
+    res.json({ report, station, source });
+  } catch (e) {
+    console.error('[fetch-station] compute error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/daily-report/recompute?date=  — recompute from the already-queried
+// cache with the current app_settings.json (used after report settings change).
+// No AquaDAT/Uroboros fetch. cached=false → nothing queried yet for this date.
+router.get('/recompute', (req, res) => {
+  const { date } = req.query;
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date))
+    return res.status(400).json({ error: 'date required (YYYY-MM-DD)' });
+  const cache = historyCache[date];
+  if (!cache || !Object.keys(cache).length) return res.json({ cached: false });
+  try {
+    const report = computeDailyReport(date, loadSettings(), cache);
+    const fwsMap = { FWS1: cache['FWS1'] || null, FWS2: cache['FWS2'] || null };
+    res.json({ cached: true, report, fwsMap });
+  } catch (e) {
+    console.error('[recompute] compute error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/daily-report/debug-cache?date=&sid=&cid=  — read-only view of historyCache
+router.get('/debug-cache', (req, res) => {
+  const { date, sid, cid } = req.query;
+  const c = historyCache[date] || {};
+  if (sid && cid) return res.json(c[sid]?.[cid] ?? null);
+  if (sid) return res.json(c[sid] ?? null);
+  res.json(Object.fromEntries(Object.entries(c).map(([s, m]) => [s, Object.keys(m || {}).length])));
 });
 
 // GET /api/daily-report/debug?date=YYYY-MM-DD  — returns cfgIds per station (temp)
@@ -546,4 +828,13 @@ router.get('/saved', (req, res) => {
   }
 });
 
+// Report computed from the data last queried for `date` (fetch-all / fetch-station),
+// with current settings. null → nothing queried yet. Used by the DailyLab export.
+function getCachedReport(date) {
+  const cache = historyCache[date];
+  if (!cache || !Object.keys(cache).length) return null;
+  return computeDailyReport(date, loadSettings(), cache);
+}
+
 module.exports = router;
+module.exports.getCachedReport = getCachedReport;

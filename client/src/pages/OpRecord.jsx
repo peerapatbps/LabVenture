@@ -2,7 +2,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { GridLayout } from 'react-grid-layout';
 import { get, post, patch, del, BASE } from '../api.js';
-import { getRefDate, setRefDate } from '../utils/refDate.js';
+import { initRefDate, setRefDate, confirmNonToday } from '../utils/refDate.js';
 import DateSyncBar from '../components/DateSyncBar.jsx';
 import MiniChartCard from '../components/MiniChart.jsx';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -1190,26 +1190,27 @@ function WaterSankeyChart({ rw, tps, dpsA, dpsB, sludge, serviceWater, washWater
   const { w, h } = dims;
 
   const layout = useMemo(() => {
-    if (!rw || rw <= 0) return null;
-
     const dpsTotal = (dpsA ?? 0) + (dpsB ?? 0);
+    // If raw water is missing, fall back to pumped total so Sankey still renders
+    const effectiveRw = (rw && rw > 0) ? rw : ((tps ?? 0) + dpsTotal) || 0;
+    if (effectiveRw <= 0) return null;
     const slg      = sludge      ?? 0;
     const svc      = serviceWater ?? 0;
     const wash     = washWater    ?? 0;
-    const loss     = lossProp != null ? Math.max(0, lossProp) : Math.max(0, rw - (tps ?? 0) - dpsTotal - slg - svc - wash);
+    const loss     = lossProp != null ? Math.max(0, lossProp) : Math.max(0, effectiveRw - (tps ?? 0) - dpsTotal - slg - svc - wash);
 
     // Layout margins
     const ML = 72, MR = 100, MT = 8, MB = 52;
     const cw = w - ML - MR;
     const ch = h - MT - MB;
 
-    // Scale: rw fills 80% of chart height
+    // Scale: effectiveRw fills 80% of chart height
     const totalBar = ch * 0.80;
-    const px = v => (v / rw) * totalBar;
+    const px = v => (v / effectiveRw) * totalBar;
     const BW = 18; // bar rect width
 
     // RW bar (left, vertically centered)
-    const rwH  = px(rw);
+    const rwH  = px(effectiveRw);
     const rwX  = ML;
     const rwY0 = MT + (ch - rwH) / 2;
 
@@ -1275,7 +1276,7 @@ function WaterSankeyChart({ rw, tps, dpsA, dpsB, sludge, serviceWater, washWater
       exits, botNodes,
       BW, botBarH, ML, MR, MT, MB, cw, ch, px,
     };
-  }, [w, h, rw, tps, dpsA, dpsB, sludge, serviceWater, washWater]);
+  }, [w, h, rw, tps, dpsA, dpsB, sludge, serviceWater, washWater, lossProp]);
 
   function fmtV(v) {
     if (!v && v !== 0) return '—';
@@ -1526,7 +1527,9 @@ const DR_RIGHT_SUMMARY = [
 
 // ── Shared DailyTableCardUI ──────────────────────────────────────────────────
 
-function DailyTableCardUI({ title, rows, compact = false, grow = false }) {
+function DailyTableCardUI({ title, rows, compact = false, grow = false, na = false }) {
+  // na: report is loaded — a null value means it could not be computed (N/A, red)
+  const anyNA = na && rows.some(r => r.value == null);
   // grow mode: cells use px padding only; vertical space distributed by h-full on tr
   const cell = grow
     ? 'px-2 py-0'
@@ -1534,18 +1537,19 @@ function DailyTableCardUI({ title, rows, compact = false, grow = false }) {
   const sz = compact ? 'text-sm' : 'text-base';
   const titlePad = compact ? 'px-2 py-0.5' : 'px-2 py-1';
   return (
-    <div className={`rounded border border-earth-border bg-earth-DEFAULT overflow-hidden ${sz} ${grow ? 'flex flex-col flex-1 min-h-0' : ''}`}>
+    <div className={`rounded border overflow-hidden ${anyNA ? 'border-red-400 bg-red-50' : 'border-earth-border bg-earth-DEFAULT'} ${sz} ${grow ? 'flex flex-col flex-1 min-h-0' : ''}`}>
       <div className={`${titlePad} bg-gray-700 text-white font-bold tracking-wide shrink-0`}>{title}</div>
       <table className={`w-full ${grow ? 'h-full' : ''}`}>
         <tbody className={grow ? 'h-full' : ''}>
           {rows.map((r, i) => {
             const base = i % 2 === 0 ? 'bg-earth-DEFAULT' : 'bg-earth-card';
-            const hi   = r.highlight ? 'bg-orange-100' : r.highlightRed ? 'bg-red-100' : base;
+            const isNA = na && r.value == null;
+            const hi   = isNA ? 'bg-red-50' : r.highlight ? 'bg-orange-100' : r.highlightRed ? 'bg-red-100' : base;
             return (
               <tr key={i} className={`${hi} ${grow ? 'h-px' : ''}`}>
-                <td className={`${cell} text-earth-ink2 border-b border-earth-border align-middle w-full`}>{r.label}</td>
+                <td className={`${cell} border-b border-earth-border align-middle w-full ${isNA ? 'text-red-500' : 'text-earth-ink2'}`}>{r.label}</td>
                 <td className={`${cell} text-right font-mono font-semibold border-b border-earth-border align-middle whitespace-nowrap ${r.bold ? 'font-extrabold' : ''}`}>
-                  {r.value != null ? r.value : <span className="text-earth-ink3">0</span>}
+                  {r.value != null ? r.value : isNA ? <NA /> : <span className="text-earth-ink3">—</span>}
                 </td>
                 <td className={`${cell} text-right text-earth-ink3 border-b border-earth-border whitespace-nowrap align-middle pl-1`}>{r.unit}</td>
               </tr>
@@ -1559,17 +1563,18 @@ function DailyTableCardUI({ title, rows, compact = false, grow = false }) {
 
 // ── Donut card (Section C) ───────────────────────────────────────────────────
 
-function ChemDonutCard({ phase, useUnit, doseUnit, use, target, actual, pct, noData }) {
+function ChemDonutCard({ phase, useUnit, doseUnit, use, target, actual, pct, noData, useNA = false, actualNA = false, targetNA = false }) {
   const inactive = noData === true;
-  const color = inactive ? '#9ca3af'
+  const red = !inactive && (useNA || actualNA || targetNA);
+  const color = red ? '#dc2626' : inactive ? '#9ca3af'
               : pct >= 80 ? '#16a34a'
               : pct >= 70 ? '#d97706'
               :             '#dc2626';
-  const data = inactive
+  const data = inactive || red
     ? [{ value: 0 }, { value: 100 }]
     : [{ value: pct }, { value: 100 - pct }];
   return (
-    <div className="border border-earth-border rounded bg-earth-DEFAULT p-1.5 flex gap-2 items-center">
+    <div className={`border rounded p-1.5 flex gap-2 items-center ${red ? 'border-red-400 bg-red-50' : 'border-earth-border bg-earth-DEFAULT'}`}>
       <div className="relative shrink-0" style={{ width: 60, height: 60 }}>
         <PieChart width={60} height={60}>
           <Pie data={data} cx={25} cy={25} innerRadius={17} outerRadius={27} startAngle={90} endAngle={-270} dataKey="value" stroke="none">
@@ -1579,17 +1584,69 @@ function ChemDonutCard({ phase, useUnit, doseUnit, use, target, actual, pct, noD
         </PieChart>
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <span className="font-black leading-none" style={{ color, fontSize: 12 }}>
-            {inactive ? '—' : `${pct}%`}
+            {inactive ? '—' : red ? 'N/A' : `${pct}%`}
           </span>
         </div>
       </div>
       <div className="flex-1 min-w-0">
-        <div className="font-bold text-earth-ink leading-tight mb-1" style={{ fontSize: 14 }}>{phase}</div>
+        <div className={`font-bold leading-tight mb-1 ${red ? 'text-red-700' : 'text-earth-ink'}`} style={{ fontSize: 14 }}>{phase}</div>
         <div className="grid grid-cols-3 gap-x-1 text-earth-ink2" style={{ fontSize: 14 }}>
           <span>USE</span><span>TARGET</span><span>ACTUAL</span>
-          <span className="font-mono text-earth-ink">{use}<span className="text-earth-ink3 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{useUnit}</span></span>
-          <span className="font-mono text-earth-ink">{inactive ? '—' : (target ?? 0)}<span className="text-earth-ink3 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{doseUnit}</span></span>
-          <span className="font-mono text-earth-ink">{inactive ? '—' : actual}<span className="text-earth-ink3 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{doseUnit}</span></span>
+          <span className="font-mono text-earth-ink">{useNA && !inactive ? <NA /> : use}<span className="text-earth-ink3 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{useUnit}</span></span>
+          <span className="font-mono text-earth-ink">{inactive ? '—' : targetNA ? <NA /> : (target ?? 0)}<span className="text-earth-ink3 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{doseUnit}</span></span>
+          <span className="font-mono text-earth-ink">{inactive ? '—' : actualNA ? <NA /> : actual}<span className="text-earth-ink3 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{doseUnit}</span></span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── QueryModal ───────────────────────────────────────────────────────────────
+function QueryModal({ selectedDate, stationRows, querying, onAllQuery, onReQuery, onClose }) {
+  const STATION_LIST = ['RWS1','RWS2','CHEM1','CHEM2','FWS1','FWS2','TPS','DPS','CWS1','CWS2'];
+  return (
+    <div
+      style={{ position:'fixed', top:0, left:0, right:0, bottom:0, zIndex:9999 }}
+      className="flex items-center justify-center bg-black/50"
+      onClick={e => { if (e.target === e.currentTarget && !querying) onClose(); }}
+    >
+      <div style={{ backgroundColor:'#fff' }} className="rounded-xl shadow-2xl w-96 flex flex-col overflow-hidden border border-gray-200">
+        <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2 bg-gray-50">
+          <span className="text-sm font-bold text-gray-800">ดึงข้อมูล AquaDAT</span>
+          <span className="text-xs text-gray-500 ml-1">{selectedDate}</span>
+          <button
+            onClick={onAllQuery}
+            disabled={querying}
+            className="ml-auto px-3 py-1 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white text-xs font-bold rounded transition-colors"
+          >{querying ? '⏳ กำลังดึง...' : '▶ All Query'}</button>
+        </div>
+        <div className="flex flex-col divide-y divide-gray-100">
+          {STATION_LIST.map(sid => {
+            const row = stationRows[sid] || { status: 'pending', count: 0 };
+            const icon = row.status === 'loading' ? '⏳'
+                       : row.status === 'done'    ? '✅'
+                       : row.status === 'error'   ? '❌'
+                       : '○';
+            return (
+              <div key={sid} style={{ backgroundColor:'#fff' }} className="flex items-center gap-2 px-4 py-2">
+                <span className="text-base w-5 text-center leading-none shrink-0">{icon}</span>
+                <span className="font-mono text-xs font-semibold text-gray-700 w-16 shrink-0">{sid}</span>
+                <div className="flex-1" />
+                <button
+                  onClick={() => onReQuery(sid)}
+                  disabled={querying}
+                  className="text-xs px-2 py-0.5 border border-gray-300 hover:bg-gray-50 disabled:opacity-40 rounded text-gray-600 transition-colors"
+                >re-query</button>
+              </div>
+            );
+          })}
+        </div>
+        <div className="px-4 py-2.5 border-t border-gray-200 bg-gray-50 flex justify-end">
+          <button
+            onClick={onClose}
+            disabled={querying}
+            className="text-xs px-3 py-1.5 bg-white hover:bg-gray-100 disabled:opacity-40 rounded text-gray-700 font-medium border border-gray-300"
+          >ปิด</button>
         </div>
       </div>
     </div>
@@ -1629,6 +1686,16 @@ function fmt(v, dec = 0) {
   return Number(v).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
+// Shown when a value could not be computed because its data is missing
+function NA() {
+  return <span className="text-red-600 font-bold">N/A</span>;
+}
+
+// a + b only when both are known (null → N/A)
+function addStrict(a, b) {
+  return a == null || b == null ? null : a + b;
+}
+
 // ── Filtration Backwash Constants ─────────────────────────────────────────────
 
 // FWS2 LEVEL BEFORE BACKWASH IDs are not in the normal stride (+2 from byShift).
@@ -1636,7 +1703,7 @@ function fmt(v, dec = 0) {
 const P3_LEVEL_IDS = [7944,7951,7945,7952,7946,7953,7947,7954,7948,7955,7949,7956,7950,7957];
 const P4_LEVEL_IDS = [7958,7965,7959,7966,7960,7967,7961,7968,7962,7969,7963,7970,7964,7971];
 
-const FWS_BW_PHASES = [
+export const FWS_BW_PHASES = [
   { id: 'P1', src: 'FWS#1', totalBeds: 8,  startNo: 1,  station: 'FWS1', topic: 'BACKWASHING P#12', base: 317 },
   { id: 'P2', src: 'FWS#1', totalBeds: 8,  startNo: 9,  station: 'FWS1', topic: 'BACKWASHING P#12', base: 399 },
   { id: 'P3', src: 'FWS#2', totalBeds: 14, startNo: 1,  station: 'FWS2', topic: 'BACKWASHING P#3',  base: 479, levelIds: P3_LEVEL_IDS },
@@ -1646,50 +1713,56 @@ const FWS_BW_PHASES = [
 const BW_SLOTS = ['08:00', '16:00', '24:00'];
 
 // Parse backwash events from raw history for a phase.
-// Shows bed if ANY of the 6 package fields is not null.
-// complete=true if all 6 present (green card), false = some missing (red card).
+// Returns a flat list — one entry per wash event (slot with any data).
+// Each bed may contribute 0–3 entries (one per BW_SLOT).
+// complete=true if all 6 fields present (green card), false = some missing (red card).
 // Fields: +0 byShift, +1 filterRun, +2 level, +3 startTime, +5 endTime, +6 washQty
-function parseBWPhase(history, base, count, startNo = 1, levelIds = null) {
+export function parseBWPhase(history, base, count, startNo = 1, levelIds = null) {
   if (!history) return null;
-  return Array.from({ length: count }, (_, i) => {
+  const events = [];
+  for (let i = 0; i < count; i++) {
     const b           = base + i * 10;
     const byShiftId   = b;
     const filterRunId = b + 1;
-    const levelId     = levelIds ? levelIds[i] : b + 2; // FWS2 uses non-stride level IDs
+    const levelId     = levelIds ? levelIds[i] : b + 2;
     const startTimeId = b + 3;
     const endTimeId   = b + 5;
     const washQtyId   = b + 6;
     const fieldIds    = [byShiftId, filterRunId, levelId, startTimeId, endTimeId, washQtyId];
-    const washes = [];
     for (const slot of BW_SLOTS) {
       const vals = fieldIds.map(id => history[String(id)]?.[slot]);
-      const anyPresent = vals.some(v => v !== null && v !== undefined && v !== '');
-      if (anyPresent) {
-        const allPresent = vals.every(v => v !== null && v !== undefined && v !== '');
-        const shiftNum  = parseInt(history[String(byShiftId)]?.[slot], 10);
-        const filterRun = parseFloat(history[String(filterRunId)]?.[slot]);
-        const washQty   = parseFloat(history[String(washQtyId)]?.[slot]);
-        washes.push({
-          slot,
-          shift:     !isNaN(shiftNum)  ? `Shift ${shiftNum}` : slot,
-          filterRun: !isNaN(filterRun) ? filterRun : null,
-          washQty:   !isNaN(washQty)   ? washQty   : null,
-          complete:  allPresent,
-        });
-      }
+      const hasValue = v => v !== null && v !== undefined && v !== '' && parseFloat(v) !== 0;
+      const anyNonZero = vals.some(hasValue);
+      if (!anyNonZero) continue;         // all null/zero → ไม่มีการล้าง ไม่สร้างการ์ด
+      const allNonZero = vals.every(hasValue);
+      const shiftNum  = parseInt(history[String(byShiftId)]?.[slot], 10);
+      const filterRun = parseFloat(history[String(filterRunId)]?.[slot]);
+      const washQty   = parseFloat(history[String(washQtyId)]?.[slot]);
+      events.push({
+        no:        startNo + i,
+        byShiftId: b,
+        slot,
+        shift:     !isNaN(shiftNum)  ? shiftNum   : null,
+        filterRun: !isNaN(filterRun) && filterRun !== 0 ? filterRun  : null,
+        washQty:   !isNaN(washQty)   && washQty   !== 0 ? washQty    : null,
+        complete:  allNonZero,
+      });
     }
-    return { no: startNo + i, byShiftId: b, washes };
-  });
+  }
+  return events;
 }
 
 // ── Settings Modal ────────────────────────────────────────────────────────────
-function ReportSettingsModal({ onClose }) {
+function ReportSettingsModal({ onClose, onSaved }) {
   const [cfg, setCfg] = useState(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState(null);
+  const savedJson = useRef(null); // last saved settings, to detect changes
 
   useEffect(() => {
-    get('/api/scenarios/report-settings').then(setCfg).catch(() => setMsg('โหลดการตั้งค่าไม่สำเร็จ'));
+    get('/api/scenarios/report-settings')
+      .then(c => { savedJson.current = JSON.stringify(c); setCfg(c); })
+      .catch(() => setMsg('โหลดการตั้งค่าไม่สำเร็จ'));
   }, []);
 
   function setField(section, key, val) {
@@ -1706,7 +1779,17 @@ function ReportSettingsModal({ onClose }) {
     setMsg(null);
     try {
       await patch('/api/scenarios/report-settings', cfg);
-      setMsg({ ok: true, text: 'บันทึกสำเร็จ' });
+      const changed = JSON.stringify(cfg) !== savedJson.current;
+      savedJson.current = JSON.stringify(cfg);
+      if (changed && onSaved) {
+        setMsg({ ok: true, text: 'บันทึกสำเร็จ — กำลังรีเฟรชรายงาน…' });
+        const r = await onSaved();
+        setMsg(r?.ok === false
+          ? { ok: false, text: 'บันทึกสำเร็จ แต่' + r.text }
+          : { ok: true, text: 'บันทึกสำเร็จ — รีเฟรชรายงานแล้ว' });
+      } else {
+        setMsg({ ok: true, text: changed ? 'บันทึกสำเร็จ' : 'บันทึกสำเร็จ (ไม่มีค่าเปลี่ยน)' });
+      }
     } catch (e) {
       setMsg({ ok: false, text: 'บันทึกไม่สำเร็จ: ' + e.message });
     } finally { setSaving(false); }
@@ -1734,7 +1817,7 @@ function ReportSettingsModal({ onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-earth-DEFAULT rounded-xl shadow-2xl w-[480px] max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="bg-earth rounded-xl shadow-2xl w-[480px] max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="px-5 py-3 bg-gray-800 text-white flex items-center justify-between shrink-0">
           <span className="font-bold text-base">⚙ ตั้งค่ารายงานประจำวัน</span>
@@ -1765,7 +1848,10 @@ function ReportSettingsModal({ onClose }) {
                   <NI section="energy_cost" field="peak_price"    label="ราคา Peak"      unit="บาท/kWh" />
                   <NI section="energy_cost" field="offpeak_price" label="ราคา Off-Peak"  unit="บาท/kWh" />
                   <NI section="energy_cost" field="ft_price"      label="ค่า Ft"         unit="บาท/kWh" />
-                  <NI section="energy_cost" field="max_energy"    label="Demand Charge"  unit="บาท/เดือน" />
+                  <NI section="energy_cost" field="max_energy"    label="ค่า Demand on peak"  unit="บาท/kW" />
+                  <NI section="energy_cost" field="demand_kw"     label="Demand on peak (บิล)" unit="kW/เดือน" />
+                  <NI section="energy_cost" field="service_charge" label="ค่าบริการ"         unit="บาท/เดือน" />
+                  <p className="text-xs text-earth-ink3">TOU 4.2.2 — On-Peak เฉพาะ จ.–ศ. (13/24 ของวัน), ส.–อา. เป็น Off-Peak ทั้งวัน · ค่า Demand และค่าบริการหารเฉลี่ยตามจำนวนวันในเดือน</p>
                 </div>
               </section>
 
@@ -1783,7 +1869,7 @@ function ReportSettingsModal({ onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 bg-earth-DEFAULT border-t border-earth-border flex items-center justify-between shrink-0">
+        <div className="px-5 py-3 bg-earth-card border-t border-earth-border flex items-center justify-between shrink-0">
           <div className={`text-sm ${msg?.ok === false ? 'text-red-600' : 'text-green-600'}`}>
             {typeof msg === 'string' ? msg : msg?.text}
           </div>
@@ -1818,18 +1904,25 @@ function DailyReportTab({ selectedDate, stage }) {
     { on: true, pct: 100 },
   ]);
 
-  // Restore cached query results from sessionStorage when date changes (or on mount)
+  // Restore cached query results from sessionStorage when date changes (or on mount).
+  // If no sessionStorage cache, auto-load SQLite-only snapshot from /quick.
   useEffect(() => {
+    let cancelled = false;
+    // Always restore fwsBW from cache regardless of report cache state
+    try {
+      const cachedBW = sessionStorage.getItem(`dr_fwsbw_${selectedDate}`);
+      setFwsBW(cachedBW ? JSON.parse(cachedBW) : null);
+    } catch { setFwsBW(null); }
     try {
       const cached = sessionStorage.getItem(`dr_report_${selectedDate}`);
-      setReportData(cached ? JSON.parse(cached) : null);
-    } catch { setReportData(null); }
-    try {
-      const cached = sessionStorage.getItem(`dr_fwsbw_${selectedDate}`);
-      setFwsBW(cached ? JSON.parse(cached) : null);
-    } catch { setFwsBW(null); }
+      if (cached) { setReportData(JSON.parse(cached)); return () => { cancelled = true; }; }
+    } catch { /* ignore */ }
+    setReportData(null);
+    get(`/api/daily-report/quick?date=${selectedDate}`)
+      .then(d => { if (!cancelled) setReportData(d.report); })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, [selectedDate]); // eslint-disable-line
-  const [fwsBWLoading, setFwsBWLoading] = useState(false);
   const [showQueryModal, setShowQueryModal] = useState(false);
   // stationRows: { [sid]: { status: 'pending'|'loading'|'done'|'error', count: number } }
   const [stationRows, setStationRows]  = useState({});
@@ -1847,6 +1940,43 @@ function DailyReportTab({ selectedDate, stage }) {
 
   const STATION_LIST = ['RWS1','RWS2','CHEM1','CHEM2','FWS1','FWS2','TPS','DPS','CWS1','CWS2'];
 
+  // Hidden "load from DB" button — toggled with Ctrl+Shift+F10 (off-site use)
+  const [showDbBtn, setShowDbBtn] = useState(false);
+  const [dbLoading, setDbLoading] = useState(false);
+  useEffect(() => {
+    function onKey(e) {
+      if (e.ctrlKey && e.shiftKey && e.key === 'F10') {
+        e.preventDefault();
+        setShowDbBtn(v => !v);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  async function handleDbQuery() {
+    setDbLoading(true);
+    setValidation(null);
+    setSaveMsg(null);
+    try {
+      const d = await get(`/api/daily-report/fetch-db?date=${selectedDate}`);
+      setReportData(d.report);
+      try { sessionStorage.setItem(`dr_report_${selectedDate}`, JSON.stringify(d.report)); } catch {}
+      const bw = d.fwsMap ? { p12: d.fwsMap.FWS1, p3: d.fwsMap.FWS2, p4: d.fwsMap.FWS2 } : null;
+      setFwsBW(bw);
+      try { sessionStorage.setItem(`dr_fwsbw_${selectedDate}`, JSON.stringify(bw)); } catch {}
+      const c = d.coverage || {};
+      if (!c.rows) {
+        setSaveMsg({ ok: false, text: `DB ไม่มีข้อมูลวันที่ ${selectedDate} (ใน data.db มี: ${(c.datesInDb || []).join(', ') || '—'})` });
+      } else {
+        setSaveMsg({ ok: true, text: `โหลดจาก DB แล้ว ${c.rows} ค่า · ล่าสุด ${c.lastTs}` });
+      }
+    } catch (e) {
+      setSaveMsg({ ok: false, text: 'DB QUERY ล้มเหลว: ' + e.message });
+    } finally {
+      setDbLoading(false);
+    }
+  }
 
   function updateRow(sid, patch) {
     setStationRows(prev => {
@@ -1903,31 +2033,57 @@ function DailyReportTab({ selectedDate, stage }) {
   }
 
   async function handleAllQuery() {
-    setStationRows(Object.fromEntries(STATION_LIST.map(s => [s, { status: 'pending', count: 0, patterns: {} }])));
-    const streamUrl = stage === 0
-      ? `${BASE}/api/daily-report/stream-stage0?date=${selectedDate}`
-      : `${BASE}/api/daily-report/stream?date=${selectedDate}`;
-    await runStream(streamUrl, () => {
-      setFwsBWLoading(true);
-      Promise.all([
-        get(`/api/operator/history?station_id=FWS1&date=${selectedDate}&topic=${encodeURIComponent('BACKWASHING P#12')}`),
-        get(`/api/operator/history?station_id=FWS2&date=${selectedDate}&topic=${encodeURIComponent('BACKWASHING P#3')}`),
-        get(`/api/operator/history?station_id=FWS2&date=${selectedDate}&topic=${encodeURIComponent('BACKWASHING P#4')}`),
-      ]).then(([p12, p3, p4]) => {
-        setFwsBW({ p12, p3, p4 });
-        try { sessionStorage.setItem(`dr_fwsbw_${selectedDate}`, JSON.stringify({ p12, p3, p4 })); } catch {}
-      })
-        .catch(e => console.warn('[FWS BW]', e.message))
-        .finally(() => setFwsBWLoading(false));
-    });
+    setStationRows(Object.fromEntries(STATION_LIST.map(s => [s, { status: 'loading', count: 0 }])));
+    setQuerying(true);
+    try {
+      // Single request — server batches all configIDs into one Uroboros call
+      const d = await get(`/api/daily-report/fetch-all?date=${selectedDate}`);
+      setReportData(d.report);
+      try { sessionStorage.setItem(`dr_report_${selectedDate}`, JSON.stringify(d.report)); } catch {}
+      setStationRows(Object.fromEntries(STATION_LIST.map(s => [s, { status: 'done', count: 0 }])));
+      if (d.fwsMap) {
+        const bw = { p12: d.fwsMap.FWS1, p3: d.fwsMap.FWS2, p4: d.fwsMap.FWS2 };
+        setFwsBW(bw);
+        try { sessionStorage.setItem(`dr_fwsbw_${selectedDate}`, JSON.stringify(bw)); } catch {}
+      }
+    } catch (e) {
+      setStationRows(Object.fromEntries(STATION_LIST.map(s => [s, { status: 'error', count: 0 }])));
+      setSaveMsg({ ok: false, text: 'QUERY ล้มเหลว: ' + e.message });
+    } finally {
+      setQuerying(false);
+    }
   }
 
   async function handleReQuery(sid) {
-    updateRow(sid, { status: 'pending', count: 0, patterns: {} });
-    const url = stage === 0
-      ? `${BASE}/api/daily-report/stream-station-stage0?date=${selectedDate}&station=${sid}`
-      : `${BASE}/api/daily-report/stream-station?date=${selectedDate}&station=${sid}`;
-    await runStream(url);
+    updateRow(sid, { status: 'loading' });
+    setQuerying(true);
+    try {
+      const d = await get(`/api/daily-report/fetch-station?date=${selectedDate}&station=${sid}`);
+      setReportData(d.report);
+      try { sessionStorage.setItem(`dr_report_${selectedDate}`, JSON.stringify(d.report)); } catch {}
+      updateRow(sid, { status: 'done' });
+    } catch (e) {
+      console.warn('[handleReQuery]', sid, e.message);
+      updateRow(sid, { status: 'error' });
+      setSaveMsg({ ok: false, text: `QUERY ${sid} ล้มเหลว: ${e.message}` });
+    } finally {
+      setQuerying(false);
+    }
+  }
+
+  // Report settings changed → recompute with new prices from the data already
+  // queried on the server (no AquaDAT re-fetch).
+  async function handleSettingsSaved() {
+    try {
+      const d = await get(`/api/daily-report/recompute?date=${selectedDate}`);
+      if (!d.cached) return { ok: false, text: 'ยังไม่มีข้อมูลที่ query ไว้ — กด QUERY DATA เพื่อคำนวณด้วยค่าใหม่' };
+      setReportData(d.report);
+      try { sessionStorage.setItem(`dr_report_${selectedDate}`, JSON.stringify(d.report)); } catch {}
+      setValidation(null);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, text: 'รีเฟรชรายงานไม่สำเร็จ: ' + e.message };
+    }
   }
 
   async function handleValidate() {
@@ -1941,6 +2097,7 @@ function DailyReportTab({ selectedDate, stage }) {
   }
 
   async function handleSave() {
+    if (!confirmNonToday(selectedDate)) return;
     setSaving(true);
     setSaveMsg(null);
     try {
@@ -1958,12 +2115,12 @@ function DailyReportTab({ selectedDate, stage }) {
   const washSummary = FWS_BW_PHASES.map(ph => {
     if (!fwsBW) return null;
     const histKey = ph.id === 'P3' ? 'p3' : ph.id === 'P4' ? 'p4' : 'p12';
-    const beds = parseBWPhase(fwsBW[histKey], ph.base, ph.totalBeds, ph.startNo, ph.levelIds ?? null);
-    const washedBeds = beds.filter(b => b.washes.length > 0);
-    const totalVol = washedBeds.reduce((s, b) => s + b.washes.reduce((ss, w) => ss + (w.washQty ?? 0), 0), 0);
-    const frtValues = washedBeds.map(b => b.washes[0]?.filterRun).filter(v => v != null);
-    const avgFRT = frtValues.length > 0 ? frtValues.reduce((s, v) => s + v, 0) / frtValues.length : null;
-    const hasRed = washedBeds.some(b => !b.washes.every(w => w.complete));
+    const events = parseBWPhase(fwsBW[histKey], ph.base, ph.totalBeds, ph.startNo, ph.levelIds ?? null);
+    if (!events) return null;
+    const totalVol  = events.reduce((s, e) => s + (e.washQty ?? 0), 0);
+    const frtValues = events.map(e => e.filterRun).filter(v => v != null);
+    const avgFRT    = frtValues.length > 0 ? frtValues.reduce((s, v) => s + v, 0) / frtValues.length : null;
+    const hasRed    = events.some(e => !e.complete);
     return { totalVol, avgFRT, hasRed };
   });
 
@@ -1982,8 +2139,15 @@ function DailyReportTab({ selectedDate, stage }) {
   const kpi = [
     { key: 'water',  label: 'WATER PRODUCED', value: d ? fmt(d.card3_pumped.total) : '—',           unit: 'ลบ.ม./วัน', color: '#16a34a' },
     { key: 'loss',   label: '% LOSS WATER',   value: adjWaterLoss != null ? fmt(adjWaterLoss, 2) : (d ? fmt(d.summary.water_loss_pct, 2) : '—'), unit: '%', color: '#dc2626' },
-    { key: 'cost',   label: 'TOTAL COST',     value: d ? fmt(d.summary.total_cost_baht) : '—',       unit: 'Baht',        color: '#9333ea' },
     { key: 'energy', label: 'ENERGY',         value: d ? fmt(d.card12_energy.total, 2) : '—',        unit: 'MWh',         color: '#d97706' },
+  ];
+
+  // TOTAL COST breakdown (บาท/ลบ.ม. of water produced)
+  const kpiCostRows = [
+    { key: 'chem',   label: 'ต้นทุนสารเคมี',      value: d ? fmt(d.summary.chem_cost_per_m3, 4)   : '—' },
+    { key: 'energy', label: 'ต้นทุนพลังงานไฟฟ้า',  value: d ? fmt(d.summary.energy_per_m3, 4)      : '—' },
+    { key: 'sludge', label: 'ต้นทุนกำจัดตะกอน',    value: d ? fmt(d.summary.sludge_cost_per_m3, 4) : '—' },
+    { key: 'total',  label: 'ต้นทุนรวม',           note: '*ไม่รวมค่าน้ำดิบ', value: d ? fmt(d.summary.op_cost_per_m3, 4) : '—', total: true },
   ];
 
   const summaryCards = d ? [
@@ -2062,8 +2226,9 @@ function DailyReportTab({ selectedDate, stage }) {
     fmt(d.card13_chem_remaining.pacl.days_ph34, 1),
     fmt(d.card13_chem_remaining.alum.days_ph12, 1),
     fmt(d.card13_chem_remaining.alum.days_ph34, 1),
-    '—', '—',
-  ] : ['0','0','0','0','0','0'];
+    fmt(d.card13_chem_remaining.chlorine.days_chem1, 1),
+    fmt(d.card13_chem_remaining.chlorine.days_chem2, 1),
+  ] : ['—','—','—','—','—','—'];
 
   const costRows = d ? [
     { label: 'CHEMICAL COST',        value: fmt(d.summary.chem_cost_per_m3,  4), unit: 'Baht/m³' },
@@ -2073,11 +2238,20 @@ function DailyReportTab({ selectedDate, stage }) {
     { label: 'TOTAL COST',           value: fmt(d.summary.total_cost_per_m3, 4), unit: 'Baht/m³', bold: true },
   ] : DR_COST_ROWS;
 
-  const paclUse  = d ? ((d.card5_chem1_pacl.out ?? 0) + (d.card6_chem2_pacl.out ?? 0)) : null;
-  const paclInc  = d ? ((d.card5_chem1_pacl.in  ?? 0) + (d.card6_chem2_pacl.in  ?? 0)) : null;
-  const alumUse  = d ? ((d.card9_chem1_alum.out  ?? 0) + (d.card10_chem2_alum.out ?? 0)) : null;
-  const alumInc  = d ? ((d.card9_chem1_alum.in   ?? 0) + (d.card10_chem2_alum.in  ?? 0)) : null;
-  const clUseKg  = d ? ((d.card7_chem1_cl.use_kg ?? 0) + (d.card8_chem2_cl.use_kg ?? 0)) : null;
+  const paclUse  = d ? addStrict(d.card5_chem1_pacl.out, d.card6_chem2_pacl.out) : null;
+  const paclInc  = d ? addStrict(d.card5_chem1_pacl.in,  d.card6_chem2_pacl.in)  : null;
+  const alumUse  = d ? addStrict(d.card9_chem1_alum.out, d.card10_chem2_alum.out) : null;
+  const alumInc  = d ? addStrict(d.card9_chem1_alum.in,  d.card10_chem2_alum.in)  : null;
+  const clUseKg  = d ? addStrict(d.card7_chem1_cl.use_kg, d.card8_chem2_cl.use_kg) : null;
+  // One cell of the chemical usage table: N/A (red) when the report is loaded but the value is missing
+  const usageCell = (v, dec, suffix = '') => {
+    const isNA = d && v == null;
+    return (
+      <td className={`px-1 py-0.5 text-center font-mono border border-earth-border ${isNA ? 'bg-red-50' : 'text-earth-ink'}`}>
+        {!d ? '—' : isNA ? <NA /> : `${fmt(v, dec)}${suffix}`}
+      </td>
+    );
+  };
 
   const totalWashWater = washSummary.reduce((s, ph) => s + (ph?.totalVol ?? 0), 0);
   const sankeyProps = d ? {
@@ -2094,6 +2268,7 @@ function DailyReportTab({ selectedDate, stage }) {
   } : { rw: 0, tps: 0, dpsA: 0, dpsB: 0, sludge: 0, serviceWater: 0, washWater: 0, loss: null };
 
   const cd = d?.card14_chem_dosing;
+  const dayOpen = !!d && d.day_complete === false;
   const chemDonutRows = CHEM_DONUT_ROWS.map(r => {
     const v =
       r.phase === 'PACl PHASE#1'    ? cd?.pacl_p1    :
@@ -2154,7 +2329,11 @@ function DailyReportTab({ selectedDate, stage }) {
       target: tgt,
       use:    u != null ? +u.toFixed(3) : 0,
       actual: act,
-      noData: v == null && a == null,
+      noData: v == null,
+      // day not finished (before 24:00) → TARGET is only a partial-day average: not final
+      targetNA: dayOpen,
+      useNA:    dayOpen || (!!d && u == null),
+      actualNA: dayOpen || (!!d && a == null),
       pct,
     };
   });
@@ -2163,63 +2342,18 @@ function DailyReportTab({ selectedDate, stage }) {
 
   return (
     <div className="h-full min-h-0 flex overflow-hidden bg-earth-DEFAULT">
-      {showSettings && <ReportSettingsModal onClose={() => setShowSettings(false)} />}
+      {showSettings && <ReportSettingsModal onClose={() => setShowSettings(false)} onSaved={handleSettingsSaved} />}
 
       {/* ── Query Modal ── */}
       {showQueryModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-earth-DEFAULT rounded-xl shadow-2xl w-96 flex flex-col overflow-hidden">
-            <div className="px-4 py-3 border-b border-earth-border flex items-center gap-2">
-              <span className="text-sm font-bold text-earth-ink">ดึงข้อมูล AquaDAT</span>
-              <span className="text-xs text-earth-ink3 ml-1">{selectedDate}</span>
-              <button
-                onClick={handleAllQuery}
-                disabled={querying}
-                className="ml-auto px-3 py-1 bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white text-xs font-bold rounded transition-colors"
-              >{querying ? '⏳ กำลังดึง...' : '▶ All Query'}</button>
-            </div>
-            <div className="flex flex-col divide-y divide-earth-border">
-              {STATION_LIST.map(sid => {
-                const row = stationRows[sid] || { status: 'pending', count: 0 };
-                const icon = row.status === 'loading' ? '⏳'
-                           : row.status === 'done'    ? '✅'
-                           : row.status === 'error'   ? (row.count > 0 ? '⚠️' : '❌')
-                           : '○';
-                const countLabel = row.count > 0 ? `${row.count} values` : '';
-                return (
-                  <div key={sid} className="flex items-center gap-2 px-4 py-2">
-                    <span className="text-base w-5 text-center leading-none shrink-0">{icon}</span>
-                    <span className="font-mono text-xs font-semibold text-earth-ink w-16 shrink-0">{sid}</span>
-                    <div className="flex items-center gap-1 flex-1 flex-wrap">
-                      <span className="text-xs text-earth-ink3">{countLabel}</span>
-                      {row.patterns && Object.entries(row.patterns).map(([pid, p]) => (
-                        <span key={pid} className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold ${
-                          p.status === 'done'
-                            ? p.count > 0 ? 'bg-green-100 text-green-700' : 'bg-earth-card text-earth-ink3'
-                            : 'bg-red-100 text-red-600'
-                        }`}>
-                          P{pid}{p.status === 'done' ? (p.count > 0 ? '✓' : '∅') : '✗'}
-                        </span>
-                      ))}
-                    </div>
-                    <button
-                      onClick={() => handleReQuery(sid)}
-                      disabled={querying}
-                      className="text-xs px-2 py-0.5 border border-earth-border hover:bg-earth-DEFAULT disabled:opacity-40 rounded text-earth-ink2 transition-colors"
-                    >re-query</button>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="px-4 py-2.5 border-t border-earth-border flex justify-end">
-              <button
-                onClick={() => setShowQueryModal(false)}
-                disabled={querying}
-                className="text-xs px-3 py-1.5 bg-earth-DEFAULT hover:bg-earth-card disabled:opacity-40 rounded text-earth-ink font-medium"
-              >ปิด</button>
-            </div>
-          </div>
-        </div>
+        <QueryModal
+          selectedDate={selectedDate}
+          stationRows={stationRows}
+          querying={querying}
+          onAllQuery={handleAllQuery}
+          onReQuery={handleReQuery}
+          onClose={() => setShowQueryModal(false)}
+        />
       )}
 
       {/* ── COL 1 (3): ACTION BOX + KPI + Sankey + tables ── */}
@@ -2231,6 +2365,15 @@ function DailyReportTab({ selectedDate, stage }) {
             onClick={handleQuery}
             className="px-2.5 py-1 bg-green-500 hover:bg-green-600 text-white text-sm font-bold rounded transition-colors"
           >QUERY DATA</button>
+
+          {showDbBtn && (
+            <button
+              onClick={handleDbQuery}
+              disabled={dbLoading}
+              className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-sm font-bold rounded transition-colors"
+              title="ดึงข้อมูลจาก Uroboros data.db (ไม่ผ่าน AquaDAT) — ซ่อน/แสดงด้วย Ctrl+Shift+F10"
+            >{dbLoading ? '⏳...' : 'FROM DB'}</button>
+          )}
 
           <button
             onClick={handleValidate}
@@ -2293,24 +2436,48 @@ function DailyReportTab({ selectedDate, stage }) {
               </div>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-3 gap-1.5">
             {kpi.map(k => (
-              <div key={k.key} className="rounded border border-earth-border px-2 py-1">
-                <div className="flex items-center justify-between leading-tight">
-                  <span className="text-sm text-earth-ink3 uppercase tracking-wide">{k.label}</span>
+              <div key={k.key} className={`rounded border px-2 py-1 min-w-0 ${d && k.value == null ? 'border-red-400 bg-red-50' : 'border-earth-border'}`}>
+                <div className="flex items-center justify-between gap-1 leading-tight">
+                  <span className="text-xs text-earth-ink3 uppercase tracking-wide truncate">{k.label}</span>
                   {k.key === 'energy' && (
-                    <span className="text-xs font-bold px-1.5 py-0.5 rounded"
+                    <span className="text-[10px] font-bold px-1 rounded shrink-0"
                           style={{ background: '#fef3c7', color: '#92400e', whiteSpace: 'nowrap' }}>
-                      ไม่คิด SS3 Bldg.
+                      ไม่คิด SS3
                     </span>
                   )}
                 </div>
-                <div className="text-2xl font-black font-mono leading-tight" style={{ color: k.color }}>
-                  {k.value ?? <span className="text-earth-ink3 text-lg">—</span>}
+                <div className="text-xl font-black font-mono leading-tight truncate" style={{ color: k.color }}>
+                  {k.value ?? (d ? <NA /> : <span className="text-earth-ink3 text-lg">—</span>)}
                 </div>
-                <div className="text-sm text-earth-ink3">{k.unit}</div>
+                <div className="text-xs text-earth-ink3">{k.unit}</div>
               </div>
             ))}
+          </div>
+
+          {/* TOTAL COST — 4 sub-boxes */}
+          <div className="mt-1.5 rounded border border-earth-border px-2 py-1">
+            <div className="flex items-center justify-between leading-tight mb-1">
+              <span className="text-xs text-earth-ink3 uppercase tracking-wide">TOTAL COST</span>
+              <span className="text-xs text-earth-ink3">บาท/ลบ.ม.</span>
+            </div>
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-1">
+              {kpiCostRows.map(c => (
+                <div key={c.key}
+                     className={`rounded px-1.5 py-1 min-w-0 flex flex-col ${d && c.value == null ? `${c.total ? 'border-2' : 'border'} border-red-400 bg-red-50` : c.total ? 'border-2' : 'border border-earth-border bg-earth-card'}`}
+                     style={c.total && !(d && c.value == null) ? { borderColor: '#9333ea', background: '#faf5ff' } : undefined}>
+                  <div className="text-[11px] leading-tight text-earth-ink2 font-semibold break-words" style={{ minHeight: '2.2em' }}>
+                    {c.label}
+                    {c.note && <span className="block text-[10px] text-earth-ink3 italic font-normal">{c.note}</span>}
+                  </div>
+                  <div className={`mt-auto font-black font-mono leading-tight ${c.total ? 'text-lg' : 'text-base'}`}
+                       style={{ color: '#9333ea' }}>
+                    {c.value ?? (d ? <NA /> : '—')}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -2337,16 +2504,16 @@ function DailyReportTab({ selectedDate, stage }) {
             <tbody>
               <tr>
                 {chemRemaining.map(r => (
-                  <td key={r.label} className="px-1 py-0.5 text-center font-mono text-earth-ink border border-earth-border">
-                    {r.value ?? <span className="text-earth-ink3">—</span>}
+                  <td key={r.label} className={`px-1 py-0.5 text-center font-mono text-earth-ink border border-earth-border ${d && r.value == null ? 'bg-red-50' : ''}`}>
+                    {r.value ?? (d ? <NA /> : <span className="text-earth-ink3">—</span>)}
                   </td>
                 ))}
                 <td className="px-1 py-0.5 text-center text-earth-ink3 border border-earth-border whitespace-nowrap">m³/TON</td>
               </tr>
               <tr>
                 {chemDays.map((v, i) => (
-                  <td key={i} className="px-1 py-0.5 text-center font-mono text-earth-ink border border-earth-border">
-                    {v ?? <span className="text-earth-ink3">—</span>}
+                  <td key={i} className={`px-1 py-0.5 text-center font-mono text-earth-ink border border-earth-border ${d && v == null ? 'bg-red-50' : ''}`}>
+                    {v ?? (d ? <NA /> : <span className="text-earth-ink3">—</span>)}
                   </td>
                 ))}
                 <td className="px-1 py-0.5 text-center text-earth-ink3 border border-earth-border">Day</td>
@@ -2370,13 +2537,13 @@ function DailyReportTab({ selectedDate, stage }) {
             </thead>
             <tbody>
               <tr>
-                <td className="px-1 py-0.5 text-center font-mono border border-earth-border text-earth-ink">{d ? fmt(alumUse, 2) : '—'}</td>
-                <td className="px-1 py-0.5 text-center font-mono border border-earth-border text-earth-ink">{d ? fmt(alumInc, 2) : '—'}</td>
-                <td className="px-1 py-0.5 text-center font-mono border border-earth-border text-earth-ink">{d ? fmt(paclUse, 2) : '—'}</td>
-                <td className="px-1 py-0.5 text-center font-mono border border-earth-border text-earth-ink">{d ? fmt(paclInc, 2) : '—'}</td>
-                <td className="px-1 py-0.5 text-center font-mono border border-earth-border text-earth-ink">{d ? fmt(clUseKg != null ? clUseKg / 1000 : null, 3) : '—'}</td>
-                <td className="px-1 py-0.5 text-center font-mono border border-earth-border text-earth-ink">{d ? `${fmt(d.cl_income ?? 0, 0)} ท่อ` : '—'}</td>
-                <td className="px-1 py-0.5 text-center font-mono border border-earth-border text-earth-ink">{d ? `${fmt(d.cl_return ?? 0, 0)} ท่อ` : '—'}</td>
+                {usageCell(alumUse, 2)}
+                {usageCell(alumInc, 2)}
+                {usageCell(paclUse, 2)}
+                {usageCell(paclInc, 2)}
+                {usageCell(clUseKg != null ? clUseKg / 1000 : null, 3)}
+                {usageCell(d?.cl_income, 0, ' ท่อ')}
+                {usageCell(d?.cl_return, 0, ' ท่อ')}
               </tr>
             </tbody>
           </table>
@@ -2419,16 +2586,16 @@ function DailyReportTab({ selectedDate, stage }) {
           {rightSubTab === 'SUMMARY' && (
             <>
               <div className="flex-[4] min-h-0 gap-1" style={{ display: 'grid', gridTemplateColumns: '2.7fr 2.3fr' }}>
-                <DailyTableCardUI title={summaryCards[0].title} rows={summaryCards[0].rows} compact grow />
-                <DailyTableCardUI title={summaryCards[1].title} rows={summaryCards[1].rows} compact grow />
+                <DailyTableCardUI title={summaryCards[0].title} rows={summaryCards[0].rows} compact grow na={!!d} />
+                <DailyTableCardUI title={summaryCards[1].title} rows={summaryCards[1].rows} compact grow na={!!d} />
               </div>
               <div className="min-h-0 gap-1" style={{ flex: '3.4 1 0%', display: 'grid', gridTemplateColumns: '2.7fr 2.3fr' }}>
-                <DailyTableCardUI title={summaryCards[2].title} rows={summaryCards[2].rows} compact grow />
-                <DailyTableCardUI title={summaryCards[3].title} rows={summaryCards[3].rows} compact grow />
+                <DailyTableCardUI title={summaryCards[2].title} rows={summaryCards[2].rows} compact grow na={!!d} />
+                <DailyTableCardUI title={summaryCards[3].title} rows={summaryCards[3].rows} compact grow na={!!d} />
               </div>
               <div className="min-h-0 gap-1" style={{ flex: '5.6 1 0%', display: 'grid', gridTemplateColumns: '2.7fr 2.3fr' }}>
                 <div className="flex flex-col gap-1 min-h-0 overflow-hidden">
-                  <DailyTableCardUI title={summaryCards[4].title} rows={summaryCards[4].rows} compact grow />
+                  <DailyTableCardUI title={summaryCards[4].title} rows={summaryCards[4].rows} compact grow na={!!d} />
                   <div className="shrink-0 grid grid-cols-2 gap-1">
                     <div className="border border-earth-border rounded bg-earth-DEFAULT px-1.5 py-1.5">
                       <div className="text-xs text-earth-ink2 font-semibold leading-tight">Filter Availability</div>
@@ -2442,15 +2609,15 @@ function DailyReportTab({ selectedDate, stage }) {
                           : <span className="text-earth-ink3">—</span>}
                       </div>
                     </div>
-                    <div className="border border-earth-border rounded bg-earth-DEFAULT px-1.5 py-1.5">
-                      <div className="text-xs text-earth-ink2 font-semibold leading-tight">SERVICE WATER</div>
+                    <div className={`border rounded px-1.5 py-1.5 ${d && d.summary.service_water_m3 == null ? 'border-red-400 bg-red-50' : 'border-earth-border bg-earth-DEFAULT'}`}>
+                      <div className={`text-xs font-semibold leading-tight ${d && d.summary.service_water_m3 == null ? 'text-red-500' : 'text-earth-ink2'}`}>SERVICE WATER</div>
                       <div className="text-sm font-black text-earth-ink font-mono">
-                        {d ? `${fmt(d.summary.service_water_m3)} m³` : '0 m³'}
+                        {!d ? '—' : d.summary.service_water_m3 == null ? <NA /> : `${fmt(d.summary.service_water_m3)} m³`}
                       </div>
                     </div>
                   </div>
                 </div>
-                <DailyTableCardUI title={summaryCards[5].title} rows={summaryCards[5].rows} compact grow />
+                <DailyTableCardUI title={summaryCards[5].title} rows={summaryCards[5].rows} compact grow na={!!d} />
               </div>
               <div className="flex-[2] min-h-0 grid grid-cols-4 gap-1">
                 {[0,1,2,3].map(i => {
@@ -2462,7 +2629,7 @@ function DailyReportTab({ selectedDate, stage }) {
                       <div className={`text-base font-black ${red ? 'text-red-700' : 'text-earth-ink'}`}>
                         {ws
                           ? (ws.totalVol > 0 ? `${ws.totalVol.toLocaleString('en-US', { maximumFractionDigits: 0 })} m³` : '0 m³')
-                          : (fwsBWLoading ? '…' : '0 m³')}
+                          : (querying ? '…' : '0 m³')}
                       </div>
                       <div className={`text-sm ${red ? 'text-red-500' : 'text-earth-ink2'}`}>
                         FRT: <span className="font-bold">{ws?.avgFRT != null ? ws.avgFRT.toFixed(1) : '0'}</span>
@@ -2482,7 +2649,7 @@ function DailyReportTab({ selectedDate, stage }) {
                 { title: 'CHEM2 ALUM',     rows: [{ label: 'Δ Tank C', value: d ? fmt(d.card10_chem2_alum.tankC_delta, 2) : null, unit: 'm³' }, { label: 'Δ Tank D', value: d ? fmt(d.card10_chem2_alum.tankD_delta, 2) : null, unit: 'm³' }, { label: 'Net', value: d ? fmt(d.card10_chem2_alum.net, 2) : null, unit: 'TON' }, { label: 'IN', value: d ? fmt(d.card10_chem2_alum.in, 2) : null, unit: 'TON' }, { label: 'OUT (USE)', value: d ? fmt(d.card10_chem2_alum.out, 2) : null, unit: 'TON', bold: true }] },
                 { title: 'CHEM1 Chlorine', rows: [{ label: 'Δ Line A', value: d ? fmt(d.card7_chem1_cl.lineA_delta, 1) : null, unit: 'kg' }, { label: 'Δ Line B', value: d ? fmt(d.card7_chem1_cl.lineB_delta, 1) : null, unit: 'kg' }, { label: 'IN', value: d ? fmt(d.card7_chem1_cl.in_kg, 1) : null, unit: 'kg' }, { label: 'USE', value: d ? fmt(d.card7_chem1_cl.use_kg, 1) : null, unit: 'kg', bold: true }] },
                 { title: 'CHEM2 Chlorine', rows: [{ label: 'Δ Line C', value: d ? fmt(d.card8_chem2_cl.lineC_delta, 1) : null, unit: 'kg' }, { label: 'Δ Line D', value: d ? fmt(d.card8_chem2_cl.lineD_delta, 1) : null, unit: 'kg' }, { label: 'IN', value: d ? fmt(d.card8_chem2_cl.in_kg, 1) : null, unit: 'kg' }, { label: 'USE', value: d ? fmt(d.card8_chem2_cl.use_kg, 1) : null, unit: 'kg', bold: true }] },
-              ].map(c => <DailyTableCardUI key={c.title} {...c} />)}
+              ].map(c => <DailyTableCardUI key={c.title} {...c} na={!!d} />)}
             </div>
           )}
           {rightSubTab === 'RECYCLE WATER' && (
@@ -2579,14 +2746,13 @@ function DailyReportTab({ selectedDate, stage }) {
           )}
           {rightSubTab === 'FILTRATION' && (
             <div className="flex flex-col gap-2">
-              {fwsBWLoading && (
+              {querying && (
                 <div className="text-xs text-earth-ink3 text-center py-3">กำลังโหลดข้อมูลบ่อกรอง...</div>
               )}
               {FWS_BW_PHASES.map(ph => {
                 const histKey = ph.id === 'P3' ? 'p3' : ph.id === 'P4' ? 'p4' : 'p12';
-                const beds = fwsBW ? parseBWPhase(fwsBW[histKey], ph.base, ph.totalBeds, ph.startNo, ph.levelIds ?? null) : null;
-                const washedBeds   = beds ? beds.filter(b => b.washes.length > 0) : [];
-                const totalBWVol   = washedBeds.reduce((s, b) => s + b.washes.reduce((ss, w) => ss + w.washQty, 0), 0);
+                const events    = fwsBW ? parseBWPhase(fwsBW[histKey], ph.base, ph.totalBeds, ph.startNo, ph.levelIds ?? null) : null;
+                const totalBWVol = events ? events.reduce((s, e) => s + (e.washQty ?? 0), 0) : 0;
                 return (
                   <div key={ph.id} className="border border-earth-border rounded-md overflow-hidden bg-earth-DEFAULT">
                     {/* Phase header stripe */}
@@ -2595,13 +2761,13 @@ function DailyReportTab({ selectedDate, stage }) {
                       <span className="text-xs font-medium" style={{ color: 'rgba(148,163,184,0.7)' }}>{ph.src}</span>
                       <div className="w-px h-4 flex-shrink-0" style={{ background: 'rgba(255,255,255,0.15)' }} />
                       <span className="text-xs" style={{ color: 'rgba(148,163,184,0.6)' }}>{ph.totalBeds} beds</span>
-                      {beds && (
+                      {events && (
                         <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full"
                               style={{ background: 'rgba(14,165,233,0.18)', color: '#38bdf8' }}>
-                          ↻ {washedBeds.length} BW
+                          ↻ {events.length} BW
                         </span>
                       )}
-                      {beds && totalBWVol > 0 && (
+                      {events && totalBWVol > 0 && (
                         <span className="ml-auto text-xs tabular-nums" style={{ color: 'rgba(148,163,184,0.6)' }}>
                           Total BW{' '}
                           <span className="font-bold" style={{ color: '#38bdf8' }}>
@@ -2609,66 +2775,56 @@ function DailyReportTab({ selectedDate, stage }) {
                           </span>
                         </span>
                       )}
-                      {beds && washedBeds.length === 0 && (
+                      {events && events.length === 0 && (
                         <span className="ml-auto text-xs italic" style={{ color: 'rgba(148,163,184,0.5)' }}>ไม่มีการล้างบ่อกรอง</span>
                       )}
                     </div>
-                    {/* Washed bed cards */}
-                    <div className={washedBeds.length > 6
+                    {/* One card per wash event */}
+                    <div className={events && events.length > 6
                       ? 'grid grid-cols-6 gap-1.5 px-2.5 py-2 overflow-y-auto'
                       : 'flex gap-1.5 px-2.5 py-2 overflow-x-auto'}
-                         style={washedBeds.length > 6 ? { maxHeight: '260px' } : { minHeight: '72px' }}>
-                      {!beds && !fwsBWLoading && (
+                         style={events && events.length > 6 ? { maxHeight: '260px' } : { minHeight: '72px' }}>
+                      {!events && !querying && (
                         <span className="text-xs text-slate-400 italic self-center">กด QUERY เพื่อโหลดข้อมูล</span>
                       )}
-                      {beds && washedBeds.length === 0 && (
+                      {events && events.length === 0 && (
                         <span className="text-xs text-slate-400 italic self-center">ไม่มีการล้างบ่อกรองในวันนี้</span>
                       )}
-                      {washedBeds.map(bed => {
-                        const allComplete = bed.washes.every(w => w.complete);
-                        const totalVol    = bed.washes.reduce((s, w) => s + (w.washQty ?? 0), 0);
-                        const firstRun    = bed.washes[0].filterRun;
-                        // green = all fields present, red = some missing
-                        const cardBg     = allComplete ? '#d1fae5' : '#fee2e2';
-                        const cardBorder = allComplete ? '#6ee7b7' : '#fca5a5';
-                        const accentBar  = allComplete ? '#10b981' : '#ef4444';
-                        const badgeBg    = allComplete ? 'rgba(16,185,129,0.15)'  : 'rgba(239,68,68,0.15)';
-                        const badgeColor = allComplete ? '#065f46' : '#991b1b';
-                        const moreColor  = allComplete ? '#10b981' : '#ef4444';
+                      {events && events.map((ev, idx) => {
+                        const cardBg     = ev.complete ? '#d1fae5' : '#fee2e2';
+                        const cardBorder = ev.complete ? '#6ee7b7' : '#fca5a5';
+                        const accentBar  = ev.complete ? '#10b981' : '#ef4444';
+                        const badgeBg    = ev.complete ? 'rgba(16,185,129,0.15)'  : 'rgba(239,68,68,0.15)';
+                        const badgeColor = ev.complete ? '#065f46' : '#991b1b';
                         return (
-                          <div key={bed.no}
+                          <div key={`${ev.no}-${ev.slot}-${idx}`}
                                className="flex-shrink-0 rounded overflow-hidden cursor-pointer hover:brightness-95 transition-[filter]"
                                style={{ minWidth: '96px', maxWidth: '96px', background: cardBg, border: `1px solid ${cardBorder}` }}
-                               onClick={() => navigate(`/op-record?station=${ph.station}&date=${selectedDate}&topic=${encodeURIComponent(ph.topic)}&focus=${bed.byShiftId}`)}>
+                               onClick={() => navigate(`/op-record?station=${ph.station}&date=${selectedDate}&topic=${encodeURIComponent(ph.topic)}&focus=${ev.byShiftId}`)}>
                             <div style={{ height: '3px', background: accentBar }} />
                             <div className="flex items-center justify-between px-1.5 py-1"
                                  style={{ borderBottom: `1px solid ${cardBorder}` }}>
-                              <span className="text-xs font-bold text-slate-800">No.{bed.no}</span>
+                              <span className="text-xs font-bold text-slate-800">No.{ev.no}</span>
                               <span className="text-[10px] font-semibold rounded px-1 py-0.5"
                                     style={{ background: badgeBg, color: badgeColor }}>
-                                {bed.washes.map(w => w.shift).join('/')}
+                                {ev.shift != null ? `Shift ${ev.shift}` : ev.slot}
                               </span>
                             </div>
                             <div className="px-1.5 py-1.5 flex flex-col gap-1">
                               <div className="flex justify-between items-baseline">
                                 <span className="text-[10px] uppercase tracking-wide text-slate-500">Runtime</span>
                                 <span className="text-sm font-bold tabular-nums text-slate-800">
-                                  {firstRun != null ? firstRun.toFixed(1) : '—'}
+                                  {ev.filterRun != null ? ev.filterRun.toFixed(1) : '—'}
                                   <span className="text-[10px] font-normal text-slate-400 ml-0.5">h</span>
                                 </span>
                               </div>
                               <div className="flex justify-between items-baseline">
                                 <span className="text-[10px] uppercase tracking-wide text-slate-500">BW Vol</span>
                                 <span className="text-sm font-bold tabular-nums text-slate-800">
-                                  {totalVol > 0 ? totalVol.toFixed(0) : '—'}
+                                  {ev.washQty != null ? ev.washQty.toFixed(0) : '—'}
                                   <span className="text-[10px] font-normal text-slate-400 ml-0.5">m³</span>
                                 </span>
                               </div>
-                              {bed.washes.length > 1 && (
-                                <span className="text-[10px] font-medium" style={{ color: moreColor }}>
-                                  +{bed.washes.length - 1} more wash
-                                </span>
-                              )}
                             </div>
                           </div>
                         );
@@ -2775,11 +2931,7 @@ export default function OpRecord() {
     const s = searchParams.get('station');
     if (s && ACTIVE_STATIONS.has(s)) setActiveStation(s);
   }, [searchParams]); // eslint-disable-line
-  const [selectedDate, setSelectedDate] = useState(() => {
-    const urlDate = searchParams.get('date');
-    if (urlDate) { setRefDate(urlDate); return urlDate; }
-    return getRefDate();
-  });
+  const [selectedDate, setSelectedDate] = useState(() => initRefDate(searchParams.get('date')));
   const [activeTopic, setActiveTopic]     = useState(null);
   const [history, setHistory]             = useState({});
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -3006,6 +3158,7 @@ export default function OpRecord() {
       }
     }
     if (!records.length) return;
+    if (!confirmNonToday(selectedDate)) return;
     setSubmitStatus(prev => ({ ...prev, [topicName]: 'sending' }));
     try {
       await post('/api/operator/record', { records, station_id: activeStation });

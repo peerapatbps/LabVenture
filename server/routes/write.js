@@ -4,7 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const { writeData } = require('../services/aquadat');
 const { getDb, persist, nowTH } = require('../services/db');
-const { writeToExcel } = require('../services/excelWriter');
+const { writeToExcel, buildDailyLab } = require('../services/excelWriter');
+const { rememberToken, processAquadatQueue, processExcelQueue } = require('../services/queueWorker');
 
 const NODES_PATH = path.join(__dirname, '..', 'config', 'nodes.json');
 
@@ -171,6 +172,70 @@ function buildDerivedJarTestRecords(records) {
 }
 
 // GET /api/write/nodes?date=&slot= — fetch existing values from node_records
+// { date: { shift_range: { name, position_label } } } — ผู้บันทึกแต่ละกะ สำหรับช่องลงชื่อใน DailyLab
+function loadRecorders(db, dates) {
+  const out = {};
+  for (const d of dates) {
+    out[d] = {};
+    for (const row of db.all('SELECT shift_range, recorder_name, position_label FROM slot_recorders WHERE trans_dtm = ?', [d])) {
+      out[d][row.shift_range] = { name: row.recorder_name, position_label: row.position_label };
+    }
+  }
+  return out;
+}
+
+// ── DailyLab ดาวน์โหลด (Excel เท่านั้น — PDF ผ่าน Excel COM ช้าเกินไปเมื่อหลายวัน): ?from=YYYY-MM-DD&to=YYYY-MM-DD → 1 ชีทต่อวัน จาก theme + node_records ──
+const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MAX_EXPORT_DAYS = 62;
+router.get('/export.xlsx', requireAuth, async (req, res) => {
+  const { from, to } = req.query;
+  const re = /^\d{4}-\d{2}-\d{2}$/;
+  if (!re.test(from || '') || !re.test(to || '') || from > to) return res.status(400).json({ error: 'ช่วงวันที่ไม่ถูกต้อง' });
+  const dates = [];
+  for (let t = Date.parse(from + 'T00:00:00Z'); t <= Date.parse(to + 'T00:00:00Z'); t += 86400000) {
+    dates.push(new Date(t).toISOString().slice(0, 10));
+    if (dates.length > MAX_EXPORT_DAYS) return res.status(400).json({ error: `เลือกได้ไม่เกิน ${MAX_EXPORT_DAYS} วัน` });
+  }
+
+  const db = getDb();
+  // ค่าวันละครั้ง: ใช้ค่าล่าสุดของวัน ไม่ว่าจะบันทึกใน slot ไหน (เหมือน GET /nodes?slot=daily)
+  const daily = new Set(getNodesConfig().nodes.flatMap(n => n.parameters || []).filter(p => p.frequency === 'daily').map(p => p.param_key));
+  const records = db.all(
+    'SELECT param_key, trans_dtm, trans_time, trans_value FROM node_records WHERE trans_dtm BETWEEN ? AND ? ORDER BY recorded_at ASC, id ASC',
+    [from, to]
+  ).map(r => {
+    const param_key = normalizeParamKey(r.param_key);
+    return { ...r, param_key, trans_time: daily.has(param_key) ? 'daily' : r.trans_time };
+  });
+
+  const be = d => `${+d.slice(0, 4) + 543}-${d.slice(5)}`;
+  const [y, m] = from.split('-');
+  const monthEnd = new Date(Date.UTC(+y, +m, 0)).toISOString().slice(0, 10);
+  const name = from === to ? `DailyLab_${be(from)}`
+    : from === `${y}-${m}-01` && to === monthEnd ? `${m}DailyLab_${MONTH_ABBR[+m - 1]}${String((+y + 543) % 100).padStart(2, '0')}`
+    : `DailyLab_${be(from)}_${be(to)}`;
+
+  // dosage=1 (from /record "Operation daily report generator"): Daily Dosage cells
+  // from the Daily Report the user just queried (server cache) — per date
+  const extraCells = {};
+  if (req.query.dosage === '1') {
+    const { getCachedReport } = require('./dailyReport');
+    const { dailyLabDosageCells } = require('../services/dailyReport');
+    for (const d of dates) {
+      const cells = dailyLabDosageCells(getCachedReport(d));
+      if (Object.keys(cells).length) extraCells[d] = cells;
+    }
+  }
+
+  try {
+    const buf = await buildDailyLab(dates, records, loadRecorders(db, dates), extraCells);
+    require('../services/sendFile').sendFile(res, 'xlsx', name, buf, 'dailylab');
+  } catch (e) {
+    console.error('[write/export]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 router.get('/nodes', requireAuth, (req, res) => {
   const { date, slot } = req.query;
   if (!date || !slot) return res.status(400).json({ error: 'date and slot required' });
@@ -255,6 +320,7 @@ function serverTimeShiftRange() {
 // Write node-based records: save to local DB + forward to AquaDAT for params that have configparam_id
 router.post('/nodes', requireAuth, async (req, res) => {
   const token = req.cookies.aquadat_token;
+  rememberToken(token);   // ให้ queueWorker มี token จริงไว้ retry aquadat_queue
   const { records, plant_id, recorder_name } = req.body;
   if (!Array.isArray(records) || records.length === 0) {
     return res.status(400).json({ error: 'records array required' });
@@ -346,15 +412,7 @@ router.post('/nodes', requireAuth, async (req, res) => {
   }
 
   // Gather all recorder info for affected dates
-  const affectedDates = [...new Set(finalRecords.map(r => r.trans_dtm))];
-  const recordersByDate = {};
-  for (const d of affectedDates) {
-    const rows = db.all('SELECT shift_range, recorder_name, position_label FROM slot_recorders WHERE trans_dtm = ?', [d]);
-    recordersByDate[d] = {};
-    for (const row of rows) {
-      recordersByDate[d][row.shift_range] = { name: row.recorder_name, position_label: row.position_label };
-    }
-  }
+  const recordersByDate = loadRecorders(db, [...new Set(finalRecords.map(r => r.trans_dtm))]);
 
   let excelResult = null;
   let excelError = null;
@@ -395,42 +453,40 @@ router.get('/queue', requireAuth, (req, res) => {
       WHERE status IN ('pending', 'dead')
       ORDER BY created_at ASC`
   );
-  res.json({ items, count: items.length });
+  const excelCount = db.get(`SELECT COUNT(*) AS n FROM excel_queue WHERE status IN ('pending', 'dead')`)?.n ?? 0;
+  const excelLast = db.get(
+    `SELECT last_error FROM excel_queue WHERE status IN ('pending', 'dead') AND last_error IS NOT NULL ORDER BY id DESC LIMIT 1`
+  );
+  res.json({ items, count: items.length, excel_count: excelCount, excel_last_error: excelLast?.last_error ?? null });
 });
 
-// POST /api/write/queue/retry — retry all pending/dead items using current user's token
+// POST /api/write/queue/retry-excel — ปุ่ม retry ใน popup: ลองเขียน excel_queue ทันที แล้วบอกว่ายังค้างอยู่ไหม
+router.post('/queue/retry-excel', requireAuth, async (req, res) => {
+  const result = await processExcelQueue({ statuses: ['pending', 'dead'] });
+  const db = getDb();
+  const remaining = db.get(`SELECT COUNT(*) AS n FROM excel_queue WHERE status IN ('pending', 'dead')`)?.n ?? 0;
+  const last = db.get(
+    `SELECT last_error FROM excel_queue WHERE status IN ('pending', 'dead') AND last_error IS NOT NULL ORDER BY id DESC LIMIT 1`
+  );
+  res.json({ ok: remaining === 0, ...result, remaining, last_error: last?.last_error ?? null });
+});
+
+// POST /api/write/queue/retry — retry all pending/dead items (AquaDAT ด้วย token ผู้ใช้ปัจจุบัน + Excel)
 router.post('/queue/retry', requireAuth, async (req, res) => {
   const token = req.cookies.aquadat_token;
-  const db = getDb();
-  const items = db.all(
-    `SELECT * FROM aquadat_queue WHERE status IN ('pending', 'dead')`
-  );
-
-  let succeeded = 0, failed = 0;
-  for (const item of items) {
-    const records = JSON.parse(item.payload);
-    try {
-      await writeData(token, records);
-      db.run(
-        `UPDATE aquadat_queue SET status='success', last_attempt=? WHERE id=?`,
-        [nowTH(), item.id]
-      );
-      succeeded++;
-    } catch (err) {
-      const attempts = item.attempts + 1;
-      db.run(
-        `UPDATE aquadat_queue
-            SET attempts=?, last_attempt=?, last_error=?,
-                status=CASE WHEN ? >= 3 THEN 'dead' ELSE 'pending' END
-          WHERE id=?`,
-        [attempts, nowTH(), err.message, attempts, item.id]
-      );
-      failed++;
-    }
-    persist();
-  }
-
-  res.json({ ok: true, succeeded, failed });
+  rememberToken(token);
+  const statuses = ['pending', 'dead'];
+  const aquadat = token.endsWith('.bypass')
+    ? { skipped: true, succeeded: 0, failed: 0 }
+    : await processAquadatQueue(token, { statuses });
+  const excel = await processExcelQueue({ statuses });
+  res.json({
+    ok: true,
+    succeeded: aquadat.succeeded + excel.succeeded,
+    failed: aquadat.failed + excel.failed,
+    aquadat,
+    excel,
+  });
 });
 
 module.exports = router;

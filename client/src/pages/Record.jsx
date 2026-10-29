@@ -1,8 +1,10 @@
 ﻿import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { get, post } from '../api.js';
-import { getRefDate, setRefDate } from '../utils/refDate.js';
+import { initRefDate, setRefDate, confirmNonToday } from '../utils/refDate.js';
 import DateSyncBar from '../components/DateSyncBar.jsx';
+import ExportBar from '../components/PrintReport.jsx';
 
 const SLOTS_2H = ['01:00','03:00','05:00','07:00','09:00','11:00','13:00','15:00','17:00','19:00','21:00','23:00'];
 const SLOTS_4H = new Set(['01:00','05:00','09:00','13:00','17:00','21:00']);
@@ -39,6 +41,13 @@ function getCurrentSlotAndDate() {
 const DAILY_SLOT = 'daily';
 const WEEKLY_SLOT = 'weekly';
 
+// param รายวันที่ตั้ง inSlot (OC ของ CW/FW) → บันทึกในปุ่มเวลา fixedTime แทนแท็บวันละ 1 ครั้ง
+// (Jar Test ก็มี fixedTime 05:00 แต่ไม่มี inSlot → อยู่แท็บรายวันตามเดิม)
+function slotMatchesParam(slot, p) {
+  if (p.inSlot && p.frequency === 'daily' && SLOTS_2H.includes(p.fixedTime)) return slot === p.fixedTime;
+  return slotMatchesFreq(slot, p.frequency);
+}
+
 function slotMatchesFreq(slot, freq) {
   if (slot === WEEKLY_SLOT) return freq === 'weekly';
   if (slot === DAILY_SLOT) return freq === 'daily';
@@ -47,6 +56,15 @@ function slotMatchesFreq(slot, freq) {
   if (freq === '4h') return SLOTS_4H.has(slot);
   if (freq === '12h') return SLOTS_12H.has(slot);
   return false;
+}
+
+// แปลง error ดิบจาก excel_writer (stderr) เป็นข้อความที่ผู้ใช้อ่านเข้าใจ
+function excelErrorText(err) {
+  if (!err) return '';
+  if (/ถูกเปิดค้าง|read-only/.test(err)) return 'ไฟล์ Excel ถูกเปิดค้างอยู่ (อาจเป็นที่เครื่องอื่น) — กรุณาปิดไฟล์ก่อน';
+  if (/verify:/.test(err)) return 'บันทึกไฟล์แล้วแต่ค่าในไฟล์ไม่ตรงกับที่ส่งไป';
+  if (/push to|No such file|WinError|ENOENT|network/i.test(err)) return 'เข้าถึงโฟลเดอร์ Excel ปลายทางไม่ได้ (เครือข่าย/สิทธิ์)';
+  return err.trim().split(/\r?\n/).filter(Boolean).pop();
 }
 
 const FREQ_LABEL = { '2h': '2ชม.', '4h': '4ชม.', '12h': '12ชม.', 'daily': 'รายวัน', 'weekly': 'รายสัปดาห์' };
@@ -78,6 +96,19 @@ function groupBySubgroup(params) {
   return order.map(k => ({ subgroup: k === '__flat__' ? null : k, params: map[k] }));
 }
 
+// Langelier Saturation Index = pH − pHs  (สูตรเดียวกับ master form เช่น J62)
+// pHs = (9.3 + (log10(Conduct×0.67) − 1)/10 + (−13.12·log10(Temp+273) + 34.55)) − (log10(Hardness) − 0.4 + log10(Alk))
+const LANGELIER_STATIONS = ['TW1', 'TW2'];
+const LANGELIER_INPUTS = ['pH', 'Conduct', 'Temp', 'Hardness', 'alk'];
+function calcLangelier(pH, conduct, temp, hardness, alk) {
+  const [p, c, t, h, a] = [pH, conduct, temp, hardness, alk].map(v => (v === '' || v == null ? NaN : Number(v)));
+  if (![p, c, t, h, a].every(Number.isFinite) || c <= 0 || h <= 0 || a <= 0) return null;
+  const pHs = (9.3 + (Math.log10(c * 0.67) - 1) / 10 + (-13.12 * Math.log10(t + 273) + 34.55))
+    - (Math.log10(h) - 0.4 + Math.log10(a));
+  return p - pHs;
+}
+const isAutoParam = paramKey => /^TW\d\.Langelier$/.test(paramKey);
+
 function isTextParam(paramKey) {
   return /RecommendDose/.test(paramKey);
 }
@@ -106,7 +137,6 @@ function AlgaeSpeciesPanel({ selectedDate, onSpeciesChange, canRecord = true }) 
   const [showAddForm, setShowAddForm] = useState(false);
   const [addForm, setAddForm] = useState({ division: '', species_name: '', category: '' });
   const [saveStatus, setSaveStatus] = useState(null);
-  const [exportStatus, setExportStatus] = useState(null); // null | 'exporting' | { sheet, written } | 'error'
   const qc = useQueryClient();
 
   const { data: searchResults = [] } = useQuery({
@@ -157,6 +187,7 @@ function AlgaeSpeciesPanel({ selectedDate, onSpeciesChange, canRecord = true }) 
   }
 
   async function handleSave() {
+    if (!confirmNonToday(selectedDate)) return;
     setSaveStatus('saving');
     const items = stationSelected.map(s => ({ species_id: s.species_id, count: s.count === '' ? null : Number(s.count) }));
     try {
@@ -166,18 +197,6 @@ function AlgaeSpeciesPanel({ selectedDate, onSpeciesChange, canRecord = true }) 
       setTimeout(() => setSaveStatus(null), 2000);
     } catch {
       setSaveStatus('error');
-    }
-  }
-
-  async function handleExport() {
-    setExportStatus('exporting');
-    try {
-      const result = await post('/api/algae/export', { date: selectedDate });
-      setExportStatus(result);
-      setTimeout(() => setExportStatus(null), 5000);
-    } catch {
-      setExportStatus('error');
-      setTimeout(() => setExportStatus(null), 3000);
     }
   }
 
@@ -322,43 +341,23 @@ function AlgaeSpeciesPanel({ selectedDate, onSpeciesChange, canRecord = true }) 
         </button>
         {saveStatus === 'error' && <p className="text-red-600 text-sm text-center">เกิดข้อผิดพลาด กรุณาลองใหม่</p>}
 
-        {/* Export to Excel */}
-        <div className="border-t border-rose-100 pt-3 space-y-2">
-          <button
-            onClick={handleExport}
-            disabled={exportStatus === 'exporting'}
-            className="w-full bg-emerald-700 hover:bg-emerald-600 disabled:opacity-40 text-white font-semibold py-3 rounded-xl transition-colors text-sm flex items-center justify-center gap-2"
-          >
-            {exportStatus === 'exporting'
-              ? 'กำลัง Export...'
-              : '📥 Export สาหร่ายลง Excel'}
-          </button>
-          {exportStatus && exportStatus !== 'exporting' && exportStatus !== 'error' && (
-            <p className="text-emerald-700 text-xs text-center font-medium">
-              ✅ บันทึก sheet <strong>{exportStatus.sheet}</strong> แล้ว ({exportStatus.written} รายการ)
-            </p>
-          )}
-          {exportStatus === 'error' && (
-            <p className="text-red-600 text-xs text-center">Export ล้มเหลว กรุณาลองใหม่</p>
-          )}
-        </div>
       </div>
     </div>
   );
 }
 
 export default function Record() {
-  const [selectedDate, setSelectedDate] = useState(() => {
-    const urlDate = new URLSearchParams(window.location.search).get('date');
-    if (urlDate) { setRefDate(urlDate); return urlDate; }
-    return getRefDate();
-  });
+  const [selectedDate, setSelectedDate] = useState(() =>
+    initRefDate(new URLSearchParams(window.location.search).get('date'))
+  );
   const [selectedSlot, setSelectedSlot] = useState(() => {
     const urlSlot = new URLSearchParams(window.location.search).get('slot');
     return urlSlot || getCurrentSlotAndDate().slot;
   });
   const [values, setValues] = useState({});
   const [submitted, setSubmitted] = useState(false);
+  const [saveWarnings, setSaveWarnings] = useState(null); // { aquadat, excel } จาก /api/write/nodes
+  const [excelFail, setExcelFail] = useState(null);       // popup: { error, retried, done }
   const [carPrompts, setCarPrompts] = useState([]);
   const [algaeSpecies, setAlgaeSpecies] = useState({});
   const [syncing, setSyncing] = useState(false);
@@ -366,6 +365,9 @@ export default function Record() {
   const qc = useQueryClient();
   const [stage, setStage] = useState(1);
   const autoSwitchFiredRef = useRef(false);
+  // true เมื่อ user เลือกหลักเวลาเอง (หรือมาจาก ?slot=) → หยุด auto-follow นาฬิกา
+  // reset เองเมื่อ F5 หรือออกไปหน้าอื่นแล้วกลับมา (component remount)
+  const userPickedSlotRef = useRef(!!new URLSearchParams(window.location.search).get('slot'));
 
   const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split('T')[0];
 
@@ -403,6 +405,7 @@ export default function Record() {
   useEffect(() => {
     if (selectedDate !== today) return;
     const tick = () => {
+      if (userPickedSlotRef.current) return;
       const { slot } = getCurrentSlotAndDate();
       setSelectedSlot(prev => {
         if (prev !== slot) { setValues({}); setSubmitted(false); setCarPrompts([]); }
@@ -451,6 +454,12 @@ export default function Record() {
 
   const { data: nodesConfig } = useQuery({ queryKey: ['nodes-config'], queryFn: () => get('/api/config/nodes') });
   const { data: scenario } = useQuery({ queryKey: ['active-scenario'], queryFn: () => get('/api/scenarios/active') });
+  // ครั้งที่เกินเกณฑ์ติดกันก่อนรอบนี้ → เกินครั้งแรก = น้ำเงิน, เกินต่อเนื่อง = แดง (กติกาเดียวกับ Dashboard / MHxView)
+  const { data: streaks } = useQuery({
+    queryKey: ['streaks', selectedDate, selectedSlot],
+    queryFn: () => get(`/api/scenarios/streaks?date=${selectedDate}&slot=${encodeURIComponent(selectedSlot)}`),
+    enabled: !!selectedDate && !!selectedSlot,
+  });
 
   // Pre-fill from DB whenever date or slot changes
   const { data: existingValues } = useQuery({
@@ -478,6 +487,22 @@ export default function Record() {
     });
   }, [algaeSpecies, selectedSlot]);
 
+  // Langelier ของ TW1/TW2 (รอบ 09:00, 21:00) คำนวณจากสูตรเดียวกับ master form — ไม่ให้กรอกเอง
+  const langelierDeps = LANGELIER_STATIONS.flatMap(st => LANGELIER_INPUTS.map(f => values[`${st}.${f}`])).join('|');
+  useEffect(() => {
+    setValues(prev => {
+      let changed = false;
+      const next = { ...prev };
+      for (const st of LANGELIER_STATIONS) {
+        const key = `${st}.Langelier`;
+        const v = calcLangelier(prev[`${st}.pH`], prev[`${st}.Conduct`], prev[`${st}.Temp`], prev[`${st}.Hardness`], prev[`${st}.alk`]);
+        const s = v === null ? '' : v.toFixed(2);
+        if ((prev[key] ?? '') !== s) { next[key] = s; changed = true; }
+      }
+      return changed ? next : prev;
+    });
+  }, [langelierDeps]); // eslint-disable-line
+
   const thresholdMap = useMemo(() => {
     const map = {};
     for (const t of scenario?.thresholds ?? []) map[t.param_key] = t;
@@ -490,7 +515,7 @@ export default function Record() {
     return nodesConfig.nodes
       .map(node => ({
         ...node,
-        params: node.parameters.filter(p => slotMatchesFreq(selectedSlot, p.frequency)),
+        params: node.parameters.filter(p => slotMatchesParam(selectedSlot, p)),
       }))
       .filter(node => node.params.length > 0)
       .sort((a, b) => a.sort - b.sort);
@@ -506,6 +531,12 @@ export default function Record() {
     if (t.max !== null && t.max !== undefined && v > t.max) return true;
     if (t.min !== null && t.min !== undefined && v < t.min) return true;
     return false;
+  }
+
+  // null = ในเกณฑ์ · 'first' = เกินครั้งแรก (น้ำเงิน) · 'repeat' = เกินต่อจากรอบก่อน (แดง)
+  function breachLevel(param_key, value) {
+    if (!isOutOfRange(param_key, value)) return null;
+    return (streaks?.[param_key]?.streak || 0) >= 1 ? 'repeat' : 'first';
   }
 
   function getThresholdLabel(param_key) {
@@ -537,10 +568,21 @@ export default function Record() {
     refetchInterval: 30000,
   });
   const queueCount = queueStatus?.count ?? 0;
+  const excelQueueCount = queueStatus?.excel_count ?? 0;
 
   const retryMutation = useMutation({
     mutationFn: () => post('/api/write/queue/retry'),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['aquadat-queue'] }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['aquadat-queue'] }),
+  });
+
+  const excelRetryMutation = useMutation({
+    mutationFn: () => post('/api/write/queue/retry-excel'),
+    onSuccess: (r) => {
+      if (r?.ok) setExcelFail({ error: null, retried: true, done: true });
+      else setExcelFail(f => ({ ...f, error: r?.last_error ?? f?.error, retried: true, done: false }));
+    },
+    onError: (e) => setExcelFail(f => ({ ...f, error: e.message, retried: true, done: false })),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['aquadat-queue'] }),
   });
 
   const { data: meData } = useQuery({ queryKey: ['me'], queryFn: () => get('/api/auth/me') });
@@ -576,16 +618,18 @@ export default function Record() {
       const oor = allParamKeys.filter(k => isOutOfRange(k, values[k]));
       setCarPrompts(oor);
       setSubmitted(true);
+      setSaveWarnings(data?.warnings ?? null);
+      if (data?.warnings?.excel) setExcelFail({ error: data.warnings.excel, retried: false, done: false });
       qc.invalidateQueries({ queryKey: ['progress-nodes', selectedDate] });
       qc.invalidateQueries({ queryKey: ['progress-nodes-today', selectedDate] });
-      if (data?.warnings?.aquadat || data?.warnings?.excel) {
-        qc.invalidateQueries({ queryKey: ['aquadat-queue'] });
-      }
+      qc.invalidateQueries({ queryKey: ['aquadat-queue'] });
+      qc.invalidateQueries({ queryKey: ['streaks'] });
     },
   });
 
   function handleSubmit() {
     if (!canRecord) return;
+    if (!confirmNonToday(selectedDate)) return;
     setSubmitted(false);
     setCarPrompts([]);
 
@@ -623,6 +667,7 @@ export default function Record() {
   }
 
   function handleSlotChange(slot) {
+    userPickedSlotRef.current = true;
     setSelectedSlot(slot);
     setValues({});
     setSubmitted(false);
@@ -634,9 +679,55 @@ export default function Record() {
   return (
     <div className="w-full space-y-4">
       {/* Retroactive confirm modal */}
+      {excelFail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-earth rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+            {excelFail.done ? (
+              <>
+                <h2 className="text-base font-bold text-emerald-700">✅ เขียน Excel สำเร็จแล้ว</h2>
+                <p className="text-sm text-earth-ink2">ข้อมูลที่ค้างอยู่ถูกเขียนลงไฟล์ Excel เรียบร้อย</p>
+              </>
+            ) : (
+              <>
+                <h2 className="text-base font-bold text-red-700">⚠️ บันทึก Excel ไม่สำเร็จ</h2>
+                <p className="text-sm text-earth-ink2">
+                  ข้อมูลถูกบันทึกในระบบแล้ว แต่ยังไม่ได้เขียนลงไฟล์ Excel
+                </p>
+                <div className="text-sm px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                  {excelErrorText(excelFail.error)}
+                </div>
+                {excelFail.retried && !excelRetryMutation.isPending && (
+                  <p className="text-sm text-amber-700">ลองใหม่แล้วยังไม่สำเร็จ</p>
+                )}
+                <p className="text-xs text-earth-ink3">
+                  ถ้ากดปิด ข้อมูลยังอยู่ในคิว — ระบบจะลองเขียนใหม่อัตโนมัติในรอบถัดไป (ทุก 5 นาที)
+                </p>
+              </>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setExcelFail(null)}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-earth-border text-sm text-earth-ink2 hover:bg-earth-DEFAULT transition-colors"
+              >
+                ปิด
+              </button>
+              {!excelFail.done && (
+                <button
+                  onClick={() => excelRetryMutation.mutate()}
+                  disabled={excelRetryMutation.isPending}
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
+                >
+                  {excelRetryMutation.isPending ? 'กำลังลองใหม่...' : 'Retry'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {confirmDialog.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="bg-earth-DEFAULT rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+          <div className="bg-earth rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
             <h2 className="text-base font-bold text-earth-ink">ยืนยันการบันทึกย้อนหลัง</h2>
             <p className="text-sm text-earth-ink2">ค่าต่อไปนี้ต่างจากข้อมูล AquaDAT — จะบันทึกเฉพาะค่าที่มีการเปลี่ยนแปลง:</p>
             <div className="max-h-60 overflow-y-auto space-y-1.5">
@@ -704,13 +795,13 @@ export default function Record() {
               }`} />
               {stage === 0 ? 'ออฟไลน์' : stage === 2 ? 'ซิงค์' : 'AquaDAT'}
             </span>
-            {queueCount > 0 && (
+            {(queueCount > 0 || excelQueueCount > 0) && (
               <button
                 onClick={() => retryMutation.mutate()}
                 disabled={retryMutation.isPending}
                 className="flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
               >
-                {retryMutation.isPending ? 'กำลังส่ง...' : `⚠️ AquaDAT ค้าง ${queueCount} รายการ — ส่งใหม่`}
+                {retryMutation.isPending ? 'กำลังส่ง...' : `⚠️ ค้าง ${[queueCount > 0 && `AquaDAT ${queueCount}`, excelQueueCount > 0 && `Excel ${excelQueueCount}`].filter(Boolean).join(' · ')} รายการ — ส่งใหม่`}
               </button>
             )}
           </div>
@@ -776,6 +867,7 @@ export default function Record() {
               </button>
             );
           })()}
+          <ExportBar key={selectedDate} date={selectedDate} weekly={selectedSlot === WEEKLY_SLOT} className="ml-auto" />
         </div>
         {scenario && (
           <p className="text-xs text-blue-600">เกณฑ์: <strong>{scenario.name}</strong></p>
@@ -821,23 +913,31 @@ export default function Record() {
                   >
                     {sgParams.map((p, idx) => {
                       const val = values[p.param_key] ?? '';
-                      const oor = isOutOfRange(p.param_key, val);
+                      const breach = breachLevel(p.param_key, val);
+                      const oor = !!breach;
                       const threshold = getThresholdLabel(p.param_key);
+                      const prev = streaks?.[p.param_key];
                       return (
                         <div
                           key={p.param_key}
-                          className={`p-2.5 ${idx % COLS > 0 ? `border-l ${borderCls}` : ''} ${oor ? 'bg-red-50' : cellBg}`}
+                          className={`p-2.5 ${idx % COLS > 0 ? `border-l ${borderCls}` : ''} ${breach === 'repeat' ? 'bg-red-50' : breach === 'first' ? 'bg-blue-50' : cellBg}`}
+                          title={prev?.last ? `รอบก่อน ${prev.last.date} ${prev.last.slot}: ${prev.last.value}${prev.streak ? ` (เกินเกณฑ์ติดกัน ${prev.streak} ครั้ง)` : ''}` : undefined}
                         >
                           {/* Inline label row */}
                           <div className="flex flex-wrap items-baseline gap-x-1 mb-1.5 leading-tight">
                             <span className="text-xs font-bold text-earth-ink">{p.label}</span>
                             {p.unit && <span className="text-xs text-earth-ink3">({p.unit})</span>}
+                            {isAutoParam(p.param_key) && <span className="text-xs text-emerald-700">คำนวณอัตโนมัติ</span>}
                             {threshold && (
                               <span className="text-xs font-semibold text-blue-600">{threshold}</span>
                             )}
+                            {breach === 'first' && <span className="text-xs font-bold text-blue-700">เกินครั้งที่ 1</span>}
+                            {breach === 'repeat' && <span className="text-xs font-bold text-red-700">เกินต่อเนื่อง {(prev?.streak || 0) + 1} ครั้ง</span>}
+                            {!breach && prev?.streak > 0 && <span className="text-xs text-amber-700">รอบก่อนเกินเกณฑ์</span>}
                           </div>
                           {isBacteriaParam(p.param_key) ? (
                             <select
+                              data-param={p.param_key}
                               value={val}
                               onChange={e => setValues(v => ({ ...v, [p.param_key]: e.target.value }))}
                               className={`w-full border rounded-md px-2 py-1.5 text-base font-semibold text-center focus:outline-none focus:ring-2 bg-earth-DEFAULT
@@ -849,16 +949,21 @@ export default function Record() {
                             </select>
                           ) : (
                             <input
+                              data-param={p.param_key}
                               type={isTextParam(p.param_key) ? 'text' : 'number'}
                               step={isTextParam(p.param_key) ? undefined : 'any'}
                               inputMode={isTextParam(p.param_key) ? 'text' : 'decimal'}
                               value={val}
+                              readOnly={isAutoParam(p.param_key)}
+                              title={isAutoParam(p.param_key) ? 'คำนวณอัตโนมัติจาก pH, Conduct, Temp, Hardness, Alk' : undefined}
                               onChange={e => setValues(v => ({ ...v, [p.param_key]: e.target.value }))}
-                              placeholder="—"
+                              placeholder={isAutoParam(p.param_key) ? 'อัตโนมัติ' : '—'}
                               className={`w-full border rounded-md px-2 py-1.5 text-base font-semibold text-center focus:outline-none focus:ring-2 bg-earth-DEFAULT
-                                ${oor
+                                ${breach === 'repeat'
                                   ? 'border-red-300 text-red-700 focus:ring-red-300'
-                                  : 'border-earth-border focus:ring-brand'
+                                  : breach === 'first'
+                                    ? 'border-blue-300 text-blue-700 focus:ring-blue-300'
+                                    : 'border-earth-border focus:ring-brand'
                                 }`}
                             />
                           )}
@@ -891,6 +996,12 @@ export default function Record() {
           {submitted && (
             <div className="bg-green-50 border border-green-200 text-green-800 rounded-xl px-4 py-4 text-sm space-y-2">
               <p className="font-semibold">✅ บันทึกสำเร็จ — รอบ {selectedSlot}</p>
+              {saveWarnings?.excel && (
+                <p className="text-amber-700">⚠️ Excel ยังไม่ถูกเขียน (ไฟล์อาจเปิดค้างอยู่) — เข้าคิวแล้ว ระบบจะลองใหม่ทุก 5 นาที</p>
+              )}
+              {saveWarnings?.aquadat && (
+                <p className="text-amber-700">⚠️ ยังส่ง AquaDAT ไม่สำเร็จ — เข้าคิวแล้ว จะส่งใหม่อัตโนมัติเมื่อ AquaDAT พร้อม</p>
+              )}
               {carPrompts.length > 0 && (
                 <div className="space-y-1">
                   <p className="font-medium text-red-700">พบค่าเกินเกณฑ์:</p>
@@ -901,9 +1012,9 @@ export default function Record() {
                       <p key={k} className="text-red-600">• {param?.label ?? k}: {values[k]} {param?.unit}</p>
                     );
                   })}
-                  <a href="/car" className="inline-block mt-2 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                  <Link to="/car" className="inline-block mt-2 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
                     ไปออก CAR
-                  </a>
+                  </Link>
                 </div>
               )}
             </div>
