@@ -82,8 +82,8 @@ const DAILY_REPORT_ENTRIES = [
   { sid: 'RWS2',  patterns: [112] },
   { sid: 'CHEM1', patterns: [113, 346, 350, 351, 367] }, // 113=daily summary, 346=Alum received(8037), 350=Alum DR, 351=Chlorine DR, 367=PACl DR
   { sid: 'CHEM2', patterns: [114, 347, 323, 366, 352] }, // 114=daily summary, 347=Alum received(8036), 323=Alum DR, 366=PACl DR, 352=Chlorine DR
-  { sid: 'FWS1',  patterns: [109, 1] },   // 109=main daily, 1=energy RMU301A/302A
-  { sid: 'FWS2',  patterns: [110, 28] },  // 110=main daily, 28=energy RMU301B/302B
+  { sid: 'FWS1',  patterns: [109, 1, 10] },   // 109=main daily, 1=energy RMU301A/302A, 10=filter status P#12
+  { sid: 'FWS2',  patterns: [110, 28, 11] },  // 110=main daily, 28=energy RMU301B/302B, 11=filter status P#34
   { sid: 'TPS',   patterns: [116, 255] }, // 116=flow/service, 255=SS1B+SS3 energy
   { sid: 'DPS',   patterns: [115] },
   { sid: 'CWS1',  patterns: [3] },

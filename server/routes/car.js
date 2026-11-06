@@ -3,7 +3,8 @@ const router = express.Router();
 const { getDb, persist, nowTH } = require('../services/db');
 const { pushCarMessage } = require('../services/line');
 const { fetchUserProfile } = require('../services/aquadat');
-const { v4: uuidv4 } = require('uuid');
+const { createCar, nextCarNumber } = require('../services/carCreate');
+const { isSuperadminIdentity } = require('../services/actor');
 
 // ── attachCarUser middleware ───────────────────────────────────────────────
 async function attachCarUser(req, res, next) {
@@ -16,10 +17,9 @@ async function attachCarUser(req, res, next) {
     const profile = await fetchUserProfile(token).catch(() => null);
     if (!profile?.name) { req.carUser = null; return next(); }
     const db = getDb();
-    const SUPERADMIN = process.env.SUPERADMIN_NAME || 'นายพีรพัฒน์ สุขขารมย์';
     const entries = db.all('SELECT * FROM car_whitelist WHERE name = ?', [profile.name]);
     // Admin = badge AND synced from EHR (synced_at IS NOT NULL), OR is superadmin
-    const isAdmin = profile.name === SUPERADMIN || entries.some(e => e.is_admin === 1 && e.synced_at != null);
+    const isAdmin = isSuperadminIdentity(payload, profile) || entries.some(e => e.is_admin === 1 && e.synced_at != null);
     const groups = entries.map(e => e.group_code);
     const primary = groups.find(g => g === '3a' || g === '3b') || groups[0] || null;
     const primaryEntry = entries.find(e => e.group_code === primary) || entries[0];
@@ -40,17 +40,6 @@ async function attachCarUser(req, res, next) {
 
 router.use(attachCarUser);
 
-function addWorkingDays(dateStr, days) {
-  const d = new Date(dateStr);
-  let added = 0;
-  while (added < days) {
-    d.setDate(d.getDate() + 1);
-    const dow = d.getDay();
-    if (dow !== 0 && dow !== 6) added++;
-  }
-  return d.toISOString().split('T')[0];
-}
-
 function mergeFormData(existing, incoming) {
   try {
     const base = JSON.parse(existing || '{}');
@@ -60,43 +49,86 @@ function mergeFormData(existing, incoming) {
   }
 }
 
+// role filter shared by the list and the printed log
+function roleFilter(cu) {
+  const params = [];
+  // Role-based filter (admins and Group 1 see everything)
+  const groups = cu?.groups || (cu?.group ? [cu.group] : []);
+  if (!cu || cu.isAdmin || groups.includes('1')) return { where: '', params };
+  const conditions = [];
+  if (groups.includes('2')) {
+    conditions.push(`(receiver_name = ? OR (receiver_dept LIKE ? AND receiver_dept LIKE ?))`);
+    params.push(cu.name, '%สคน.%', `%ผลัด ${cu.shift}%`);
+  }
+  if (groups.includes('3a')) {
+    conditions.push(`(status_code = 20 OR form_data LIKE ?)`);
+    params.push(`%"s2_approver":"${cu.name}%`);
+  }
+  if (groups.includes('3b')) {
+    conditions.push(`(status_code = 50 OR form_data LIKE ?)`);
+    params.push(`%"s5_approver":"${cu.name}%`);
+  }
+  if (conditions.length === 0) {
+    // Not in whitelist: see only own CARs
+    conditions.push(`(issuer_name = ? OR receiver_name = ?)`);
+    params.push(cu.name, cu.name);
+  }
+  return { where: ` AND (${conditions.join(' OR ')})`, params };
+}
+
 // List all (role-filtered)
 router.get('/', (req, res) => {
   const db = getDb();
   const { status_code, from, to } = req.query;
-  const cu = req.carUser;
-  let sql = 'SELECT * FROM car_log WHERE 1=1';
-  const params = [];
-
-  // Role-based filter (admins and Group 1 see everything)
-  const groups = cu?.groups || (cu?.group ? [cu.group] : []);
-  if (cu && !cu.isAdmin && !groups.includes('1')) {
-    const conditions = [];
-    if (groups.includes('2')) {
-      conditions.push(`(receiver_name = ? OR (receiver_dept LIKE ? AND receiver_dept LIKE ?))`);
-      params.push(cu.name, '%สคน.%', `%ผลัด ${cu.shift}%`);
-    }
-    if (groups.includes('3a')) {
-      conditions.push(`(status_code = 20 OR form_data LIKE ?)`);
-      params.push(`%"s2_approver":"${cu.name}%`);
-    }
-    if (groups.includes('3b')) {
-      conditions.push(`(status_code = 50 OR form_data LIKE ?)`);
-      params.push(`%"s5_approver":"${cu.name}%`);
-    }
-    if (conditions.length === 0) {
-      // Not in whitelist: see only own CARs
-      conditions.push(`(issuer_name = ? OR receiver_name = ?)`);
-      params.push(cu.name, cu.name);
-    }
-    sql += ` AND (${conditions.join(' OR ')})`;
-  }
+  const rf = roleFilter(req.carUser);
+  let sql = 'SELECT * FROM car_log WHERE 1=1' + rf.where;
+  const params = rf.params;
 
   if (status_code) { sql += ' AND status_code = ?'; params.push(parseInt(status_code)); }
   if (from) { sql += ' AND issued_at >= ?'; params.push(from); }
   if (to) { sql += ' AND issued_at <= ?'; params.push(to + 'T23:59:59'); }
   sql += ' ORDER BY issued_at DESC';
   res.json(db.all(sql, params));
+});
+
+// ── printed forms (original Excel templates, services/carXlsx.js) ─────────
+const sendFile = (res, fmt, name, body) => require('../services/sendFile').sendFile(res, fmt, name, body, 'car');
+// xlsx as filled; pdf exported by Excel
+async function sendXlsx(res, fmt, name, buf) {
+  sendFile(res, fmt, name, fmt === 'pdf' ? await require('../services/officePdf').toPdf(buf, 'xlsx') : buf);
+}
+
+// ทะเบียน CAR/PAR (สบค-09) — ?fy=<ปีงบ พ.ศ.>&system=<HACCP|ISO14001:2015|ISO45001:2018> (blank = all systems)
+router.get('/log/:fmt(xlsx|pdf)', async (req, res) => {
+  const { buildCarLog, fiscalYearBE, ymdTH, SYSTEMS } = require('../services/carXlsx');
+  const fy = Number(req.query.fy) || fiscalYearBE(nowTH());
+  const system = req.query.system || '';
+  if (system && !SYSTEMS.includes(system)) return res.status(400).json({ error: `ระบบไม่ถูกต้อง (${system})` });
+  const rf = roleFilter(req.carUser);
+  const cars = getDb().all(`SELECT * FROM car_log WHERE 1=1${rf.where} ORDER BY issued_at ASC, id ASC`, rf.params)
+    .filter(c => fiscalYearBE(ymdTH(c.issued_at, true)) === fy && (!system || c.system_type === system));
+  const systems = system ? [system] : SYSTEMS.filter(x => cars.some(c => c.system_type === x));
+  try {
+    // both formats are finished by Excel (row heights / page breaks for wrapped text)
+    const { buf, layout } = await buildCarLog(cars, systems);
+    const fmt = req.params.fmt;
+    const out = await require('../services/officePdf').excelLog(buf, fmt, layout);
+    sendFile(res, fmt, `ทะเบียน CAR สบค-09 ปีงบ ${fy}${system ? ` ${system}` : ''}`, out);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
+});
+
+// ใบ CAR/PAR (สบค-08)
+router.get('/:id/form/:fmt(xlsx|pdf)', async (req, res) => {
+  const car = getDb().get('SELECT * FROM car_log WHERE id = ?', [parseInt(req.params.id)]);
+  if (!car) return res.status(404).json({ error: 'Not found' });
+  try {
+    const { buildCarForm } = require('../services/carXlsx');
+    await sendXlsx(res, req.params.fmt, `${car.car_type || 'CAR'} ${car.car_number || car.unique_key} สบค-08`, await buildCarForm(car));
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message });
+  }
 });
 
 // Analytics (overdue)
@@ -128,14 +160,7 @@ router.get('/by-key/:key', (req, res) => {
 
 // Create (Section 1)
 router.post('/', async (req, res) => {
-  const db = getDb();
-  const {
-    car_number, car_type, system_type, issue_type,
-    parameter_name, issuer_name, issuer_dept, receiver_name, receiver_dept,
-    configparam_id, plant_id, station_code,
-    recorded_value, threshold_value, threshold_direction, scenario_id,
-    record_datetime, notes,
-  } = req.body;
+  const { parameter_name, record_datetime } = req.body;
 
   if (!parameter_name || !record_datetime) {
     return res.status(400).json({ error: 'parameter_name and record_datetime required' });
@@ -143,42 +168,20 @@ router.post('/', async (req, res) => {
 
   // Lock issuer identity to logged-in user
   const cu = req.carUser;
-  const lockedIssuerName = cu?.name || issuer_name;
-  const lockedIssuerDept = cu?.deptLabel || issuer_dept;
-
-  const unique_key = uuidv4().split('-')[0] + '-' + uuidv4().split('-')[1];
-  const deadline_at = addWorkingDays(nowTH(), 10);
-
-  db.run(
-    `INSERT INTO car_log
-      (unique_key, car_number, car_type, system_type, issue_type,
-       parameter_name, issuer_name, issuer_dept, receiver_name, receiver_dept,
-       configparam_id, plant_id, station_code,
-       recorded_value, threshold_value, threshold_direction, scenario_id,
-       record_datetime, deadline_at, notes, status_code)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,10)`,
-    [
-      unique_key, car_number || null, car_type || 'CAR', system_type || null, issue_type || null,
-      parameter_name, lockedIssuerName || null, lockedIssuerDept || null, receiver_name || null, receiver_dept || null,
-      configparam_id || null, plant_id || null, station_code || null,
-      recorded_value || null, threshold_value || null, threshold_direction || null, scenario_id || null,
-      record_datetime, deadline_at, notes || null,
-    ]
-  );
-
-  const car = db.get('SELECT * FROM car_log WHERE unique_key = ?', [unique_key]);
-
-  let line_sent_at = null;
   try {
-    await pushCarMessage(car, 10);
-    line_sent_at = nowTH();
-    db.run('UPDATE car_log SET line_sent_at = ? WHERE id = ?', [line_sent_at, car.id]);
+    const result = await createCar(req.body, { name: cu?.name, dept: cu?.deptLabel });
+    res.json({ ok: true, ...result });
   } catch (e) {
-    console.warn('[CAR] LINE push failed:', e.message);
+    if (!e.status) throw e;
+    res.status(e.status).json({ error: e.message });
   }
+});
 
-  persist();
-  res.json({ ok: true, car_id: car.id, unique_key, deadline_at, line_sent_at });
+// Preview of the next auto number (actual number is assigned at create time)
+router.get('/next-number', (req, res) => {
+  const { prefix, car_type = 'CAR' } = req.query;
+  try { res.json({ car_number: nextCarNumber(getDb(), prefix, car_type) }); }
+  catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 });
 
 // Update status and/or form section data

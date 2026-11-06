@@ -17,9 +17,13 @@ function fmtSlot(slot) {
 export function isExceeded(value, rule) {
   if (value == null || !rule) return false;
   if (rule.type === 'max')   return value > rule.max;
+  if (rule.type === 'min')   return value < rule.min;
   if (rule.type === 'range') return !(value >= rule.min && value <= rule.max);
   return false;
 }
+
+// a slot with no result is skipped (does not reset the count) — streaks count consecutive samples
+const hasValue = (v) => v != null && !Number.isNaN(v);
 
 // Build shading bands using the same streak logic as LABview.js:
 //   streak=1 (first exceed) → blue
@@ -31,6 +35,7 @@ function buildBands(data, rule) {
   let streak = 0;
 
   for (let i = 0; i < data.length; i++) {
+    if (!hasValue(data[i]?.value)) continue;
     const exceeded = isExceeded(data[i]?.value, rule);
     if (exceeded) {
       streak += 1;
@@ -58,6 +63,7 @@ export function latestStreak(data, rule) {
   if (!rule || !data?.length) return 0;
   let streak = 0;
   for (let i = 0; i < data.length; i++) {
+    if (!hasValue(data[i]?.value)) continue;
     if (isExceeded(data[i]?.value, rule)) streak += 1;
     else streak = 0;
   }
@@ -69,6 +75,7 @@ export function latestStreakInfo(data, rule) {
   if (!rule || !data?.length) return { streak: 0, startSlot: null, endSlot: null };
   let streak = 0, startIdx = -1;
   for (let i = 0; i < data.length; i++) {
+    if (!hasValue(data[i]?.value)) continue;
     if (isExceeded(data[i]?.value, rule)) {
       if (streak === 0) startIdx = i;
       streak += 1;

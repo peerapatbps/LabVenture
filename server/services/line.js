@@ -17,10 +17,11 @@ const STATUS_LABEL = {
 };
 
 // statusCode can be a number (new system) or legacy string
+// Returns true when LINE accepted the push, false when skipped (not configured); throws on failure
 async function pushCarMessage(car, statusCode) {
   if (!TOKEN || !GROUP_ID) {
-    console.warn('[LINE] TOKEN or GROUP_ID not configured — skipping push');
-    return;
+    console.warn('[LINE] TOKEN or GROUP_ID not configured - skipping push');
+    return false;
   }
 
   const code = typeof statusCode === 'number' ? statusCode : {
@@ -30,7 +31,8 @@ async function pushCarMessage(car, statusCode) {
   const emoji = STATUS_EMOJI[code] || '🔵';
   const label = STATUS_LABEL[code] || String(code);
 
-  const direction = car.threshold_direction === 'above' ? '≥' : '≤';
+  // criterion symbol, same as CARLog.jsx: alert 'above' ⇒ เกณฑ์ ≤ X, 'below' ⇒ เกณฑ์ ≥ X
+  const direction = car.threshold_direction === 'above' ? '≤' : '≥';
   const lines = [
     `${emoji} [${car.car_type || 'CAR'} #${code}] ${car.car_number || '(ยังไม่มีเลข)'}`,
     `สิ่งที่พบ: ${car.parameter_name}`,
@@ -55,6 +57,7 @@ async function pushCarMessage(car, statusCode) {
     console.error('[LINE] Push failed:', err);
     throw new Error(`LINE push failed: ${res.status}`);
   }
+  return true;
 }
 
 module.exports = { pushCarMessage };

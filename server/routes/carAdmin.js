@@ -5,7 +5,7 @@ const { getDb } = require('../services/db');
 const { fetchUserProfile } = require('../services/aquadat');
 const { syncWhitelist } = require('../services/ehr');
 
-const SUPERADMIN_NAME = process.env.SUPERADMIN_NAME || 'นายพีรพัฒน์ สุขขารมย์';
+const { isSuperadminIdentity, SUPERADMIN_NAME } = require('../services/actor');
 
 function isSuperadmin(entry) {
   return entry?.name === SUPERADMIN_NAME;
@@ -92,7 +92,7 @@ async function resolveCarUser(req) {
   const db = getDb();
   const entries = db.all('SELECT * FROM car_whitelist WHERE name = ?', [profile.name]);
   // Admin = badge AND synced from EHR (synced_at IS NOT NULL), OR is superadmin
-  const isAdmin = profile.name === SUPERADMIN_NAME || entries.some(e => e.is_admin === 1 && e.synced_at != null);
+  const isAdmin = isSuperadminIdentity(payload, profile) || entries.some(e => e.is_admin === 1 && e.synced_at != null);
   // Collect all groups for this person
   const groups = entries.map(e => e.group_code);
   // Primary group: prefer 3a/3b over others, else first

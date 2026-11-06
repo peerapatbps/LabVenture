@@ -1,0 +1,21 @@
+{
+  "_note": "P1 seed — ถูกแทนด้วย BellBeast GET /api/audio/clips ใน P2. id = clip-id, text = คำที่คลิปพูด (ใช้ preview)",
+  "clips": [
+    { "id": "n_0", "text": "ศูนย์" }, { "id": "n_1", "text": "หนึ่ง" }, { "id": "n_2", "text": "สอง" },
+    { "id": "n_3", "text": "สาม" }, { "id": "n_4", "text": "สี่" }, { "id": "n_5", "text": "ห้า" },
+    { "id": "n_6", "text": "หก" }, { "id": "n_7", "text": "เจ็ด" }, { "id": "n_8", "text": "แปด" },
+    { "id": "n_9", "text": "เก้า" }, { "id": "dot", "text": "จุด" },
+    { "id": "s_station", "text": "สถานี" },
+    { "id": "s_rawwater", "text": "สถานีน้ำดิบ" },
+    { "id": "s_high_turbidity", "text": "ความขุ่นสูง" },
+    { "id": "s_measured", "text": "วัดได้" },
+    { "id": "s_ntu", "text": "เอ็นทียู" },
+    { "id": "s_cl_hall", "text": "โรงเก็บท่อคลอรีน" },
+    { "id": "s_leak_detected", "text": "พบการรั่วไหลของคลอรีน" },
+    { "id": "s_sensor_pos", "text": "ที่เซ็นเซอร์ตำแหน่งที่" },
+    { "id": "s_limit", "text": "เกณฑ์" },
+    { "id": "s_over_limit", "text": "เกินเกณฑ์" },
+    { "id": "s_under_limit", "text": "ต่ำกว่าเกณฑ์" },
+    { "id": "s_mgl", "text": "มิลลิกรัมต่อลิตร" }
+  ]
+}

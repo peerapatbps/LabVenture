@@ -2,10 +2,15 @@ const express = require('express');
 const router = express.Router();
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
+const ExcelJS = require('exceljs');
+const { sendFile } = require('../services/sendFile');
 const { getDb, nowTH } = require('../services/db');
 const { fetchUserProfile } = require('../services/aquadat');
 
 const EXPORTER = path.join(__dirname, '..', 'algae_exporter.py');
+const MASTER = path.join(__dirname, '..', 'templates', 'Algae_theme.xlsx');
 
 function decodeToken(token) {
   try {
@@ -135,67 +140,123 @@ router.delete('/records/:id', (req, res) => {
   res.json({ ok: true });
 });
 
-// POST /api/algae/export
-// body: { date: "YYYY-MM-DD" }
-// Reads algae records + water quality at 09:00 from DB and exports to Algae2569.xlsx
-router.post('/export', async (req, res) => {
-  const { date } = req.body;
-  if (!date) return res.status(400).json({ error: 'date required' });
+// ── Print-out สาหร่าย: สร้างไฟล์ใหม่จาก templates/Algae_theme.xlsx (1 ชีทต่อวันที่เก็บตัวอย่าง) ──
+const RE_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_EXPORT_DAYS = 62;
+const WQ_PARAMS_09 = [
+  'RW.turb', 'RW.pH', 'RW.Conduct',
+  'TW1.turb', 'TW1.pH', 'TW1.Conduct',
+  'TW2.turb', 'TW2.pH', 'TW2.Conduct',
+  'CW1.turb', 'CW2.turb', 'CW3.turb', 'CW4.turb',
+  'RW.OC', 'TW1.OC', 'TW2.OC', 'CW1.OC', 'CW2.OC', 'CW3.OC', 'CW4.OC',   // OC บันทึก 09:00 + 21:00 (ใช้ 09:00)
+];
+// รองรับข้อมูลเก่าที่บันทึก OC เป็น daily (ค่า 09:00 ทับถ้ามี)
+const WQ_PARAMS_DAILY = ['RW.OC', 'TW1.OC', 'TW2.OC', 'CW1.OC', 'CW2.OC', 'CW3.OC', 'CW4.OC'];
 
+function parseRange(q) {
+  const { from, to } = q;
+  if (!RE_DATE.test(from || '') || !RE_DATE.test(to || '') || from > to) return { error: 'ช่วงวันที่ไม่ถูกต้อง' };
+  const days = (Date.parse(to) - Date.parse(from)) / 86400000 + 1;
+  if (days > MAX_EXPORT_DAYS) return { error: `เลือกได้ไม่เกิน ${MAX_EXPORT_DAYS} วัน` };
+  return { from, to };
+}
+
+function sampleDates(db, from, to) {
+  return db.all(
+    `SELECT DISTINCT record_date FROM algae_records
+      WHERE record_date BETWEEN ? AND ? AND count IS NOT NULL AND count > 0
+      ORDER BY record_date`,
+    [from, to]
+  ).map(r => r.record_date);
+}
+
+// ชื่อชนิดในฟอร์ม theme (คอลัมน์ C แถว 15-89) — อ่านครั้งเดียวต่อการแก้ไฟล์
+let _masterSpecies = null, _masterMtime = 0;
+async function masterSpecies() {
+  const mtime = fs.statSync(MASTER).mtimeMs;
+  if (_masterSpecies && mtime === _masterMtime) return _masterSpecies;
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.readFile(MASTER);
+  const ws = wb.worksheets[0];
+  const set = new Set();
+  for (let r = 15; r <= 89; r++) {
+    const v = ws.getCell(`C${r}`).value;
+    if (typeof v === 'string' && v.trim()) set.add(v.trim());
+  }
+  _masterSpecies = set; _masterMtime = mtime;
+  return set;
+}
+
+// GET /api/algae/export-info?from=&to= → วันที่ที่มีข้อมูล + ชนิดที่ไม่มีในฟอร์ม (ให้ UI เตือนก่อนดาวน์โหลด)
+router.get('/export-info', async (req, res) => {
+  const r = parseRange(req.query);
+  if (r.error) return res.status(400).json({ error: r.error });
   const db = getDb();
+  const dates = sampleDates(db, r.from, r.to);
+  const names = db.all(
+    `SELECT DISTINCT s.species_name FROM algae_records ar JOIN algae_species s ON s.id = ar.species_id
+      WHERE ar.record_date BETWEEN ? AND ? AND ar.count IS NOT NULL AND ar.count > 0`,
+    [r.from, r.to]
+  ).map(x => x.species_name.trim());
+  const known = await masterSpecies();
+  res.json({ dates, unmapped: names.filter(n => !known.has(n)).sort() });
+});
 
-  // Algae species records
-  const rows = db.all(
-    `SELECT ar.station, s.species_name, ar.count
-     FROM algae_records ar
-     JOIN algae_species s ON s.id = ar.species_id
-     WHERE ar.record_date = ? AND ar.count IS NOT NULL AND ar.count > 0`,
-    [date]
-  );
+// GET /api/algae/export.xlsx?from=&to=
+router.get('/export.xlsx', async (req, res) => {
+  const r = parseRange(req.query);
+  if (r.error) return res.status(400).json({ error: r.error });
+  const db = getDb();
+  const dates = sampleDates(db, r.from, r.to);
+  if (dates.length === 0) return res.status(404).json({ error: 'ไม่มีข้อมูลสาหร่ายในช่วงนี้' });
 
-  // Water quality: turb/pH/Cond at 09:00, OC at 'daily'
-  const WQ_PARAMS_09 = [
-    'RW.turb','RW.pH','RW.Conduct',
-    'TW1.turb','TW1.pH','TW1.Conduct',
-    'TW2.turb','TW2.pH','TW2.Conduct',
-    'CW1.turb','CW2.turb','CW3.turb','CW4.turb',
-  ];
-  const WQ_PARAMS_DAILY = ['RW.OC','TW1.OC','TW2.OC','CW1.OC','CW2.OC','CW3.OC','CW4.OC'];
-
-  const placeholders09 = WQ_PARAMS_09.map(() => '?').join(',');
-  const placeholdersD  = WQ_PARAMS_DAILY.map(() => '?').join(',');
-
-  const wqRows09 = db.all(
-    `SELECT param_key, trans_value FROM node_records
-     WHERE trans_dtm = ? AND trans_time = '09:00' AND param_key IN (${placeholders09})`,
-    [date, ...WQ_PARAMS_09]
-  );
-  const wqRowsD = db.all(
-    `SELECT param_key, trans_value FROM node_records
-     WHERE trans_dtm = ? AND trans_time = 'daily' AND param_key IN (${placeholdersD})`,
-    [date, ...WQ_PARAMS_DAILY]
-  );
-
-  const wq = {};
-  for (const r of [...wqRows09, ...wqRowsD]) wq[r.param_key] = r.trans_value;
+  const days = dates.map(date => {
+    const records = db.all(
+      `SELECT ar.station, s.species_name, ar.count
+         FROM algae_records ar JOIN algae_species s ON s.id = ar.species_id
+        WHERE ar.record_date = ? AND ar.count IS NOT NULL AND ar.count > 0`,
+      [date]
+    );
+    const wqRows = [
+      ...db.all(
+        `SELECT param_key, trans_value FROM node_records
+          WHERE trans_dtm = ? AND trans_time = 'daily' AND param_key IN (${WQ_PARAMS_DAILY.map(() => '?').join(',')})`,
+        [date, ...WQ_PARAMS_DAILY]
+      ),
+      ...db.all(
+        `SELECT param_key, trans_value FROM node_records
+          WHERE trans_dtm = ? AND trans_time = '09:00' AND param_key IN (${WQ_PARAMS_09.map(() => '?').join(',')})`,
+        [date, ...WQ_PARAMS_09]
+      ),
+    ];
+    const wq = {};
+    for (const w of wqRows) wq[w.param_key] = w.trans_value;
+    return { date, records, wq };
+  });
 
   const signer = await resolveSignerInfo(req).catch(() => null);
-
-  const payload = JSON.stringify({ date, records: rows, wq, signer });
-  const py = spawn('python', [EXPORTER, payload]);
-  let out = '';
-  let err = '';
-  py.stdout.on('data', d => out += d);
-  py.stderr.on('data', d => err += d);
-  py.on('close', code => {
-    if (err) process.stderr.write('[algae_exporter] ' + err);
-    if (code !== 0) return res.status(500).json({ error: err || `python exit ${code}` });
-    try {
-      res.json(JSON.parse(out.trim()));
-    } catch (e) {
-      res.status(500).json({ error: 'bad JSON from algae_exporter: ' + out });
-    }
-  });
+  const base = path.join(os.tmpdir(), `lv_algae_${process.pid}_${Date.now()}`);
+  const inF = `${base}.json`, outF = `${base}.xlsx`;
+  fs.writeFileSync(inF, JSON.stringify({ days, signer }));
+  try {
+    await new Promise((resolve, reject) => {
+      const py = spawn('python', [EXPORTER, inF, outF]);
+      py.stderr.setEncoding('utf8');
+      let err = '';
+      py.stderr.on('data', d => err += d);
+      py.on('error', reject);
+      py.on('close', code => (code === 0 && fs.existsSync(outF) ? resolve() : reject(new Error(err || `python exit ${code}`))));
+    });
+    const be = d => `${+d.slice(0, 4) + 543}-${d.slice(5)}`;
+    const name = r.from === r.to ? `Algae_${be(r.from)}` : `Algae_${be(r.from)}_${be(r.to)}`;
+    sendFile(res, 'xlsx', name, fs.readFileSync(outF), 'algae');
+  } catch (e) {
+    console.error('[algae/export]', e.message);
+    res.status(500).json({ error: e.message });
+  } finally {
+    fs.rmSync(inF, { force: true });
+    fs.rmSync(outF, { force: true });
+  }
 });
 
 module.exports = router;

@@ -1,22 +1,132 @@
-// พิมพ์รายงาน (หน้า /record): ปุ่มเดียว → popup เลือกเอกสาร · วันที่ = วันที่เลือกมุมขวาบนของหน้า
-//   DailyLab                          ฟอร์ม theme
-//   DailyLab + Operation daily report  QUERY DATA ของ Daily Report (ไม่ redirect) แล้วลง Daily Dosage (ACTUAL)
-//                                      ข้อมูลไม่ครบ (N/A/แดงในหน้า DAILY) → หน้าตรวจข้อมูล แล้วถามก่อน export
-//   สาหร่าย                           ฟอร์ม algae_master (ต้องมีการเก็บตัวอย่างในวันนั้น)
+// หน้า /record · วันที่ = วันที่เลือกมุมขวาบนของหน้า
+// พิมพ์รายงาน (ExportBar): popup เลือกเอกสาร
+//   DailyLab   ฟอร์ม theme
+//   สาหร่าย   ฟอร์ม algae_master (ต้องมีการเก็บตัวอย่างในวันนั้น)
+// Query daily chemical dosing (DosingSyncButton): QUERY DATA ของ Daily Report (ไม่ redirect) แล้วบันทึก
+//   Daily Dosage (ACTUAL) ลงไฟล์ DailyLab ใน excel_data_dir · ข้อมูลไม่ครบ → หน้าตรวจข้อมูล แล้วถามก่อนบันทึก
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { get, BASE } from '../api.js';
+import { get, post, BASE } from '../api.js';
 import { dailyReportIssues } from '../utils/dailyReportIssues.js';
-import { FWS_BW_PHASES, parseBWPhase } from '../pages/OpRecord.jsx';
+import { ChemAccuracyWall, buildChemDonutRows } from './ChemAccuracyWall.jsx';
+import { FWS_BW_PHASES, parseBWPhase } from '../../../server/shared/dailyReportRules.mjs';
 
 const THAI_MON = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
 const thaiShort = s => `${+s.slice(8)} ${THAI_MON[+s.slice(5, 7) - 1]}`;
+// Thai date (UTC+7) `n` days before today
+const thaiDaysAgo = n => new Date(Date.now() + 7 * 3600 * 1000 - n * 86400000).toISOString().slice(0, 10);
 
 const DOCS = [
   { key: 'daily',   title: 'DailyLab', desc: 'ผลแล็บที่บันทึกไว้' },
-  { key: 'dailyop', title: 'DailyLab + Operation daily report', desc: 'ดึง Daily Report (QUERY DATA) แล้วลง Daily Dosage (ACTUAL)' },
   { key: 'algae',   title: 'สาหร่าย', desc: 'ฟอร์มสาหร่าย' },
 ];
+
+// ── Query daily chemical dosing → บันทึก Daily Dosage (ACTUAL) ลง Excel dir ──────────
+export function DosingSyncButton({ date, className = '' }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button onClick={() => setOpen(true)} title="ดึง Operation daily report แล้วบันทึก Daily Dosage (ACTUAL) ลงไฟล์ DailyLab"
+        className={`px-4 py-1.5 rounded-lg text-sm font-bold border border-earth-ink text-earth-ink bg-earth-card hover:bg-earth transition-colors touch-target ${className}`}>
+        🧪 Query daily chemical dosing
+      </button>
+      {open && <DosingModal date={date} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function DosingModal({ date, onClose }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [review, setReview] = useState(null); // { report, fwsMap, issues }
+  const [done, setDone] = useState(null);     // response ของ POST /api/write/dosage
+  // วันนี้ / เมื่อวาน → QUERY DATA สด · เก่ากว่านั้น → ข้อมูลที่ SAVE DB ไว้ (server ใช้กฎเดียวกัน)
+  const liveOp = date >= thaiDaysAgo(1);
+
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape' && !busy) onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [busy, onClose]);
+
+  async function save() {
+    setBusy(true); setErr('');
+    try {
+      const r = await post('/api/write/dosage', { date });
+      setReview(null);
+      setDone(r);
+    } catch (e) {
+      setErr('บันทึกไม่สำเร็จ: ' + e.message);
+    } finally { setBusy(false); }
+  }
+
+  async function run() {
+    setBusy(true); setErr('');
+    try {
+      if (!liveOp) {
+        const s = await get(`/api/daily-report/saved?date=${date}`);
+        if (!s.saved) { setErr(`ยังไม่ได้ SAVE DB วันที่ ${thaiShort(date)} ${+date.slice(0, 4) + 543} — ไป SAVE DB ที่หน้า DAILY ก่อน`); return; }
+        setBusy(false);
+        return save();
+      }
+      const d = await get(`/api/daily-report/fetch-all?date=${date}`);
+      // หน้า DAILY อ่านผลนี้ต่อได้ (key เดียวกับ OpRecord)
+      try {
+        sessionStorage.setItem(`dr_report_${date}`, JSON.stringify(d.report));
+        if (d.fwsMap) sessionStorage.setItem(`dr_fwsbw_${date}`, JSON.stringify({ p12: d.fwsMap.FWS1, p3: d.fwsMap.FWS2, p4: d.fwsMap.FWS2 }));
+      } catch {}
+      // แสดง popup Daily Report ทุกครั้ง (มี CHEMICAL ACCURACY WALL ให้ดูก่อนบันทึก)
+      setReview({ report: d.report, fwsMap: d.fwsMap, issues: dailyReportIssues(d.report, d.fwsMap) });
+    } catch (e) {
+      setErr('ดึง Daily Report ไม่สำเร็จ: ' + e.message);
+    } finally { setBusy(false); }
+  }
+
+  const label = busy ? (liveOp ? 'กำลังดึง Daily Report...' : 'กำลังบันทึก...') : (liveOp ? 'ดึงข้อมูลและบันทึกลง Excel' : 'บันทึกลง Excel');
+  const note = liveOp ? 'QUERY DATA สด · ใช้เวลาประมาณ 20 วินาที' : 'ใช้ข้อมูลที่ SAVE DB ไว้ในหน้า DAILY';
+  const doneCells = done?.cells ? Object.entries(done.cells) : [];
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => !busy && onClose()}>
+      <div className={`bg-earth-card rounded-xl shadow-xl w-full ${review ? 'max-w-[1400px]' : 'max-w-lg'} max-h-[90vh] flex flex-col text-sm`}
+        onClick={e => e.stopPropagation()}>
+        {review ? (
+          <ReviewView date={date} {...review} onBack={() => setReview(null)} onClose={onClose} onExport={save}
+            question="จะบันทึก Daily Dosage ลง Excel หรือไม่?" actionLabel={busy ? 'กำลังบันทึก...' : 'บันทึกลง Excel'}
+            busy={busy} err={err} canExport={review.report?.day_complete !== false} />
+        ) : (
+          <>
+            <div className="px-4 py-3 border-b border-earth-border flex items-center justify-between">
+              <div className="font-bold text-earth-ink text-base">Query daily chemical dosing</div>
+              <span className="text-xs text-earth-ink3">วันที่ {thaiShort(date)} {+date.slice(0, 4) + 543}</span>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+              {!done && <p className="text-earth-ink2">ดึง Operation daily report แล้วบันทึก Daily Dosage (ACTUAL, mg/l) ของ Alum · PACl · Pre Cl2 · Post Cl2 ลงไฟล์ DailyLab ในโฟลเดอร์ที่ตั้งใน config (ช่อง X–AA แถว 4, 5, 7, 9)</p>}
+              {done?.ok && <div className="rounded bg-green-50 border border-green-300 text-green-800 px-3 py-2">
+                ✅ บันทึกลง Excel แล้ว {doneCells.length} ช่อง
+                {done.result?.details?.[0]?.file && <div className="text-[11px] mt-0.5 break-all">{done.result.details[0].file} · ชีท {done.result.details[0].sheet}</div>}
+              </div>}
+              {done && !done.ok && <div className="rounded bg-amber-50 border border-amber-300 text-amber-800 px-3 py-2">
+                ⚠️ เขียนไฟล์ไม่สำเร็จ — เข้าคิว retry อัตโนมัติแล้ว
+                <div className="text-[11px] mt-0.5 break-all">{done.error}</div>
+              </div>}
+              {doneCells.length > 0 && <div className="flex flex-wrap gap-1 text-[11px] font-mono">
+                {doneCells.map(([a, v]) => <span key={a} className="px-1.5 py-0.5 rounded border border-earth-border text-earth-ink2">{a}={v}</span>)}
+              </div>}
+            </div>
+            <div className="px-4 py-3 border-t border-earth-border flex items-center justify-end gap-2">
+              <span className="mr-auto text-xs">
+                {err ? <span className="text-red-600">{err}</span> : !done && <span className="text-earth-ink3">{note}</span>}
+              </span>
+              <button onClick={onClose} disabled={busy} className="px-3 py-1.5 rounded-lg border border-earth-border text-earth-ink2 hover:bg-earth disabled:opacity-50">{done ? 'ปิด' : 'ยกเลิก'}</button>
+              {!done && <button onClick={run} disabled={busy} className="px-3 py-1.5 rounded-lg bg-green-700 text-white font-bold hover:bg-green-800 disabled:opacity-50">{label}</button>}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function ExportBar({ date, weekly, className = '' }) {
   const [open, setOpen] = useState(false);
@@ -33,15 +143,11 @@ export default function ExportBar({ date, weekly, className = '' }) {
 
 function PrintModal({ date, weekly, onClose }) {
   const [doc, setDoc] = useState(weekly ? 'algae' : 'daily');
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState('');
-  const [review, setReview] = useState(null); // { report, fwsMap, issues }
-
   useEffect(() => {
-    const onKey = e => { if (e.key === 'Escape' && !busy) onClose(); };
+    const onKey = e => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [busy, onClose]);
+  }, [onClose]);
 
   // สาหร่าย: วันเก็บตัวอย่างไม่ตรงกันทุกสัปดาห์ → เลือกวันเองจากปฏิทิน (null = ยังไม่ได้เลือก)
   const [algaeDate, setAlgaeDate] = useState(null);
@@ -51,29 +157,10 @@ function PrintModal({ date, weekly, onClose }) {
     enabled: doc === 'algae' && !!algaeDate,
   });
 
-  const opUrl = `${BASE}/api/write/export.xlsx?from=${date}&to=${date}&dosage=1`;
   const go = url => { window.location.href = url; onClose(); };
 
-  async function runOp() {
-    setBusy(true); setErr('');
-    try {
-      const d = await get(`/api/daily-report/fetch-all?date=${date}`);
-      // หน้า DAILY อ่านผลนี้ต่อได้ (key เดียวกับ OpRecord)
-      try {
-        sessionStorage.setItem(`dr_report_${date}`, JSON.stringify(d.report));
-        if (d.fwsMap) sessionStorage.setItem(`dr_fwsbw_${date}`, JSON.stringify({ p12: d.fwsMap.FWS1, p3: d.fwsMap.FWS2, p4: d.fwsMap.FWS2 }));
-      } catch {}
-      const issues = dailyReportIssues(d.report, d.fwsMap);
-      if (issues.length === 0) return go(opUrl);
-      setReview({ report: d.report, fwsMap: d.fwsMap, issues });
-    } catch (e) {
-      setErr('ดึง Daily Report ไม่สำเร็จ: ' + e.message);
-    } finally { setBusy(false); }
-  }
-
-  let canGo = !busy, goLabel = 'ดาวน์โหลด Excel', note = null;
+  let canGo = true, goLabel = 'ดาวน์โหลด Excel', note = null;
   let onGo = () => go(`${BASE}/api/write/export.xlsx?from=${date}&to=${date}`);
-  if (doc === 'dailyop') { goLabel = busy ? 'กำลังดึง Daily Report...' : 'ดึงข้อมูลและสร้าง Excel'; onGo = runOp; note = 'ใช้เวลาประมาณ 20 วินาที'; }
   if (doc === 'algae') {
     onGo = () => go(`${BASE}/api/algae/export.xlsx?from=${algaeDate}&to=${algaeDate}`);
     if (!algaeDate) { canGo = false; note = 'เลือกวันที่มีข้อมูลจากปฏิทิน'; }
@@ -82,12 +169,10 @@ function PrintModal({ date, weekly, onClose }) {
   const headDate = doc === 'algae' ? algaeDate : date;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => !busy && onClose()}>
-      <div className={`bg-earth-card rounded-xl shadow-xl w-full ${review ? 'max-w-4xl' : 'max-w-lg'} max-h-[90vh] flex flex-col text-sm`}
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-earth-card rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col text-sm"
         onClick={e => e.stopPropagation()}>
-        {review ? (
-          <ReviewView date={date} {...review} onBack={() => setReview(null)} onClose={onClose} onExport={() => go(opUrl)} />
-        ) : (
+        {(
           <>
             <div className="px-4 py-3 border-b border-earth-border flex items-center justify-between">
               <div className="font-bold text-earth-ink text-base">พิมพ์รายงาน</div>
@@ -98,7 +183,7 @@ function PrintModal({ date, weekly, onClose }) {
               <div className="space-y-1.5">
                 {DOCS.map(d => (
                   <label key={d.key} className={`flex items-start gap-2 rounded-lg border px-3 py-2 cursor-pointer ${doc === d.key ? 'border-earth-ink bg-earth' : 'border-earth-border hover:bg-earth'}`}>
-                    <input type="radio" name="print-doc" className="mt-0.5" checked={doc === d.key} onChange={() => { setDoc(d.key); setErr(''); }} disabled={busy} />
+                    <input type="radio" name="print-doc" className="mt-0.5" checked={doc === d.key} onChange={() => setDoc(d.key)} />
                     <span>
                       <span className="block font-semibold text-earth-ink">{d.title}</span>
                       <span className="block text-xs text-earth-ink3">{d.desc}</span>
@@ -113,10 +198,8 @@ function PrintModal({ date, weekly, onClose }) {
               )}
             </div>
             <div className="px-4 py-3 border-t border-earth-border flex items-center justify-end gap-2">
-              <span className="mr-auto text-xs">
-                {err ? <span className="text-red-600">{err}</span> : <span className="text-earth-ink3">{note}</span>}
-              </span>
-              <button onClick={onClose} disabled={busy} className="px-3 py-1.5 rounded-lg border border-earth-border text-earth-ink2 hover:bg-earth disabled:opacity-50">ยกเลิก</button>
+              <span className="mr-auto text-xs text-earth-ink3">{note}</span>
+              <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-earth-border text-earth-ink2 hover:bg-earth">ยกเลิก</button>
               <button onClick={onGo} disabled={!canGo} className="px-3 py-1.5 rounded-lg bg-green-700 text-white font-bold hover:bg-green-800 disabled:opacity-50">{goLabel}</button>
             </div>
           </>
@@ -234,7 +317,8 @@ const COVERED = new Set([
   'CHEMICAL — CHEM1 Chlorine', 'CHEMICAL — CHEM2 Chlorine',
 ]);
 
-function ReviewView({ date, report: d, fwsMap, issues, onBack, onClose, onExport }) {
+function ReviewView({ date, report: d, fwsMap, issues, onBack, onClose, onExport,
+  question = 'จะ export Excel DailyLab หรือไม่?', actionLabel = 'Export Excel DailyLab', busy = false, err = '', canExport = true }) {
   const dayOpen = d?.day_complete === false;
   const nIssues = issues.reduce((n, g) => n + g.items.length, 0);
   const others = issues.filter(g => !COVERED.has(g.section) && g.section !== 'Daily Report');
@@ -272,14 +356,18 @@ function ReviewView({ date, report: d, fwsMap, issues, onBack, onClose, onExport
   return (
     <>
       <div className="px-4 py-3 border-b border-earth-border">
-        <div className="font-bold text-earth-ink text-base">Daily Report {thaiShort(date)} ข้อมูลไม่ครบ</div>
-        {!dayOpen && <div className="text-earth-ink2 text-xs mt-0.5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="font-bold text-earth-ink text-base">Daily Report {thaiShort(date)} {nIssues > 0 || dayOpen ? 'ข้อมูลไม่ครบ' : 'ข้อมูลครบ'}</div>
+          <div className="text-[11px] text-earth-ink3 text-right lg:whitespace-nowrap pt-1">"ว่าง" = ไม่ลงค่าในฟอร์ม (เฟสที่ไม่ได้จ่ายสาร, ข้อมูลไม่พอคำนวณ หรือวันยังไม่ครบ)</div>
+        </div>
+        {!dayOpen && nIssues > 0 && <div className="text-earth-ink2 text-xs mt-0.5">
           หน้า Daily Report มีช่อง N/A หรือพื้นแดง {nIssues} รายการ ควรแก้ข้อมูลใน AquaDAT แล้วสร้างใหม่
         </div>}
         {dayOpen && <div className="mt-1.5 text-xs rounded bg-amber-50 border border-amber-300 text-amber-800 px-2 py-1">วันยังไม่ครบ (ก่อน 24:00) ค่าทั้งวันจึงยังเป็น N/A และจะไม่ลง Daily Dosage</div>}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
+        <div className="flex-1 min-w-0 lg:overflow-y-auto px-4 py-2 space-y-2.5">
         <section>
           <div className="text-xs font-semibold text-earth-ink2 mb-1.5">1. ปริมาณน้ำ (ลบ.ม./วัน)</div>
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
@@ -337,7 +425,6 @@ function ReviewView({ date, report: d, fwsMap, issues, onBack, onClose, onExport
               )))}
             </tbody>
           </table>
-          <p className="text-[11px] text-earth-ink3 mt-1">"ว่าง" = ไม่ลงค่าในฟอร์ม (เฟสที่ไม่ได้จ่ายสาร, ข้อมูลไม่พอคำนวณ หรือวันยังไม่ครบ)</p>
         </section>
 
         {others.length > 0 && (
@@ -353,13 +440,19 @@ function ReviewView({ date, report: d, fwsMap, issues, onBack, onClose, onExport
             </div>
           </section>
         )}
+        </div>
+
+        {/* ขวา: C. CHEMICAL ACCURACY WALL (component เดียวกับหน้า DAILY) */}
+        <div className="shrink-0 lg:w-[580px] border-t lg:border-t-0 lg:border-l border-earth-border overflow-y-auto">
+          <ChemAccuracyWall rows={buildChemDonutRows(d)} className="min-h-full" />
+        </div>
       </div>
 
       <div className="px-4 py-3 border-t border-earth-border flex items-center justify-end gap-2">
-        <span className="mr-auto text-earth-ink2">จะ export Excel DailyLab หรือไม่?</span>
-        <button onClick={onBack} className="px-3 py-1.5 rounded-lg border border-earth-border text-earth-ink2 hover:bg-earth">ย้อนกลับ</button>
-        <button onClick={onClose} className="px-3 py-1.5 rounded-lg border border-earth-border text-earth-ink2 hover:bg-earth">ยกเลิก</button>
-        <button onClick={onExport} className="px-3 py-1.5 rounded-lg bg-green-700 text-white font-bold hover:bg-green-800">Export Excel DailyLab</button>
+        <span className="mr-auto text-earth-ink2">{err ? <span className="text-red-600 text-xs">{err}</span> : canExport ? question : 'วันยังไม่ครบ — ยังบันทึกไม่ได้'}</span>
+        <button onClick={onBack} disabled={busy} className="px-3 py-1.5 rounded-lg border border-earth-border text-earth-ink2 hover:bg-earth disabled:opacity-50">ย้อนกลับ</button>
+        <button onClick={onClose} disabled={busy} className="px-3 py-1.5 rounded-lg border border-earth-border text-earth-ink2 hover:bg-earth disabled:opacity-50">ยกเลิก</button>
+        <button onClick={onExport} disabled={busy || !canExport} className="px-3 py-1.5 rounded-lg bg-green-700 text-white font-bold hover:bg-green-800 disabled:opacity-50">{actionLabel}</button>
       </div>
     </>
   );

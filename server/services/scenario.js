@@ -5,7 +5,6 @@ const { getDb } = require('./db');
 
 const SCENARIOS_DIR = path.join(__dirname, '..', 'scenarios');
 const APP_SETTINGS_PATH = path.join(__dirname, '..', 'config', 'app_settings.json');
-const CONTROL_CELLS_PATH = path.join(__dirname, '..', 'config', 'excel_control_cells.json');
 
 function readAppSettings() {
   try { return JSON.parse(fs.readFileSync(APP_SETTINGS_PATH, 'utf8')); }
@@ -40,21 +39,6 @@ function getActiveScenario() {
   } catch {}
   if (settings.epidemic) thresholds = applyEpidemic(thresholds, epidemicThresholds(settings));
   return { row, thresholds, epidemic: !!settings.epidemic };
-}
-
-// { "E20": 100, "H73": 6.5, ... } สำหรับเติมช่อง Control Value ในฟอร์ม
-function getControlValues() {
-  const active = getActiveScenario();
-  if (!active) return {};
-  let cells = {};
-  try { cells = JSON.parse(fs.readFileSync(CONTROL_CELLS_PATH, 'utf8')).cells || {}; } catch {}
-  const byKey = Object.fromEntries(active.thresholds.map(t => [t.param_key, t]));
-  const out = {};
-  for (const [addr, { param_key, field }] of Object.entries(cells)) {
-    const v = byKey[param_key]?.[field];
-    if (v !== null && v !== undefined) out[addr] = v;
-  }
-  return out;
 }
 
 // param_key → { ...param, node_label } จาก nodes.json
@@ -129,30 +113,58 @@ function activeLimits() {
   };
 }
 
+// ลำดับเวลาของรอบในวัน: HH:MM ตามเวลา · daily/weekly = สิ้นวัน
+const slotOrder = slot => (/^\d{2}:\d{2}$/.test(String(slot)) ? String(slot) : '99:99');
+
+// ระดับการเกินเกณฑ์ของทุกตัวอย่าง (กติกาเดียวกับหน้าเว็บ) — ใช้เกณฑ์ ณ เวลาของตัวอย่างนั้น (resolver)
+// records: [{ param_key, trans_dtm, trans_time, trans_value }] (ตัวเดียวต่อ param/วัน/รอบ)
+// คืน Map `${param}|${date}|${slot}` → 'first' (เกินครั้งแรก = น้ำเงิน) | 'repeat' (เกินต่อเนื่อง = แดง)
+// ตัวอย่างที่เข้าเกณฑ์ หรือรอบที่ไม่มีเกณฑ์ → นับใหม่ · ค่าที่ไม่ใช่ตัวเลขไม่นับ (ข้ามไป)
+function breachMarks(records, resolver) {
+  const byParam = {};
+  for (const r of records) (byParam[r.param_key] ||= []).push(r);
+  const out = new Map();
+  for (const [key, rows] of Object.entries(byParam)) {
+    rows.sort((a, b) => (a.trans_dtm + slotOrder(a.trans_time)).localeCompare(b.trans_dtm + slotOrder(b.trans_time)));
+    let streak = 0;
+    for (const r of rows) {
+      if (r.trans_value === '' || r.trans_value == null || !Number.isFinite(parseFloat(r.trans_value))) continue;
+      if (isBreach(r.trans_value, resolver(r.trans_dtm, r.trans_time)[key])) {
+        streak += 1;
+        out.set(`${key}|${r.trans_dtm}|${r.trans_time}`, streak === 1 ? 'first' : 'repeat');
+      } else streak = 0;
+    }
+  }
+  return out;
+}
+
 // จำนวนครั้งที่เกินติดกัน "ก่อน" รอบ (date, slot) ของแต่ละพารามิเตอร์ จาก node_records (ย้อนไม่เกิน 7 วัน)
+// แต่ละตัวอย่างตัดสินด้วยเกณฑ์ ณ เวลาของตัวอย่างนั้น (scenario_periods)
 // คืน { [param_key]: { streak, last: { date, slot, value } | null } }
 function streaksBefore(date, slot) {
-  const active = getActiveScenario();
-  const byKey = Object.fromEntries((active?.thresholds || []).map(t => [t.param_key, t]));
-  const keys = Object.keys(byKey);
+  const hist = require('./scenarioHistory');
+  const resolve = hist.makeResolver();
+  const keys = Object.keys(resolve(date, slot));
   if (!keys.length) return {};
   const from = new Date(`${date}T00:00:00Z`);
   from.setUTCDate(from.getUTCDate() - 7);
   const rows = getDb().all(
     `SELECT param_key, trans_dtm, trans_time, trans_value FROM node_records
       WHERE param_key IN (${keys.map(() => '?').join(',')})
-        AND trans_dtm >= ? AND (trans_dtm < ? OR (trans_dtm = ? AND trans_time < ?))
+        AND trans_dtm >= ? AND trans_dtm <= ?
         AND trans_value IS NOT NULL AND trans_value <> ''
       ORDER BY param_key, trans_dtm DESC, trans_time DESC`,
-    [...keys, from.toISOString().slice(0, 10), date, date, slot]
-  );
+    [...keys, from.toISOString().slice(0, 10), date]
+  ).filter(r => (r.trans_dtm + slotOrder(r.trans_time)) < (date + slotOrder(slot)));
+  rows.sort((a, b) => a.param_key.localeCompare(b.param_key)
+    || (b.trans_dtm + slotOrder(b.trans_time)).localeCompare(a.trans_dtm + slotOrder(a.trans_time)));
   const out = {};
   for (const r of rows) {
     if (!Number.isFinite(parseFloat(r.trans_value))) continue;   // ค่าที่ไม่ใช่ตัวเลข (เช่น ผลแบคทีเรีย) ไม่นับ
     const o = out[r.param_key] || (out[r.param_key] = { streak: 0, last: null, done: false });
     if (o.done) continue;
     if (!o.last) o.last = { date: r.trans_dtm, slot: r.trans_time, value: r.trans_value };
-    if (isBreach(r.trans_value, byKey[r.param_key])) o.streak += 1;
+    if (isBreach(r.trans_value, resolve(r.trans_dtm, r.trans_time)[r.param_key])) o.streak += 1;
     else o.done = true;
   }
   for (const k of Object.keys(out)) delete out[k].done;
@@ -160,7 +172,7 @@ function streaksBefore(date, slot) {
 }
 
 module.exports = {
-  getActiveScenario, getControlValues, readAppSettings, paramIndex, allScenarioThresholds, validateThresholds,
-  epidemicThresholds,
-  isBreach, activeLimits, streaksBefore,
+  getActiveScenario, readAppSettings, paramIndex, allScenarioThresholds, validateThresholds,
+  epidemicThresholds, applyEpidemic,
+  isBreach, breachMarks, activeLimits, streaksBefore,
 };

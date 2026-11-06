@@ -1,7 +1,8 @@
 ﻿import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useLocation } from 'react-router-dom';
-import { get, post, patch, del } from '../api.js';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { get, post, patch, del, BASE } from '../api.js';
+import { CAR_PREFIXES } from '../config/carPrefixes.js';
 
 // ─── Status system ─────────────────────────────────────────────────────────
 
@@ -25,6 +26,52 @@ function isOverdue(deadline, code) {
 function fmtDate(d) {
   if (!d) return '—';
   return String(d).slice(0, 10);
+}
+
+// filled from the original Excel forms (server/templates) — xlsx download / pdf exported by Excel
+const carFormUrl = (id, fmt) => `${BASE}/api/car/${id}/form/${fmt}`;
+const carLogUrl = (fmt, fy, system) => `${BASE}/api/car/log/${fmt}?fy=${fy}${system ? `&system=${encodeURIComponent(system)}` : ''}`;
+// Thai fiscal year (BE): 1 Oct starts the next year — same rule as server carCreate.fiscalYearBE
+const fiscalYearBE = (d = new Date()) => d.getFullYear() + 543 + (d.getMonth() >= 9 ? 1 : 0);
+const FILE_BTN = {
+  xlsx: 'inline-block px-3 py-1 rounded-lg border border-green-700 text-green-700 text-xs font-bold hover:bg-green-50',
+  pdf: 'inline-block px-3 py-1 rounded-lg border border-red-700 text-red-700 text-xs font-bold hover:bg-red-50',
+};
+
+function FileButtons({ url }) {
+  return (
+    <span className="whitespace-nowrap space-x-2">
+      <a href={url('xlsx')} className={FILE_BTN.xlsx}>Excel</a>
+      <a href={url('pdf')} target="_blank" rel="noreferrer" className={FILE_BTN.pdf}>PDF</a>
+    </span>
+  );
+}
+
+// ทะเบียน CAR/PAR (สบค-09) by fiscal year × system
+function LogExport({ cars }) {
+  const [fy, setFy] = useState(fiscalYearBE());
+  const [system, setSystem] = useState('');
+  const years = useMemo(() => {
+    const ys = new Set([fiscalYearBE()]);
+    for (const c of cars) if (c.issued_at) ys.add(fiscalYearBE(new Date(String(c.issued_at).replace(' ', 'T') + 'Z')));
+    return [...ys].sort((a, b) => b - a);
+  }, [cars]);
+  const sel = 'border border-earth-border rounded-lg px-2 py-1 text-sm bg-earth-card';
+  return (
+    <div className="flex items-center gap-2 flex-wrap bg-earth-DEFAULT border border-earth-border rounded-xl px-4 py-2.5">
+      <span className="text-sm font-semibold text-earth-ink">ทะเบียน CAR/PAR (สบค-09)</span>
+      <select value={fy} onChange={e => setFy(Number(e.target.value))} className={sel}>
+        {years.map(y => <option key={y} value={y}>ปีงบ {y}</option>)}
+      </select>
+      <select value={system} onChange={e => setSystem(e.target.value)} className={sel}>
+        <option value="">ทุกระบบ</option>
+        <option>HACCP</option>
+        <option>ISO14001:2015</option>
+        <option>ISO45001:2018</option>
+      </select>
+      <span className="ml-auto"><FileButtons url={fmt => carLogUrl(fmt, fy, system)} /></span>
+    </div>
+  );
 }
 
 function parseFd(car) {
@@ -186,8 +233,13 @@ function CarCard({ car, onClick }) {
       {car.parameter_name && (
         <p className="text-sm text-earth-ink mt-1 line-clamp-1">{car.parameter_name}</p>
       )}
-      {/* Row 3: progress */}
-      <ProgressStages car={car} />
+      {/* Row 3: progress · ใบ CAR (สบค-08) files — clicks here must not open the slide panel */}
+      <div className="flex items-end justify-between gap-2">
+        <ProgressStages car={car} />
+        <span onClick={e => e.stopPropagation()}>
+          <FileButtons url={fmt => carFormUrl(car.id, fmt)} />
+        </span>
+      </div>
     </div>
   );
 }
@@ -347,6 +399,10 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
               </span>
             </div>
             <p className="text-xs text-earth-ink3 font-mono mt-0.5">{car.unique_key}</p>
+          </div>
+          <div className="ml-auto mr-3 flex items-center gap-2">
+            <span className="text-xs text-earth-ink3">ใบ {car.car_type || 'CAR'} (สบค-08)</span>
+            <FileButtons url={fmt => carFormUrl(car.id, fmt)} />
           </div>
           <button onClick={onClose} className="text-earth-ink3 hover:text-earth-ink text-xl leading-none px-2">✕</button>
         </div>
@@ -660,9 +716,10 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
 
 // ─── Create form ──────────────────────────────────────────────────────────
 
+
 const INIT = {
   car_type: 'CAR', system_type: '', issue_type: '',
-  car_number: '', parameter_name: '',
+  car_prefix: '', car_number: '', parameter_name: '',
   issuer_name: '', issuer_dept: '', receiver_name: '', receiver_dept: '',
   recorded_value: '', threshold_value: '', threshold_direction: 'above',
   record_datetime: new Date().toISOString().slice(0, 16),
@@ -823,7 +880,11 @@ function AdminPanel({ onClose }) {
 
 export default function CARLog() {
   const location = useLocation();
+  const navigate = useNavigate();
   const prefill = location.state?.prefill;
+  const chemLabCase = location.state?.chemLabCase; // { id } — CAR issued from a chem-lab compensation case
+  const eventOccurrence = location.state?.eventOccurrence; // { id, event_class_id } — CAR issued from an alarm (Event Class)
+  const [linkError, setLinkError] = useState(null);
 
   const [tab, setTab] = useState(prefill ? 'create' : 'list');
   const [selectedCar, setSelectedCar] = useState(null);
@@ -835,6 +896,22 @@ export default function CARLog() {
   const { data: cars = [], isLoading } = useQuery({
     queryKey: ['cars'],
     queryFn: () => get('/api/car'),
+  });
+
+  // Deep link /car?key=<unique_key> (from chem-lab case) → open that CAR once the list is loaded
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepKey = searchParams.get('key');
+  useEffect(() => {
+    if (!deepKey || isLoading) return;
+    const car = cars.find(c => c.unique_key === deepKey);
+    if (car) { setTab('list'); setSelectedCar(car); }
+    setSearchParams({}, { replace: true });
+  }, [deepKey, isLoading, cars]);
+
+  const { data: nextNo } = useQuery({
+    queryKey: ['car-next-number', form.car_prefix, form.car_type],
+    queryFn: () => get(`/api/car/next-number?prefix=${form.car_prefix}&car_type=${form.car_type}`),
+    enabled: tab === 'create' && !!form.car_prefix,
   });
 
   const { data: myRole } = useQuery({
@@ -856,8 +933,29 @@ export default function CARLog() {
       recorded_value: form.recorded_value ? parseFloat(form.recorded_value) : null,
       threshold_value: form.threshold_value ? parseFloat(form.threshold_value) : null,
     }),
-    onSuccess: () => {
+    onSuccess: async (result) => {
       qc.invalidateQueries({ queryKey: ['cars'] });
+      qc.invalidateQueries({ queryKey: ['car-next-number'] });
+      if (chemLabCase) {
+        try {
+          await post(`/api/chem-lab/cases/${chemLabCase.id}/car`, { car_key: result.unique_key });
+          qc.invalidateQueries({ queryKey: ['chem-lab'] });
+          navigate(`/chem-intake?tab=cases&case=${chemLabCase.id}`, { replace: true });
+          return;
+        } catch (e) {
+          setLinkError(`ออก CAR ${result.unique_key} แล้ว แต่ผูกกับเคสชดเชย #${chemLabCase.id} ไม่สำเร็จ: ${e.message}`);
+        }
+      }
+      if (eventOccurrence) {
+        try {
+          await post(`/api/eventclass/occurrences/${eventOccurrence.id}/car`, { car_key: result.unique_key });
+          qc.invalidateQueries({ queryKey: ['eventclass'] });
+          navigate('/event-class?tab=occurrences', { replace: true });
+          return;
+        } catch (e) {
+          setLinkError(`ออก CAR ${result.unique_key} แล้ว แต่ผูกกับเหตุการณ์แจ้งเตือน #${eventOccurrence.id} ไม่สำเร็จ: ${e.message}`);
+        }
+      }
       setTab('list');
       setForm(INIT);
     },
@@ -960,6 +1058,7 @@ export default function CARLog() {
             ? <div className="text-center py-8 text-earth-ink3">กำลังโหลด...</div>
             : (
               <div className="space-y-6">
+                <LogExport cars={cars} />
                 <Bucket title="กำลังดำเนินการ" cars={inProgress} onSelect={setSelectedCar} badge={inProgress.length} />
                 <Bucket title="ตีกลับ" cars={rejected} onSelect={setSelectedCar} badge={rejected.length} />
                 <Bucket title="ปิดแล้ว" cars={closed} onSelect={setSelectedCar} badge={closed.length} />
@@ -972,6 +1071,16 @@ export default function CARLog() {
       {/* Create form */}
       {tab === 'create' && (
         <div className="bg-earth-DEFAULT rounded-xl p-5 shadow-sm border border-earth-border space-y-4">
+          {eventOccurrence && (
+            <p className="text-sm font-semibold text-amber-800 bg-amber-100 border border-amber-300 rounded-lg px-3 py-2">
+              🔔 ออก CAR จากเหตุการณ์แจ้งเตือน #{eventOccurrence.id} ({eventOccurrence.event_class_id}) — ระบบกรอกเรื่องที่พบ/ค่า/เกณฑ์ให้แล้ว ตรวจสอบ แล้วกรอกผู้รับ ก่อนกดออกใบ
+            </p>
+          )}
+          {chemLabCase && (
+            <p className="text-sm font-semibold text-amber-800 bg-amber-100 border border-amber-300 rounded-lg px-3 py-2">
+              🚩 ออก CAR จากเคสชดเชย #{chemLabCase.id} (ห้องปฏิบัติการเคมี) — ระบบกรอกเรื่องที่พบ/ค่า/เกณฑ์ให้แล้ว ตรวจสอบ แล้วกรอกเลข CAR และผู้รับ ก่อนกดออกใบ
+            </p>
+          )}
           <h2 className="font-semibold text-earth-ink">ส่วนที่ 1 — รายละเอียดสิ่งที่ไม่เป็นไปตามข้อกำหนด</h2>
           <div className="grid grid-cols-2 gap-4">
 
@@ -998,7 +1107,25 @@ export default function CARLog() {
               </select>
             </div>
 
-            <Inp label="เลข CAR/PAR" name="car_number" value={form.car_number} onChange={setF} />
+            <div>
+              <label className="block text-xs font-medium text-earth-ink2 mb-1">เลข {form.car_type}</label>
+              <div className="flex gap-2">
+                <select name="car_prefix" value={form.car_prefix} onChange={setF}
+                  className="w-24 shrink-0 border border-earth-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                  <option value="">กรอกเอง</option>
+                  {CAR_PREFIXES.map(([p, d]) => <option key={p} value={p} title={d}>{p}</option>)}
+                </select>
+                <input name="car_number" value={form.car_number} onChange={setF}
+                  placeholder={form.car_prefix ? (nextNo?.car_number ? `อัตโนมัติ: ${nextNo.car_number}` : 'อัตโนมัติ') : 'เช่น CQ 01/2569'}
+                  className="flex-1 min-w-0 border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+              </div>
+              {form.car_prefix && (
+                <p className="text-[11px] text-earth-ink3 mt-1">
+                  {form.car_prefix} = {CAR_PREFIXES.find(([p]) => p === form.car_prefix)?.[1]}
+                  {!form.car_number && ` · ระบบออกเลขให้ตอนกดออกใบ (นับแยก ${form.car_type} · เริ่มใหม่ทุกปีงบประมาณ 1 ต.ค.)`}
+                </p>
+              )}
+            </div>
 
             <div>
               <label className="block text-xs font-medium text-earth-ink2 mb-1">ประเภทของปัญหา</label>
@@ -1049,6 +1176,7 @@ export default function CARLog() {
           {createMutation.isError && (
             <p className="text-sm text-red-600">เกิดข้อผิดพลาด: {createMutation.error?.message}</p>
           )}
+          {linkError && <p className="text-sm text-red-600">{linkError}</p>}
           <button onClick={() => createMutation.mutate()}
             disabled={createMutation.isPending || !form.parameter_name || !form.record_datetime}
             className="w-full bg-brand hover:bg-sky-700 disabled:opacity-40 text-white font-semibold py-3 rounded-xl touch-target transition-colors">

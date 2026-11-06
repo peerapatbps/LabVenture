@@ -52,10 +52,10 @@ function normalizeParamKey(paramKey) {
 }
 
 const LEGACY_CONFIG_TIME_OVERRIDES = {
-  '984': { '05:00': 'JarTest.Alum.RW_ref_Turb' },
-  '986': { '05:00': 'JarTest.Alum.RW_ref_pH', '09:00': 'JarTest.PACl.RW_ref_turb' },
-  '987': { '05:00': 'JarTest.Alum.RW_ref_Alk', '09:00': 'JarTest.PACl.RW_ref_pH' },
-  '988': { '05:00': 'JarTest.Alum.RW_ref_Temp', '09:00': 'JarTest.PACl.RW_ref_Alk' },
+  '984': { '05:00': 'JarTest.Alum.RW_ref_Temp' },
+  '986': { '05:00': 'JarTest.Alum.RW_ref_Turb', '09:00': 'JarTest.PACl.RW_ref_turb' },
+  '987': { '05:00': 'JarTest.Alum.RW_ref_pH', '09:00': 'JarTest.PACl.RW_ref_pH' },
+  '988': { '05:00': 'JarTest.Alum.RW_ref_Alk', '09:00': 'JarTest.PACl.RW_ref_Alkalinity' },
   '8116': { '09:00': 'JarTest.PACl.RW_ref_Temp' },
 };
 
@@ -357,7 +357,9 @@ router.get('/nodes-today', (req, res) => {
   function slotMinutes(s) { const [h] = s.split(':').map(Number); return h * 60; }
 
   // Return ALL slots for the full day, each with a `due` flag
-  function getAllSlots(frequency) {
+  // param รายวันที่ตั้ง inSlot (OC ของ CW/FW) นับเป็นรอบ fixedTime — ส่ง fixedTime มาเฉพาะตัวที่มี inSlot
+  function getAllSlots(frequency, fixedTime) {
+    if (frequency === 'daily' && SLOTS_2H.includes(fixedTime)) return [{ slot: fixedTime, due: slotMinutes(fixedTime) <= nowMinutes }];
     if (frequency === 'daily') return [{ slot: 'daily', due: true }];
     if (frequency === 'weekly') return [{ slot: 'weekly', due: true }];
     let all;
@@ -382,7 +384,7 @@ router.get('/nodes-today', (req, res) => {
     .slice().sort((a, b) => (a.sort || 0) - (b.sort || 0))
     .map(node => {
       const params = node.parameters.map(p => {
-        const allSlots = getAllSlots(p.frequency);
+        const allSlots = getAllSlots(p.frequency, p.inSlot ? p.fixedTime : null);
         const dueSlots = allSlots.filter(s => s.due);
         const recordedCount = dueSlots.filter(s => {
           if (s.slot === 'daily') return recordedSet.has(`${p.param_key}|daily`) || anyTimeRecordedKeys.has(p.param_key);

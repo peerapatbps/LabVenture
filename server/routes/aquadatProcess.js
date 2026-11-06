@@ -7,6 +7,7 @@ const CONFIGS = require('../config/aquadat_configs.json');
 const { getDb, persist, nowTH } = require('../services/db');
 
 const NODES_PATH = path.join(__dirname, '..', 'config', 'nodes.json');
+const SLOTS_2H = ['01:00','03:00','05:00','07:00','09:00','11:00','13:00','15:00','17:00','19:00','21:00','23:00'];
 
 const PROCESS_URL = 'http://172.16.198.150:443/api/process';
 
@@ -233,7 +234,7 @@ function buildConfigMap() {
   const nodeParamMeta = {};
   for (const node of nodesData.nodes) {
     for (const p of node.parameters) {
-      nodeParamMeta[normalizeParamKey(p.param_key)] = { frequency: p.frequency, fixedTime: p.fixedTime || null };
+      nodeParamMeta[normalizeParamKey(p.param_key)] = { frequency: p.frequency, fixedTime: p.fixedTime || null, inSlot: !!p.inSlot };
     }
   }
 
@@ -248,6 +249,7 @@ function buildConfigMap() {
           paramKey: normalizedKey,
           frequency: meta.frequency || null,
           fixedTime: meta.fixedTime || null,
+          inSlot: !!meta.inSlot,
         };
       }
     }
@@ -332,7 +334,8 @@ router.post('/sync', requireToken, async (req, res) => {
       if (meta.frequency === 'daily') {
         // Only mark done if value appears at or near the fixedTime
         if (!isAcceptedDailyTime(meta.paramKey, row.time, meta.fixedTime)) { skipped++; continue; }
-        transTime = 'daily';
+        // inSlot (OC ของ CW/FW) → เก็บเป็นรอบ fixedTime ให้ตรงกับหน้า Record
+        transTime = meta.inSlot && SLOTS_2H.includes(meta.fixedTime) ? meta.fixedTime : 'daily';
       } else {
         transTime = row.time;
       }

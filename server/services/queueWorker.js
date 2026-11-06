@@ -99,11 +99,13 @@ async function processExcelQueue({ statuses = ['pending'], maxAttempts = MAX_ATT
           return v === null ? r : { ...r, trans_value: v };
         });
         const recorders = loadRecorders(db, [...new Set(records.map(r => r.trans_dtm))]);
-        await writeToExcel(records, recorders);
+        await writeToExcel(records, recorders, Array.isArray(payload) ? {} : (payload.cells || {}));
         markSuccess(db, 'excel_queue', item.id);
         succeeded++;
       } catch (err) {
-        markFailed(db, 'excel_queue', item, err, maxAttempts);
+        // ยังไม่มีไฟล์ปลายทาง = รอคนสร้าง → ไม่นับครั้ง (ไม่ให้กลายเป็น dead ระหว่างรอ)
+        const waiting = /ยังไม่มีไฟล์ปลายทาง/.test(err.message);
+        markFailed(db, 'excel_queue', waiting ? { ...item, attempts: Math.min(item.attempts, maxAttempts - 2) } : item, err, maxAttempts);
         failed++;
         // ไฟล์เดียวกันยังเปิดค้าง → รายการถัดไปก็จะล้มเหมือนกัน ไม่ต้องเปิด Excel ซ้ำทุกรายการ
         if (/ถูกเปิดค้าง|read-only/.test(err.message)) break;

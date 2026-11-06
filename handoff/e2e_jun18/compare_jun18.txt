@@ -1,0 +1,160 @@
+sheets: ['18 มิ.ย.']
+OK 151  DIFF 1
+DIFF F3 วันที่: source='18  มิถุนายน 2569' printout='18 มิถุนายน 2569'
+-- species: source 75 ชนิด, printout 75 ชนิด; ไม่มีใน printout: []; ไม่มีในต้นฉบับ: []
+-- non-zero cells compared: 14; species rows ว่างที่ถูกซ่อน: 63/63
+=== ALL ===
+DIFF F3 วันที่: source='18  มิถุนายน 2569' printout='18 มิถุนายน 2569'
+OK  B7 =F3: source='=F3' printout='=F3'
+OK  WQ RW label: source='1) RW' printout='1) RW'
+OK  WQ RW hidden: source=False printout=False
+OK  WQ RW เวลา (B9→B9): source=9 printout=9
+OK  WQ RW Turb (D9→D9): source=22.4 printout=22.4
+OK  WQ RW pH (E9→E9): source=8.04 printout=8.04
+OK  WQ RW OC (F9→F9): source=2.01 printout=2.01
+OK  WQ RW Cond (G9→G9): source=229 printout=229
+OK  WQ TW1 label: source='2) TW1' printout='2) TW1'
+OK  WQ TW1 hidden: source=False printout=False
+OK  WQ TW1 เวลา (B10→B10): source=9 printout=9
+OK  WQ TW1 Turb (D10→D10): source=0.41 printout=0.41
+OK  WQ TW1 pH (E10→E10): source=7.43 printout=7.43
+OK  WQ TW1 OC (F10→F10): source=0.75 printout=0.75
+OK  WQ TW1 Cond (G10→G10): source=237 printout=237
+OK  WQ TW2 label: source='3) TW2' printout='3) TW2'
+OK  WQ TW2 hidden: source=False printout=False
+OK  WQ TW2 เวลา (B11→B11): source=9 printout=9
+OK  WQ TW2 Turb (D11→D11): source=0.52 printout=0.52
+OK  WQ TW2 pH (E11→E11): source=7.41 printout=7.41
+OK  WQ TW2 OC (F11→F11): source=0.71 printout=0.71
+OK  WQ TW2 Cond (G11→G11): source=231 printout=231
+OK  WQ CW1 (ไม่มีในต้นฉบับ) hidden: source=True printout=True
+OK  WQ CW2 (ไม่มีในต้นฉบับ) hidden: source=True printout=True
+OK  WQ CW3 (ไม่มีในต้นฉบับ) hidden: source=True printout=True
+OK  WQ CW4 (ไม่มีในต้นฉบับ) hidden: source=True printout=True
+-- species: source 75 ชนิด, printout 75 ชนิด; ไม่มีใน printout: []; ไม่มีในต้นฉบับ: []
+OK  Aulacoseira sp. หมายเหตุ K: source='FC Algae' printout='FC Algae'
+OK  Amphora sp. col D (D16→D20): source=200 printout=200
+OK  Amphora sp. row visible: source=False printout=False
+OK  Amphora sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Achnanthes sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Attheya sp. หมายเหตุ K: source='FC Algae' printout='FC Algae'
+OK  Cyclotella sp. หมายเหตุ K: source='FC Algae' printout='FC Algae'
+OK  Chaetoceros sp. หมายเหตุ K: source='FC , PW Algae' printout='FC , PW Algae'
+OK  Cocconeis sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Cymbella sp. หมายเหตุ K: source='FC Algae' printout='FC Algae'
+OK  Diatom sp. หมายเหตุ K: source='FC , TO Algae' printout='FC , TO Algae'
+OK  Diploneis sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Fragilaria sp. หมายเหตุ K: source='FC , TO Algae' printout='FC , TO Algae'
+OK  Gomphonema sp. หมายเหตุ K: source='FC Algae' printout='FC Algae'
+OK  Gyrosigma sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Melosira sp. หมายเหตุ K: source='FC Algae' printout='FC Algae'
+OK  Navicula sp. col D (D29→D33): source=2000 printout=2000
+OK  Navicula sp. col F (F29→F33): source=80 printout=80
+OK  Navicula sp. row visible: source=False printout=False
+OK  Navicula sp. หมายเหตุ K: source='FC Algae' printout='FC Algae'
+OK  Nitzschia sp. col D (D30→D34): source=14800 printout=14800
+OK  Nitzschia sp. col E (E30→E34): source=80 printout=80
+OK  Nitzschia sp. row visible: source=False printout=False
+OK  Nitzschia sp. หมายเหตุ K: source='FC , PW Algae' printout='FC , PW Algae'
+OK  Pinnularia sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Skeletonema sp. หมายเหตุ K: source='FC Algae' printout='FC Algae'
+OK  Stephanodiscus sp. หมายเหตุ K: source='FC Algae' printout='FC Algae'
+OK  Synedra sp. หมายเหตุ K: source='FC Algae' printout='FC Algae'
+OK  Surirella sp. หมายเหตุ K: source='PW Algae' printout='PW Algae'
+OK  Tabellaria sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Actinastrum sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Ankistrodesmus sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Chlamydomonas sp. หมายเหตุ K: source='TO, PW Algae' printout='TO, PW Algae'
+OK  Chlorella sp. col D (D40→D44): source=400 printout=400
+OK  Chlorella sp. row visible: source=False printout=False
+OK  Chlorella sp. หมายเหตุ K: source='FC, PW Algae' printout='FC, PW Algae'
+OK  Chodatella sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Closterium sp. หมายเหตุ K: source='FC Algae' printout='FC Algae'
+OK  Coelastrum sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Cosmarium sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Crucigenia sp. หมายเหตุ K: source='TO Algae' printout='TO Algae'
+OK  Dictyosphaerium sp. หมายเหตุ K: source='FC, TO Algae' printout='FC, TO Algae'
+OK  Elakatothrix sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Eudorina sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Gloeocystis sp. หมายเหตุ K: source='TO Algae' printout='TO Algae'
+OK  Micractinium sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Micrasterias sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Microspora sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Monoraphidium sp. col D (D53→D57): source=200 printout=200
+OK  Monoraphidium sp. row visible: source=False printout=False
+OK  Monoraphidium sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Mougeotia sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Nephrocytium sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Oocystis sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Pandorina sp. หมายเหตุ K: source='TO, PW Algae' printout='TO, PW Algae'
+OK  Pediastrum sp. หมายเหตุ K: source='TO Algae' printout='TO Algae'
+OK  Planktosperia sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Scenedesmus sp. col D (D60→D64): source=2400 printout=2400
+OK  Scenedesmus sp. row visible: source=False printout=False
+OK  Scenedesmus sp. หมายเหตุ K: source='TO, PW Algae' printout='TO, PW Algae'
+OK  Schroederia sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Sphaerocystis sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Spirogyra sp. หมายเหตุ K: source='FC, PW, TO Algae' printout='FC, PW, TO Algae'
+OK  Staurastrum sp. col D (D64→D68): source=200 printout=200
+OK  Staurastrum sp. row visible: source=False printout=False
+OK  Staurastrum sp. หมายเหตุ K: source='TO Algae' printout='TO Algae'
+OK  Tetraedon sp. col D (D65→D69): source=800 printout=800
+OK  Tetraedon sp. row visible: source=False printout=False
+OK  Tetraedon sp. หมายเหตุ K: source='PW Algae' printout='PW Algae'
+OK  Tetraspora sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Treubaria sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Volvox sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Anabaena sp. หมายเหตุ K: source='FC, TO, PW Algae' printout='FC, TO, PW Algae'
+OK  Chroococcus sp. หมายเหตุ K: source='PW Algae' printout='PW Algae'
+OK  Cylindospermopsis sp. col D (D71→D75): source=200 printout=200
+OK  Cylindospermopsis sp. row visible: source=False printout=False
+OK  Cylindospermopsis sp. หมายเหตุ K: source='PW, TOX Algae' printout='PW, TOX Algae'
+OK  Lyngbya sp. หมายเหตุ K: source='PW Algae' printout='PW Algae'
+OK  Merismopedia sp. col D (D73→D77): source=600 printout=600
+OK  Merismopedia sp. row visible: source=False printout=False
+OK  Merismopedia sp. หมายเหตุ K: source='PW Algae' printout='PW Algae'
+OK  Microcystis sp. หมายเหตุ K: source='TOX Algae' printout='TOX Algae'
+OK  Nostoc sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Oscillatoria sp. col D (D76→D80): source=2400 printout=2400
+OK  Oscillatoria sp. row visible: source=False printout=False
+OK  Oscillatoria sp. หมายเหตุ K: source='FC, PW Algae' printout='FC, PW Algae'
+OK  Phormedium sp. หมายเหตุ K: source='PW Algae' printout='PW Algae'
+OK  Pseudanabaena sp. col D (D78→D82): source=800 printout=800
+OK  Pseudanabaena sp. row visible: source=False printout=False
+OK  Pseudanabaena sp. หมายเหตุ K: source='FC Algae' printout='FC Algae'
+OK  Spirulina sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Euglena sp. หมายเหตุ K: source='PW Algae' printout='PW Algae'
+OK  Lepocinclis sp. หมายเหตุ K: source='PW Algae' printout='PW Algae'
+OK  Phacus sp. หมายเหตุ K: source='PW Algae' printout='PW Algae'
+OK  Strombomonas sp. หมายเหตุ K: source='not significant' printout='not significant'
+OK  Trachelomonas sp. หมายเหตุ K: source='FC Algae' printout='FC Algae'
+OK  Cryptomonas sp. หมายเหตุ K: source='TO Algae' printout='TO Algae'
+OK  Peridinium sp. หมายเหตุ K: source='FC, TO Algae' printout='FC, TO Algae'
+OK  Gymnodinium sp. หมายเหตุ K: source='FC, TO Algae' printout='FC, TO Algae'
+OK  Dinobryon sp. หมายเหตุ K: source='FC, TO Algae' printout='FC, TO Algae'
+OK  Mallomonas sp. หมายเหตุ K: source='TO Algae' printout='TO Algae'
+-- non-zero cells compared: 14; species rows ว่างที่ถูกซ่อน: 63/63
+OK  สรุป label TO Algae: source='TO Algae' printout='TO Algae'
+OK  สรุป TO Algae D (value): source=2600 printout=2600
+OK  สรุป TO Algae E (value): source=0 printout=0
+OK  สรุป TO Algae F (value): source=0 printout=0
+OK  สรุป label TOX Algae: source='TOX Algae' printout='TOX Algae'
+OK  สรุป TOX Algae D (value): source=200 printout=200
+OK  สรุป TOX Algae E (value): source=0 printout=0
+OK  สรุป TOX Algae F (value): source=0 printout=0
+OK  สรุป label PW Algae: source='PW Algae' printout='PW Algae'
+OK  สรุป PW Algae D (value): source=21600 printout=21600
+OK  สรุป PW Algae E (value): source=80 printout=80
+OK  สรุป PW Algae F (value): source=0 printout=0
+OK  สรุป label Aulacoseira sp.: source='Aulacoseira sp.' printout='Aulacoseira sp.'
+OK  สรุป Aulacoseira sp. D (value): source=0 printout=0
+OK  สรุป Aulacoseira sp. E (value): source=0 printout=0
+OK  สรุป Aulacoseira sp. F (value): source=0 printout=0
+OK  สรุป label Filter clogging: source='Filter clogging' printout='Filter clogging'
+OK  สรุป Filter clogging D (value): source=20400 printout=20400
+OK  สรุป Filter clogging E (value): source=80 printout=80
+OK  สรุป Filter clogging F (value): source=80 printout=80
+OK  สรุป label Total algae: source='Total algae' printout='Total algae'
+OK  สรุป Total algae D (value): source=25000 printout=25000
+OK  สรุป Total algae E (value): source=80 printout=80
+OK  สรุป Total algae F (value): source=80 printout=80

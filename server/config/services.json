@@ -6,5 +6,24 @@
       "chem_summary": "/api/chem/summary",
       "chem_report": "/api/chem_report"
     }
+  },
+  "chem_lab": {
+    "base_url": "http://localhost:8888",
+    "prefix": "/api/chemlab",
+    "mock": false,
+    "mock_chem_db": "C:\\Users\\peera\\OneDrive\\Desktop\\chem.db",
+    "mock_lab_db": "chemlab_mock.db"
+  },
+  "uroboros": {
+    "base_url": "http://localhost:8888",
+    "metrics_schema_path": "/api/metrics/schema",
+    "alarm_state_path": "/api/alarm/state",
+    "alarm_poll_sec": 60,
+    "alarm_watch": true,
+    "sync_on_scenario_change": true
+  },
+  "bellbeast_audio": {
+    "base_url": "http://localhost:443",
+    "clips_path": "/api/audio/clips"
   }
 }

@@ -7,40 +7,37 @@ const BASE = import.meta.env.PROD ? '/labventure' : '';
 export const LAB_CHART_ENDPOINT = `${BASE}/api/lab/chart`;
 
 // ── Threshold rules ────────────────────────────────────────────────────────
+// Come from the active scenario's LCL/UCL (/config → สถานการณ์, already epidemic-adjusted by the
+// server — GET /api/scenarios/active). Same source as /record and BellBeast MHxView.
 // type:'max'   → exceeded when value > max
+// type:'min'   → exceeded when value < min
 // type:'range' → exceeded when value < min OR value > max
-//
-// Scenario overrides: only the keys that DIFFER from _base are listed.
-// Unrecognised scenario names fall back to _base.
 
-export const CHART_THRESHOLDS = {
-  _base: {
-    rw_turbid:          { type: 'max',   max: 100  },
-    cw_turbid:          { type: 'max',   max: 5    },
-    cw_pre_cl:          { type: 'max',   max: 0.3  },
-    fw_turbid:          { type: 'max',   max: 1    },
-    tw_turbid:          { type: 'max',   max: 1    },
-    tw_pos_cl:          { type: 'range', min: 1.0, max: 1.4 },
-    tw_pos_cl_epidemic: { type: 'range', min: 1.4, max: 1.8 },
-  },
-  // น้ำด้อยคุณภาพระดับเฝ้าระวัง / สาหร่ายอุดตันบ่อกรองระดับเฝ้าระวัง
-  'น้ำด้อยคุณภาพระดับเฝ้าระวัง':         { cw_turbid: { type: 'max', max: 3 } },
-  'สาหร่ายอุดตันบ่อกรองระดับเฝ้าระวัง': { cw_turbid: { type: 'max', max: 3 } },
-  // น้ำด้อยคุณภาพระดับวิกฤติ / สาหร่ายอุดตันบ่อกรองระดับวิกฤติ
-  'น้ำด้อยคุณภาพระดับวิกฤติ':         { cw_turbid: { type: 'max', max: 2 } },
-  'สาหร่ายอุดตันบ่อกรองระดับวิกฤติ': { cw_turbid: { type: 'max', max: 2 } },
+// filter → param_key of chart card i (phase i+1)
+const FILTER_PARAM = {
+  rw_turbid: () => 'RW.turb',
+  cw_turbid: (i) => `CW${i + 1}.turb`,
+  fw_turbid: (i) => `FW${i + 1}.turb`,
+  tw_turbid: (i) => `TW${i + 1}.turb`,
+  cw_pre_cl: (i) => `CW${i + 1}.ResCl2`,
+  tw_pos_cl: (i) => `TW${i + 1}.ResCl2`,
 };
 
-// Returns the effective threshold rule for a given filter, scenario, and epidemic state.
-export function getThreshold(filterKey, scenarioName, isEpidemic) {
-  const base = CHART_THRESHOLDS._base;
-  const overrides = CHART_THRESHOLDS[scenarioName] || {};
+export function ruleFromThreshold(t) {
+  if (!t) return null;
+  const hasMin = t.min !== null && t.min !== undefined;
+  const hasMax = t.max !== null && t.max !== undefined;
+  if (hasMin && hasMax) return { type: 'range', min: t.min, max: t.max };
+  if (hasMax) return { type: 'max', max: t.max };
+  if (hasMin) return { type: 'min', min: t.min };
+  return null;
+}
 
-  if (filterKey === 'tw_pos_cl') {
-    return isEpidemic ? base.tw_pos_cl_epidemic : base.tw_pos_cl;
-  }
-
-  return overrides[filterKey] ?? base[filterKey] ?? null;
+// Rule for chart card `cardIndex` of `filterKey` from the active scenario's thresholds (null = no criterion).
+export function getThreshold(filterKey, thresholds, cardIndex = 0) {
+  const pk = FILTER_PARAM[filterKey]?.(cardIndex);
+  if (!pk) return null;
+  return ruleFromThreshold((thresholds || []).find(t => t.param_key === pk));
 }
 
 // yAxis config:

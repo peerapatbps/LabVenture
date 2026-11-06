@@ -838,7 +838,7 @@
             "22:00",
             "24:00"
           ],
-          "row_op": ">="
+          "row_threshold": 0.12
         },
         "CURRENT, TEMP, BATTERY": {
           "every_hours": 3
@@ -896,7 +896,11 @@
             "16:00",
             "24:00"
           ],
-          "row_threshold": 0.7
+          "row_threshold": 0.5,
+          "slot_thresholds": {
+            "00:00": 0.75,
+            "24:00": 0.75
+          }
         },
         "STAUS P#34": {
           "every_hours": 2,

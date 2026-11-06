@@ -13,21 +13,9 @@ import ConfigEditor from './pages/ConfigEditor.jsx';
 import ChemIntake from './pages/ChemIntake.jsx';
 import OpDashboard from './pages/OpDashboard.jsx';
 import OpRecord from './pages/OpRecord.jsx';
-
-const ROLE_PAGES = {
-  scientist:    null,
-  operator:     ['op-dashboard', 'op-record', 'chem-intake', 'car', 'report'],
-  executive_3a: ['car', 'report'],
-  executive_3b: ['car', 'report'],
-  observer:     null,
-  superadmin:   null,
-};
-
-const PAGE_ROUTES = {
-  dashboard: '/dashboard', record: '/record', 'chem-intake': '/chem-intake',
-  car: '/car', report: '/report', config: '/config',
-  'op-dashboard': '/op-dashboard', 'op-record': '/op-record',
-};
+import EventClass from './pages/EventClass.jsx';
+import ProjectPlan from './pages/ProjectPlan.jsx';
+import { PAGE_ROUTES, allowedPagesFor } from './config/pageAccess.js';
 
 function RequireAuth({ children, page }) {
   const { data, isLoading, isError } = useQuery({
@@ -41,9 +29,9 @@ function RequireAuth({ children, page }) {
   );
   if (isError || !data?.ok) return <Navigate to="/login" replace />;
 
-  // Role-based page access (bypass AND normal login with whitelist group)
-  if (data.role && page) {
-    const allowed = ROLE_PAGES[data.role] ?? null;
+  // Role-based page access (bypass AND normal login with whitelist group) + partial-deploy hidden pages
+  if (page) {
+    const allowed = allowedPagesFor(data);
     if (allowed && !allowed.includes(page)) {
       const firstAllowed = PAGE_ROUTES[allowed[0]] || '/car';
       return <Navigate to={firstAllowed} replace />;
@@ -71,6 +59,8 @@ export default function App() {
         <Route path="chem-intake"   element={<RequireAuth page="chem-intake">  <ChemIntake />    </RequireAuth>} />
         <Route path="op-dashboard"  element={<RequireAuth page="op-dashboard"> <OpDashboard />   </RequireAuth>} />
         <Route path="op-record"     element={<RequireAuth page="op-record">    <OpRecord />      </RequireAuth>} />
+        <Route path="event-class"   element={<RequireAuth page="event-class">  <EventClass />    </RequireAuth>} />
+        <Route path="pm"            element={<RequireAuth page="pm">           <ProjectPlan />   </RequireAuth>} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

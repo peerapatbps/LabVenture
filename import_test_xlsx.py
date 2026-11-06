@@ -5,7 +5,7 @@ import sys, json, http.cookiejar, urllib.request, urllib.parse
 sys.stdout.reconfigure(encoding='utf-8')
 from openpyxl import load_workbook
 
-BASE_URL = 'http://localhost:3001'
+BASE_URL = 'http://localhost:8889'
 DATE     = '2026-06-24'
 SOURCE   = r'C:\Users\peera\OneDrive\Desktop\test.xlsx'
 

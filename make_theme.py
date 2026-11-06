@@ -10,7 +10,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 from openpyxl import load_workbook
 
 SRC  = '05DailyLab_May69.xlsx'
-DEST = 'server/data/DailyLab_theme.xlsx'
+DEST = 'server/templates/DailyLab_theme.xlsx'
 TMP  = DEST + '.tmp'
 
 os.makedirs('server/data', exist_ok=True)

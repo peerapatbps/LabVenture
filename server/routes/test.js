@@ -5,6 +5,7 @@ const path = require('path');
 const { getDb, persist, nowTH } = require('../services/db');
 const { writeData, setForceFail, getForceFail } = require('../services/aquadat');
 const { writeToExcel, setExcelForceFail, getExcelForceFail } = require('../services/excelWriter');
+const { processExcelQueue } = require('../services/queueWorker');
 
 const CONFIG_DIR = path.join(__dirname, '..', 'config');
 const LOCAL_DATA_DIR = path.join(__dirname, '..', 'data');
@@ -170,55 +171,8 @@ router.get('/excel-queue', requireAuth, (req, res) => {
 
 // POST /api/test/excel-retry — retry all pending/dead excel queue items
 router.post('/excel-retry', requireAuth, async (req, res) => {
-  const db = getDb();
-  const items = db.all(`SELECT * FROM excel_queue WHERE status IN ('pending', 'dead')`);
-
-  // Resolve excel_data_dir the same way excel_writer.py does
-  function getExcelDataDir() {
-    try {
-      const cfg = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, 'paths.json'), 'utf8'));
-      const d = (cfg.excel_data_dir || '').trim().replace(/[/\\]+$/, '');
-      return d || path.join(__dirname, '..', 'data');
-    } catch {
-      return path.join(__dirname, '..', 'data');
-    }
-  }
-
-  function monthlyFilePath(transDtm) {
-    const [y, m] = transDtm.split('-');
-    return path.join(getExcelDataDir(), `DailyLab_${y}_${m}.xlsx`);
-  }
-
-  let succeeded = 0, failed = 0;
-  const fileChecks = [];
-
-  for (const item of items) {
-    const records = JSON.parse(item.payload);
-    const filePath = monthlyFilePath(item.trans_dtm);
-    try {
-      await writeToExcel(records);
-      db.run(
-        `UPDATE excel_queue SET status='success', last_attempt=? WHERE id=?`,
-        [nowTH(), item.id]
-      );
-      succeeded++;
-      const fileExists = fs.existsSync(filePath);
-      fileChecks.push({ trans_dtm: item.trans_dtm, filePath, fileExists });
-    } catch (err) {
-      const attempts = item.attempts + 1;
-      db.run(
-        `UPDATE excel_queue
-            SET attempts=?, last_attempt=?, last_error=?,
-                status=CASE WHEN ? >= 3 THEN 'dead' ELSE 'pending' END
-          WHERE id=?`,
-        [attempts, nowTH(), err.message, attempts, item.id]
-      );
-      failed++;
-    }
-    persist();
-  }
-
-  res.json({ ok: true, succeeded, failed, fileChecks });
+  const result = await processExcelQueue({ statuses: ['pending', 'dead'] });
+  res.json({ ok: true, ...result });
 });
 
 // POST /api/test/clear-excel-queue — { all: true } clears everything, default clears success/dead

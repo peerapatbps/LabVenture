@@ -154,7 +154,9 @@ function buildRuleSlotSummary(station, stationRules, recorded) {
       if (slotCids.length === 0) continue;
       const rec = slotCids.filter(cid => recorded[cid]?.has(slot)).length;
       const ratio = rec / slotCids.length;
-      (rowsBySlot[slot] ??= []).push({ topic: topic.topic, rec, exp: slotCids.length, done: inclusive ? ratio >= threshold : ratio > threshold });
+      // slot_thresholds: { "00:00": 0.75, ... } overrides row_threshold for specific rounds
+      const th = rule.slot_thresholds?.[slot] ?? threshold;
+      (rowsBySlot[slot] ??= []).push({ topic: topic.topic, rec, exp: slotCids.length, done: inclusive ? ratio >= th : ratio > th });
     }
   }
   const slotSummary = {};

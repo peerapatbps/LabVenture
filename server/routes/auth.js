@@ -3,8 +3,8 @@ const router = express.Router();
 const { restLogin, graphqlLogin, fetchUserProfile } = require('../services/aquadat');
 const { getDb } = require('../services/db');
 const { getStage } = require('../services/stageMonitor');
-
-const SUPERADMIN_NAME = process.env.SUPERADMIN_NAME || 'นายพีรพัฒน์ สุขขารมย์';
+const { rememberToken } = require('../services/queueWorker');
+const { isSuperadminIdentity, SUPERADMIN_NAME } = require('../services/actor');
 const GROUP_ROLE_MAP = { '1': 'scientist', '2': 'operator', '3a': 'executive_3a', '3b': 'executive_3b' };
 
 // Shared helper: issue a bypass JWT and set cookie
@@ -53,6 +53,7 @@ router.post('/login', async (req, res) => {
       } catch {}
     }
 
+    rememberToken(token);
     res.cookie('aquadat_token', token, {
       httpOnly: true,
       sameSite: 'lax',
@@ -71,10 +72,13 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// DEV ONLY: bypass login without AquaDAT (for testing outside Intranet)
-// role: scientist | operator | executive_3a | executive_3b | observer | superadmin
+// Bypass login without AquaDAT
+// stage 1 (AquaDAT up): superadmin only (hidden, Ctrl+Shift+F12 on login page)
+// other stages: scientist | operator | superadmin
 router.post('/bypass', (req, res) => {
   const { role = 'scientist' } = req.body;
+  const allowed = getStage() === 1 ? ['superadmin'] : ['scientist', 'operator', 'superadmin'];
+  if (!allowed.includes(role)) return res.status(403).json({ error: `bypass role '${role}' not allowed at stage ${getStage()}` });
   const iat = Math.floor(Date.now() / 1000);
   const exp = iat + 86400;
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
@@ -124,6 +128,8 @@ router.get('/me', async (req, res) => {
         iat: payload.iat,
         role,
         bypass: true,
+        is_admin: isSuperadminIdentity(payload, null),
+        is_superadmin: isSuperadminIdentity(payload, null),
         name: ROLE_LABELS[role] || `Dev [${role}]`,
         position: role,
         avatarUrl: null,
@@ -134,12 +140,12 @@ router.get('/me', async (req, res) => {
     const profile = await fetchUserProfile(token);
 
     // Derive page-access role from whitelist group
-    let role = null;
+    let role = null, isAdmin = false;
     if (profile?.name) {
       try {
         const db = getDb();
         const entries = db.all('SELECT group_code, is_admin, synced_at FROM car_whitelist WHERE name = ?', [profile.name]);
-        const isAdmin = profile.name === SUPERADMIN_NAME || entries.some(e => e.is_admin === 1 && e.synced_at != null);
+        isAdmin = profile.name === SUPERADMIN_NAME || entries.some(e => e.is_admin === 1 && e.synced_at != null);
         if (!isAdmin && entries.length > 0) {
           const groups = entries.map(e => e.group_code);
           const primary = groups.find(g => g === '3a' || g === '3b') || groups[0] || null;
@@ -148,6 +154,9 @@ router.get('/me', async (req, res) => {
       } catch { /* DB not ready or whitelist empty — no restriction */ }
     }
 
+    // Permanent superadmin (employee ID / name) sees every page, hidden ones included
+    const isSuperadmin = isSuperadminIdentity(payload, profile);
+
     res.json({
       ok: true,
       exp: payload.exp,
@@ -155,6 +164,8 @@ router.get('/me', async (req, res) => {
       iat: payload.iat,
       role,
       bypass: false,
+      is_admin: isAdmin || isSuperadmin,
+      is_superadmin: isSuperadmin,
       name: profile?.name || null,
       position: profile?.position || null,
       avatarUrl: profile?.avatarUrl || null,

@@ -1,0 +1,20 @@
+{
+  "_comment": "ช่องสรุปจำนวนครั้งที่เกินเกณฑ์ในฟอร์ม DailyLab (ไฟล์พิมพ์ของเรา): เซลล์ → พารามิเตอร์ที่นับรวม. นับจากระดับการเกิน (เกินครั้งแรก + เกินต่อเนื่อง) ตามเกณฑ์ ณ เวลาของแต่ละตัวอย่าง — แทนสูตร COUNTIF เดิมที่อ้าง Control Value ช่องเดียว",
+  "cells": {
+    "T3":  ["RW.turb"],
+    "T4":  ["RW.DO"],
+    "T5":  ["CW1.turb", "CW2.turb", "CW3.turb", "CW4.turb"],
+    "T6":  ["CW1.ResCl2", "CW2.ResCl2", "CW3.ResCl2", "CW4.ResCl2"],
+    "T7":  ["FW1.turb", "FW2.turb", "FW3.turb", "FW4.turb"],
+    "T8":  ["FW1.ResCl2", "FW2.ResCl2", "FW3.ResCl2", "FW4.ResCl2"],
+    "T9":  ["TW1.turb", "TW2.turb", "TW3.turb", "TW4.turb"],
+    "T10": ["TW1.pH", "TW2.pH", "TW3.pH", "TW4.pH"],
+    "T11": ["TW1.ResCl2", "TW2.ResCl2", "TW3.ResCl2", "TW4.ResCl2"],
+    "AF52": ["CW1.turb"], "AG52": ["CW2.turb"], "AH52": ["CW3.turb"], "AI52": ["CW4.turb"],
+    "AJ52": ["FW1.turb"], "AK52": ["FW2.turb"], "AL52": ["FW3.turb"], "AM52": ["FW4.turb"],
+    "AN52": ["TW1.turb"], "AO52": ["TW2.turb"], "AP52": ["TW3.turb"], "AQ52": ["TW4.turb"],
+    "AF55": ["CW1.ResCl2"], "AG55": ["CW2.ResCl2"], "AH55": ["CW3.ResCl2"], "AI55": ["CW4.ResCl2"],
+    "AJ55": ["FW1.ResCl2"], "AK55": ["FW2.ResCl2"], "AL55": ["FW3.ResCl2"], "AM55": ["FW4.ResCl2"],
+    "AN55": ["TW1.ResCl2"], "AO55": ["TW2.ResCl2"], "AP55": ["TW3.ResCl2"], "AQ55": ["TW4.ResCl2"]
+  }
+}

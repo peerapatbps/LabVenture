@@ -1,134 +1,149 @@
-# sci_webdesign — Design Handoff: Dashboard Modernization
+# sci_webdesign — Design Handoff: Earth-Tone Theme
 
-**Session:** LabVenture Sci Dashboard Redesign  
+**Session:** LabVenture Full-Stack Theme Application (Session 8–9)  
 **Date:** 2026-07-24  
-**Scope:** Visual redesign only — zero logic changes
+**Scope:** Visual redesign ทุกหน้า — zero logic changes  
+**Status:** ✅ Implemented & pushed to master (`fbdb318`)
 
 ---
 
 ## Design Direction
 
-"Light leads, focal punctuates" — ทุ่งหน้าจอเป็นสีอ่อน ใช้สีเข้มเฉพาะจุดที่ต้องการให้สายตาวิ่งไป
+"Light leads, focal punctuates" — พื้นหลังทั้งหน้าจอเป็น warm earth-tone ใช้สีเข้ม focal เฉพาะจุดที่ต้องการ eye-focus เช่น logo, Sync btn, today dot, active nav
 
 ---
 
 ## Palette (4-tier hierarchy)
 
-| Token | Hex | Role | ปรากฏที่ไหน |
-|---|---|---|---|
-| L1 | `#FFF9D2` | Page field | พื้นหลัง body, stat card bg บางจุด |
-| L2 | `#FFEBCC` | Panel surface | topbar, sidebar, node card, weekly card, calendar, remarks |
-| L3 | `#BFDDF0` | Data surface | MiniChart card bg, record-btn tint |
-| **F** | **`#8CC0EB`** | **Focal only** | logo mark, Sync button, active nav indicator, today in calendar, progress ring, selected day, avatar |
+| Tier | Token | Hex | Role | ปรากฏที่ไหน |
+|---|---|---|---|---|
+| L1 | `earth.DEFAULT` | `#FFF9D2` | Page field | body bg, stat cards, inactive panel fill, table alternating even row, input fields |
+| L2 | `earth.card` | `#FFEBCC` | Panel surface | topbar, sidebar, node cards, weekly cards, **calendars**, remark areas, modal/slide-panel z-50, header strips |
+| L3 | `brand.light` | `#BFDDF0` | Data surface | MiniChart card bg only |
+| **F** | **`brand.DEFAULT`** | **`#8CC0EB`** | **Focal** | logo mark, Sync btn, active nav bar, selected calendar day, progress ring, AquaDAT station active btn |
+| F-dark | `brand.dark` | `#4A8CC8` | Focal w/ white text | today in calendar, selected day (high contrast), link text (`text-brand-dark`) |
 
-**F-dark** `#4A8CC8` — F ที่เข้มกว่าสำหรับกรณีที่ต้องการ white text อ่านได้ (WCAG AA)
+### Supporting tokens (in `tailwind.config.js`)
 
-### Supporting tokens
-
-```
-Border L1/L2:  #EED8B0
-Border L3:     #A8D0E8
-Ink (warm):    #3A2410   ← text on L1/L2
-Ink-2:         #7A5830
-Ink-3:         #B89060
-Ink-blue:      #1A3A5C   ← text on L3 (MiniChart)
-White-on-F:    #FFFFFF   ← text on focal bg
-```
-
-### Status / Semantic (unchanged)
-```
-OK:      #4A8C5C
-WARN:    #C87830
-BAD:     #B84040
-NONE:    #C8B090
-FUTURE:  #E8D5B0
+```js
+colors: {
+  brand: {
+    DEFAULT: '#8CC0EB',   // L3/Focal sky-mid
+    dark:    '#4A8CC8',   // Focal dark — white text WCAG AA
+    light:   '#BFDDF0',   // L3 data surface (MiniChart)
+  },
+  earth: {
+    DEFAULT: '#FFF9D2',   // L1 page field
+    card:    '#FFEBCC',   // L2 panel surfaces
+    border:  '#EED8B0',   // L1/L2 border
+    ink:     '#3A2410',   // dark warm-brown (primary text)
+    ink2:    '#7A5830',   // medium warm-brown (secondary text)
+    ink3:    '#B89060',   // light warm-brown (muted / placeholder)
+  },
+}
 ```
 
-### Node group accents (left-border only)
+**Ink บน L3 (MiniChart):** ใช้ `#1A3A5C` (hardcoded) ไม่ใช่ earth.ink เพราะ L3 เป็น blue tint
+
+### Status / Semantic colors (คงเดิม ไม่เปลี่ยน)
+
 ```
-raw:     #4A8C5C  (earthy green)
-prod:    #5A9EDC  (F-derived blue)
-tap:     #C87830  (warm amber)
-special: #B06878  (dusty rose)
+OK:    bg-green-500  text-white
+WARN:  bg-amber-400  text-white
+BAD:   bg-red-500    text-white
 ```
 
 ---
 
-## Files to Modify
+## Pattern: Group/Section Headers
 
-### 1. `client/tailwind.config.js`
-เปลี่ยน `brand.DEFAULT` จาก `#0369a1` → `#8CC0EB` เพิ่ม `brand.dark: '#4A8CC8'`, `brand.light: '#BFDDF0'`  
-เพิ่ม `earth` token group สำหรับ L1/L2/L3 และ border/ink
+ทุกกลุ่ม/สถานีใช้ **left-border accent** แทน solid color band:
 
-### 2. `client/src/index.css`
-`body` bg จาก `bg-gray-50 text-gray-900` → `#FFF9D2 text #3A2410`
+```jsx
+// Dashboard NODE_GROUPS
+const NODE_GROUPS = [
+  { key: 'raw',     accent: '#4A8C5C' },  // earthy green
+  { key: 'prod',    accent: '#5A9EDC' },  // sky blue
+  { key: 'tap',     accent: '#C87830' },  // warm amber
+  { key: 'special', accent: '#B06878' },  // dusty rose
+];
 
-### 3. `client/src/components/Layout.jsx`
+// GroupSection
+<div style={{ borderLeftColor: group.accent, borderLeftWidth: 3 }}>
+  <div className="bg-earth-DEFAULT/70">  {/* header */}
 
-**Topbar** (`bg-brand text-white` → L2 panel):
-- `bg-[#FFEBCC]` + `text-[#3A2410]` + `border-b border-[#EED8B0]`
-- Logo: เพิ่ม colored square mark `bg-[#8CC0EB]` + white "LV"
-- Scenario pills: ปรับ border สีอุ่น
-- Logout btn: `bg-[#FFF9D2]/60 border-[#EED8B0] text-[#7A5830]`
+// OpDashboard STATION_ACCENTS
+const STATION_ACCENTS = {
+  RWS1: '#10b981', RWS2: '#14b8a6',
+  CHEM1: '#7c3aed', CHEM2: '#a21caf',
+  TPS: '#1d4ed8', DPS: '#3730a3',
+  FWS: '#d97706', CWS: '#ea580c',
+};
 
-**Sidebar** (`bg-white border-gray-200` → L2):
-- `bg-[#FFEBCC] border-r border-[#EED8B0]`
-- Nav item hover: `hover:bg-[#FFF9D2]/70`
-- Nav item active: `border-l-[3px] border-l-[#8CC0EB] bg-[#BFDDF0]/40 text-[#1A3A5C]` (ไม่ fill ทั้งหลัง)
+// StationRow
+<div style={{ borderLeftColor: accent, borderLeftWidth: 4 }}>
+  <div className="bg-earth-card px-4 py-2.5">  {/* header strip */}
+```
 
-### 4. `client/src/components/DateSyncBar.jsx`
-- Date pill: `bg-[#FFEBCC] border-[#EED8B0]`, label `bg-[#FFF9D2]`
-- Sync btn: `bg-[#8CC0EB] text-white border-none` (FOCAL)
+---
 
-### 5. `client/src/components/WeeklyProgress.jsx`
-- Card bg: `bg-white` → `bg-[#FFEBCC] border-[#EED8B0]`
-- Progress bar: `bg-[#EED8B0]` track, `bg-[#8CC0EB]` fill (ไม่ต้องเปลี่ยน bar เมื่อ complete — ยังคง green)
-- Links `text-brand` → คงไว้ (brand ใหม่ = `#8CC0EB`)
+## Calendar Rules
 
-### 6. `client/src/pages/Dashboard.jsx`
+ทุก MiniCalendar ในโปรเจค:
 
-**ProgressBar:** `bg-white` → `bg-[#FFEBCC]`, progress bar: keep color logic แต่ `bg-gray-100` → `bg-[#EED8B0]`
+| State | Class |
+|---|---|
+| Container | `bg-earth-card` (L2, ไม่ใช่ L1) |
+| Today | `bg-brand-dark text-white font-semibold` |
+| Selected | `bg-brand text-white font-bold` |
+| Past (normal) | `text-earth-ink hover:bg-earth-DEFAULT/80` |
+| Future (disabled) | `text-earth-border cursor-default` |
 
-**GroupSection headers:** เปลี่ยนจาก solid color band (`bg-emerald-700 text-white`) → ไม่มี band; ใช้ left-border + `bg-[#FFF9D2]/70` header, text dark
+---
 
-**GroupSection container:** `rounded-xl border shadow-sm` ยังคงไว้ แต่ border ใช้สี group accent
+## Files Changed
 
-**NodeRow:** `bg-white hover:bg-gray-50` → `bg-[#FFEBCC] hover:bg-[#FFF9D2]/80`
+### Tailwind config
+- `client/tailwind.config.js` — เพิ่ม `earth.*`, ปรับ `brand.*`
 
-**MiniCalendar:**
-- Container: `bg-white border-gray-100` → `bg-[#FFEBCC] border-[#EED8B0]`
-- Selected day: `bg-brand text-white` → `bg-[#4A8CC8] text-white` (F-dark for contrast)
-- Today day: `bg-blue-100 text-blue-700` → `bg-[#8CC0EB] text-white` (FOCAL)
-- Past days: `text-gray-600 hover:bg-gray-100` → `text-[#3A2410] hover:bg-[#FFF9D2]/80`
+### CSS
+- `client/src/index.css` — `body { background-color: #FFF9D2; color: #3A2410; }`
 
-**TodayTodo:** `bg-white border-gray-100` → `bg-[#FFEBCC] border-[#EED8B0]`  
-Pending rows: ยังคง `bg-red-50 hover:bg-red-100` (status semantic color)
+### Components
+| File | Summary |
+|---|---|
+| `Layout.jsx` | Topbar + sidebar → earth-card; logo mark focal; active nav left-border brand |
+| `DateSyncBar.jsx` | Date pill → earth-card; label strip → earth-DEFAULT; Sync btn → focal brand |
+| `WeeklyProgress.jsx` | Cards → earth-card; progress track → earth-border |
+| `MiniChart.jsx` | Card bg → brand-light (#BFDDF0); all text/grid → #1A3A5C; tooltip bg → #1A3A5C |
 
-**AquadatRemarks:** `bg-white border-gray-100` → `bg-[#FFEBCC] border-[#EED8B0]`  
-Active station button: `bg-brand text-white` → `bg-[#4A8CC8] text-white`
+### Pages
+| File | สิ่งที่เปลี่ยน |
+|---|---|
+| `Dashboard.jsx` | GroupSection left-border accent; NodeRow earth-card; MiniCalendar earth-card; AquaDAT remarks earth-DEFAULT |
+| `CARLog.jsx` | CAR card → earth-DEFAULT; slide panel/admin modal z-50 → earth-card; table headers → earth-card |
+| `ChemIntake.jsx` | Section cards → earth-DEFAULT; table/subheader → earth-card; tank track → earth-border |
+| `ConfigEditor.jsx` | Table headers → earth-card; toggle track inactive → keep gray-200 (toggle UX) |
+| `Login.jsx` | Login card → earth-card |
+| `OpDashboard.jsx` | **StationRow** → earth-card header + left-border accent (ไม่ใช่ solid color band); **MiniCalendar** → earth-card; timeline track → earth-border; StationDot past/future → earth tokens |
+| `OpRecord.jsx` | Layout columns → earth-DEFAULT; table rows alternating earth-DEFAULT/earth-card; thead → earth-card; pending bar → earth-card; topic pills inactive → earth-DEFAULT |
+| `Record.jsx` | NODE_PALETTE 5th column (row bg) → earth-DEFAULT; input fields → earth-DEFAULT; inactive buttons → earth-DEFAULT |
+| `Report.jsx` | Action buttons → earth-DEFAULT |
+| `App.jsx` | Misc cleanup |
 
-**ManualRemarks:** `bg-white` → `bg-[#FFEBCC]`, submit btn: `bg-brand` → `bg-[#4A8CC8]`
+---
 
-**MiniChartsSection filter buttons active:** `bg-amber-500` → `bg-[#4A8CC8] text-white`
+## What to KEEP WHITE (do not change)
 
-### 7. `client/src/components/MiniChart.jsx`
-
-**Card wrapper:** `bg-slate-800 border-white/10` → `bg-[#BFDDF0] border-[#A8D0E8]` (L3 data surface)
-
-**Text:** `text-gray-200` → `text-[#1A3A5C]`
-
-**CartesianGrid:** `stroke="#334155"` → `stroke="#A8D0E8"`
-
-**XAxis/YAxis ticks:** `fill: '#6b7280'` → `fill: '#1A3A5C'`
-
-**Tooltip:** `backgroundColor: '#1e293b'` → `backgroundColor: '#1A3A5C'`  
-`itemStyle.color` `#60a5fa` → `#8CC0EB`
-
-**Line stroke:** `#3b82f6` → `#5A9EDC`
-
-**StatusBadge:** OK/WARN/BAD colors คงเดิม (semantic)  
-Empty state: `text-gray-500` → `text-[#1A3A5C]/60`  
-Single-value display: `text-blue-400` → `text-[#1A3A5C]`
+| Pattern | ตำแหน่ง | เหตุผล |
+|---|---|---|
+| `bg-white rounded-full shadow` | Toggle knobs ทุกที่ | UX knob ต้องขาวเสมอเพื่อ affordance |
+| `bg-white opacity-80` | Legend dot (ChemIntake) | อยู่บน colored header → contrast |
+| `bg-white text-brand` | CAR stage active dot | active state บน colored bg |
+| `bg-white/10`, `/20`, `/25`, `/30`, `/70` | Overlays บน colored bg | semi-transparent ไม่ขาวจริง |
+| `bg-red-50`, `bg-green-50` | Status semantic rows | status color, ไม่ใช่ white-to-replace |
+| `bg-gray-200` toggle track, `bg-gray-300` | Toggle off-state track | UX convention |
+| `bg-gray-100 border-gray-200` (tiny dots) | Pump grid cells, status mini-indicators | pixel-level status ไม่เห็นความต่าง |
 
 ---
 
@@ -136,22 +151,25 @@ Single-value display: `text-blue-400` → `text-[#1A3A5C]`
 
 - Logic ทั้งหมด: buildNodeDots, nextPendingSlot, latestStreak, API calls, query keys
 - Routing และ role-based nav guards
-- Thai language strings
-- Component hierarchy
-- MiniChart threshold shading bands (blue streak=1 / red streak≥2) — คงเดิม
-- Status semantic colors (OK green, WARN amber, BAD red)
-- CAR flow และ AquaDAT queue banner
+- Thai language strings และ component hierarchy
+- MiniChart threshold shading bands (blue streak=1 / red streak≥2)
+- Status semantic colors (OK/WARN/BAD/CAR colors)
+- AquaDAT queue/banner logic
+- Recharts chart logic
 
 ---
 
 ## Verification Checklist
 
-1. `npm run dev` ใน `client/` — ไม่มี import error
-2. Topbar: warm peach (`#FFEBCC`), logo mark ฟ้า (`#8CC0EB`)
-3. Sidebar collapsed: icon strip บน L2; hover expand: label ปรากฏ
-4. Active nav: left-bar `#8CC0EB` + L3 tint fill (ไม่ใช่ solid brand)
-5. Calendar: warm peach panel, วันที่ 24 (today) = focal blue pill
-6. Node group headers: ไม่มี solid color band, มีแค่ left-border accent
-7. MiniChart cards: `#BFDDF0` bg, dark navy text
-8. ProgressBar + Sync button: focal `#8CC0EB`
-9. Mobile overlay menu: L2 bg
+1. **body bg** = `#FFF9D2` (warm cream), text = `#3A2410` (dark brown)
+2. **Topbar + Sidebar** = `#FFEBCC` (peach panel)
+3. **Logo mark** = `#8CC0EB` square, white "LV"
+4. **Active nav** = left-bar `#8CC0EB` + `brand-light/50` fill
+5. **Dashboard calendar** = peach panel; today = `#4A8CC8` pill
+6. **OpDashboard calendar** = peach panel; station rows = earth-card header + accent left-border (ไม่มี solid color band)
+7. **Node group headers** = ไม่มี solid color band — left-border accent only
+8. **MiniChart cards** = `#BFDDF0` bg, dark navy text `#1A3A5C`
+9. **Sync button** = `#8CC0EB` (focal)
+10. **Toggle knobs** = ขาวเสมอ
+11. **Table rows** = alternating `#FFF9D2` / `#FFEBCC` (ไม่ใช่ขาว/gray)
+12. **Input fields** = `#FFF9D2` bg (L1)

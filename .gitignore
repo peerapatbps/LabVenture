@@ -17,9 +17,14 @@ Thumbs.db
 .claude/
 
 server/labventure.db
+server/chemlab_mock.db
 server/data/
 
 *.tmp
 *.bak
 
 LabVenture.exe
+
+# DB backups (contain plant data) / python cache
+*.db.bak-*
+__pycache__/

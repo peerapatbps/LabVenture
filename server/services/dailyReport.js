@@ -36,11 +36,12 @@ const FILTER_PHASES = [
 
 function getFilterAvailability(date, historyMap) {
   return FILTER_PHASES.map(({ phase, stationId, cap, cfgIds }) => {
-    const repair = cfgIds.filter(id => {
-      const v = getTextAt(id, stationId, date, '24:00', historyMap);
-      return v && v.trim().toUpperCase() === 'REPAIR';
-    }).length;
-    return { phase, cap, repair, available: cap - repair };
+    const st = cfgIds.map(id => (getTextAt(id, stationId, date, '24:00', historyMap) || '').trim().toUpperCase());
+    const repair = st.filter(v => v === 'REPAIR').length;
+    const standby = st.filter(v => v === 'STANDBY').length;
+    // known = beds with a status recorded; 0 → no data for the phase
+    const known = st.filter(Boolean).length;
+    return { phase, cap, repair, standby, on: cap - repair - standby, known, available: cap - repair };
   });
 }
 
@@ -749,4 +750,21 @@ function dailyLabDosageCells(report) {
   return cells;
 }
 
-module.exports = { computeDailyReport, DR_CONFIGIDS, dailyLabDosageCells };
+// Same Daily Dosage cells, from the SAVE DB snapshot of the รายงานการผลิตน้ำ form (MhCells):
+// actual dose columns O/Q/S/U = Phase 1–4 · rows 27 Alum · 35 PACl · 29 Pre Cl2 · 33 Post Cl2
+const MH_DOSE_COLS = ['O', 'Q', 'S', 'U'];
+const MH_TO_DAILYLAB_ROW = { 27: 4, 35: 5, 29: 7, 33: 9 };
+
+function dailyLabDosageFromMh(mhCells) {
+  const cells = {};
+  if (!mhCells) return cells;
+  for (const [mhRow, dlRow] of Object.entries(MH_TO_DAILYLAB_ROW)) {
+    MH_DOSE_COLS.forEach((col, i) => {
+      const v = mhCells[`${col}${mhRow}`];
+      if (typeof v === 'number' && Number.isFinite(v)) cells[`${DAILYLAB_PHASE_COLS[i]}${dlRow}`] = Math.round(v * 100) / 100;
+    });
+  }
+  return cells;
+}
+
+module.exports = { computeDailyReport, DR_CONFIGIDS, dailyLabDosageCells, dailyLabDosageFromMh };

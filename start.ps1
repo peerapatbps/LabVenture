@@ -2,7 +2,7 @@ $host.UI.RawUI.WindowTitle = "LabVenture Server"
 
 $exeDir = [System.IO.Path]::GetDirectoryName([System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName)
 $serverPath = Join-Path $exeDir "server"
-$port = 3001
+$port = 8889
 
 Write-Host "LabVenture Server" -ForegroundColor Cyan
 Write-Host "Root  : $exeDir"
@@ -17,7 +17,7 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
     Read-Host "กด Enter เพื่อปิด"; exit 1
 }
 
-# Always kill any process on port 3001 before starting
+# Always kill any process on port $port before starting
 Write-Host "ล้าง port $port..." -ForegroundColor Yellow
 $lines = netstat -ano | Select-String ":$port\s" | Select-String "LISTENING"
 foreach ($line in $lines) {

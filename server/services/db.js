@@ -2,10 +2,9 @@ const { Database } = require('node-sqlite3-wasm');
 const path = require('path');
 const fs = require('fs');
 
-const DB_PATH = path.join(__dirname, '..', 'labventure.db');
+const DB_PATH = process.env.LV_DB_PATH || path.join(__dirname, '..', 'labventure.db');   // env override ใช้ตอน e2e test
 
 let db;
-
 function initDb() {
   db = new Database(DB_PATH);
 
@@ -294,13 +293,22 @@ function initDb() {
   // Seed scenarios — insert only if a row with this name does not already exist
   const allScenarios = [
     { name: 'ปกติ',                                   description: 'เกณฑ์มาตรฐานการผลิตน้ำปกติ',                           file: 'scenario_normal.json',       active: 1 },
-    { name: 'น้ำขุ่น',                                description: 'ผ่อนเกณฑ์ความขุ่น เพิ่ม Alum/PACl สูง',               file: 'scenario_flood.json',        active: 0 },
-    { name: 'สาหร่ายสูง',                             description: 'เฝ้าระวัง Algae — เกณฑ์คลอรีนเข้มขึ้น',               file: 'scenario_algae.json',        active: 0 },
+    { name: 'น้ำดิบความขุ่นสูง',                      description: 'แผนฉุกเฉินกรณีน้ำดิบความขุ่นสูง — ท่าม่วง >150 NTU, TW ≤1 NTU', file: 'scenario_flood.json',        active: 0 },
     { name: 'น้ำด้อยคุณภาพระดับเฝ้าระวัง',           description: 'น้ำดิบด้อยคุณภาพ เฝ้าระวัง — CW Turbid ≤ 3 NTU',     file: 'scenario_flood_watch.json',  active: 0 },
     { name: 'น้ำด้อยคุณภาพระดับวิกฤติ',               description: 'น้ำดิบด้อยคุณภาพ วิกฤติ — CW Turbid ≤ 2 NTU',        file: 'scenario_flood_crisis.json', active: 0 },
     { name: 'สาหร่ายอุดตันบ่อกรองระดับเฝ้าระวัง',   description: 'สาหร่ายอุดตันบ่อกรอง เฝ้าระวัง — CW Turbid ≤ 3 NTU',  file: 'scenario_algae_watch.json',  active: 0 },
     { name: 'สาหร่ายอุดตันบ่อกรองระดับวิกฤติ',       description: 'สาหร่ายอุดตันบ่อกรอง วิกฤติ — CW Turbid ≤ 2 NTU',     file: 'scenario_algae_crisis.json', active: 0 },
   ];
+  // ตามแผน SD-MS-HACCP-สกล-09: "น้ำขุ่น" → "น้ำดิบความขุ่นสูง" (คง id เดิม)
+  db.run(`UPDATE scenarios SET name = 'น้ำดิบความขุ่นสูง', description = ? WHERE name = 'น้ำขุ่น' AND threshold_file = 'scenario_flood.json'`,
+    [allScenarios[1].description]);
+  // "สาหร่ายสูง" ซ้ำกับระดับเฝ้าระวัง — ลบเฉพาะเมื่อไม่ active และไม่มี CAR/Event Class อ้างถึง
+  const dupAlgae = db.get(`SELECT id FROM scenarios WHERE name = 'สาหร่ายสูง' AND threshold_file = 'scenario_algae.json' AND active = 0`);
+  if (dupAlgae) {
+    let refs = db.get('SELECT COUNT(*) n FROM car_log WHERE scenario_id = ?', [dupAlgae.id]).n;
+    try { refs += db.get('SELECT COUNT(*) n FROM event_classes WHERE scenario_id = ?', [dupAlgae.id]).n; } catch {}
+    if (!refs) db.run('DELETE FROM scenarios WHERE id = ?', [dupAlgae.id]);
+  }
   // Remove duplicate rows (same name) keeping the lowest id, then upsert missing ones
   db.run(`
     DELETE FROM scenarios WHERE id NOT IN (
@@ -397,6 +405,203 @@ function initDb() {
       param_key  TEXT NOT NULL PRIMARY KEY,
       param_name TEXT NOT NULL,
       unit       TEXT
+    )
+  `);
+
+  // Event Class — alarm authoring (Re-plan Overview §3.1). Uroboros pulls GET /api/eventclass?enabled=true.
+  // JSON columns: source_metric (string | {kind,configparam_id}), rule, message_template (array), ui
+  db.run(`
+    CREATE TABLE IF NOT EXISTS event_classes (
+      event_class_id   TEXT PRIMARY KEY,
+      title            TEXT,
+      category         TEXT,
+      severity         TEXT NOT NULL DEFAULT 'warning',
+      source_metric    TEXT NOT NULL,
+      rule             TEXT NOT NULL,
+      audio_mode       TEXT NOT NULL DEFAULT 'B',
+      message_template TEXT NOT NULL DEFAULT '[]',
+      fallback_text    TEXT,
+      ui               TEXT NOT NULL DEFAULT '{"type":"value"}',
+      zone             TEXT,
+      enabled          INTEGER NOT NULL DEFAULT 1,
+      scenario_id      INTEGER,
+      created_at       TEXT,
+      updated_at       TEXT,
+      updated_by       TEXT
+    )
+  `);
+  // P3: what to do with CAR when the class fires — none | suggest (person issues from a draft) | auto
+  const ecCols = db.all('PRAGMA table_info(event_classes)').map(c => c.name);
+  if (!ecCols.includes('car_policy')) db.run("ALTER TABLE event_classes ADD COLUMN car_policy TEXT NOT NULL DEFAULT 'suggest'");
+  if (!ecCols.includes('car_prefix')) db.run("ALTER TABLE event_classes ADD COLUMN car_prefix TEXT NOT NULL DEFAULT 'CQ'");
+  // alarm แบบอ้างอิงเกณฑ์ควบคุม (rule.ref) — พารามิเตอร์ใน scenario_*.json ที่ใช้หาค่า UCL/LCL
+  if (!ecCols.includes('param_key')) db.run('ALTER TABLE event_classes ADD COLUMN param_key TEXT');
+
+  // One row per alarm episode seen on Uroboros /api/alarm/state (services/alarmWatcher.js).
+  // An episode stays open while Uroboros reports it active; car_status tracks the CAR follow-up.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS event_occurrences (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_class_id TEXT NOT NULL,
+      alarm_id       TEXT NOT NULL,
+      since          TEXT,
+      first_seen_at  TEXT NOT NULL,
+      last_seen_at   TEXT NOT NULL,
+      cleared_at     TEXT,
+      severity       TEXT,
+      value_first    REAL,
+      value_last     REAL,
+      value_worst    REAL,
+      unit           TEXT,
+      car_status     TEXT NOT NULL DEFAULT 'none',
+      car_key        TEXT,
+      car_note       TEXT,
+      car_by         TEXT,
+      car_at         TEXT
+    )
+  `);
+  db.run('CREATE INDEX IF NOT EXISTS ix_event_occ_open ON event_occurrences (alarm_id, cleared_at)');
+  // สถานการณ์ + เกณฑ์ ณ ตอนเกิด (CAR ต้องใช้ค่านี้ ไม่ใช่สถานการณ์ตอนออก CAR) และเหตุที่ปิด episode
+  //   clear_reason: recovered | scenario_change | class_disabled | vanished
+  const occCols = db.all('PRAGMA table_info(event_occurrences)').map(c => c.name);
+  for (const [col, def] of [['scenario_id', 'INTEGER'], ['threshold_value', 'REAL'],
+    ['scenario_changed', 'INTEGER NOT NULL DEFAULT 0'], ['clear_reason', 'TEXT'],
+    ['is_test', 'INTEGER NOT NULL DEFAULT 0']]) {   // is_test: alarm จากค่าปลอมของ test mode (Uroboros item.test)
+    if (!occCols.includes(col)) db.run(`ALTER TABLE event_occurrences ADD COLUMN ${col} ${def}`);
+  }
+
+  // ประวัติการเปลี่ยนสถานการณ์ (ประกาศ/ยกเลิกภาวะฉุกเฉิน) — routes/scenarios.js PUT /:id/activate
+  db.run(`
+    CREATE TABLE IF NOT EXISTS scenario_log (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      from_id     INTEGER,
+      to_id       INTEGER NOT NULL,
+      actor       TEXT,
+      note        TEXT,
+      sync_result TEXT,
+      at          TEXT NOT NULL
+    )
+  `);
+  // is_test: เปลี่ยนจาก test mode ของหน้า /config (super admin) — ใช้หา "สถานการณ์ก่อนทดสอบ" เพื่อคืนค่า
+  if (!db.all('PRAGMA table_info(scenario_log)').some(c => c.name === 'is_test')) {
+    db.run('ALTER TABLE scenario_log ADD COLUMN is_test INTEGER NOT NULL DEFAULT 0');
+  }
+
+  // ประวัติเกณฑ์แบบมีโครงสร้าง (แทน scenario_log ที่เลิกเขียนแล้ว — services/scenarioHistory.js)
+  // scenario_periods: ช่วงเวลาที่สถานการณ์ + rev ของเกณฑ์ + โหมดโรคระบาด มีผล (ended_at NULL = ช่วงปัจจุบัน)
+  // scenario_period_thresholds: เกณฑ์ของสถานการณ์ต่อ rev (scenario_id 0 = ชุดเกณฑ์โหมดโรคระบาด) — rev ไม่ถูกแก้ทับ
+  db.run(`
+    CREATE TABLE IF NOT EXISTS scenario_periods (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      scenario_id  INTEGER NOT NULL,
+      rev          INTEGER NOT NULL,
+      epidemic     INTEGER NOT NULL DEFAULT 0,
+      epidemic_rev INTEGER,
+      started_at   TEXT NOT NULL,
+      ended_at     TEXT,
+      reason       TEXT NOT NULL,
+      actor        TEXT,
+      note         TEXT,
+      is_test      INTEGER NOT NULL DEFAULT 0,
+      sync_result  TEXT,
+      source       TEXT NOT NULL DEFAULT 'live'
+    )
+  `);
+  db.run('CREATE INDEX IF NOT EXISTS idx_scenario_periods_start ON scenario_periods(started_at)');
+  db.run(`
+    CREATE TABLE IF NOT EXISTS scenario_period_thresholds (
+      scenario_id INTEGER NOT NULL,
+      rev         INTEGER NOT NULL,
+      param_key   TEXT NOT NULL,
+      lcl         REAL,
+      ucl         REAL,
+      created_at  TEXT NOT NULL,
+      actor       TEXT,
+      PRIMARY KEY (scenario_id, rev, param_key)
+    )
+  `);
+
+  // Project management (หน้าแผนงาน, services/pm.js). Tasks store a recurrence RULE; the Gantt cells are
+  // expanded from it. pm_occurrences is sparse: only rows with an exception (status / moved month / actual).
+  db.run(`
+    CREATE TABLE IF NOT EXISTS pm_plans (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      code           TEXT UNIQUE,
+      title          TEXT NOT NULL,
+      org_unit       TEXT,
+      fy_start_month INTEGER NOT NULL DEFAULT 10,
+      forecast_years INTEGER NOT NULL DEFAULT 4,
+      archived       INTEGER NOT NULL DEFAULT 0,
+      created_at     TEXT,
+      updated_at     TEXT,
+      updated_by     TEXT
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS pm_tasks (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      plan_id     INTEGER NOT NULL,
+      parent_id   INTEGER,
+      wbs         TEXT,
+      title       TEXT NOT NULL,
+      kind        TEXT NOT NULL DEFAULT 'task' CHECK (kind IN ('group','task')),
+      sort_order  REAL NOT NULL DEFAULT 0,
+      recurrence  TEXT,
+      qty         INTEGER,
+      unit        TEXT,
+      owner       TEXT,
+      note        TEXT,
+      active      INTEGER NOT NULL DEFAULT 1,
+      created_at  TEXT,
+      updated_at  TEXT,
+      updated_by  TEXT
+    )
+  `);
+  db.run('CREATE INDEX IF NOT EXISTS ix_pm_tasks_plan ON pm_tasks (plan_id, parent_id, sort_order)');
+  db.run(`
+    CREATE TABLE IF NOT EXISTS pm_occurrences (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id       INTEGER NOT NULL,
+      due_month     TEXT NOT NULL,
+      planned_month TEXT NOT NULL,
+      status        TEXT NOT NULL DEFAULT 'planned',
+      actual_start  TEXT,
+      actual_end    TEXT,
+      done_by       TEXT,
+      remark        TEXT,
+      created_at    TEXT,
+      updated_at    TEXT,
+      updated_by    TEXT,
+      UNIQUE (task_id, due_month)
+    )
+  `);
+  // Evidence files (server/data/pm_files/<task_id>/<stored_name>). due_month NULL = task-level (reserved).
+  db.run(`
+    CREATE TABLE IF NOT EXISTS pm_attachments (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id     INTEGER NOT NULL,
+      due_month   TEXT,
+      file_name   TEXT NOT NULL,
+      stored_name TEXT NOT NULL,
+      mime        TEXT,
+      size        INTEGER,
+      uploaded_by TEXT,
+      uploaded_at TEXT,
+      deleted_at  TEXT,
+      deleted_by  TEXT
+    )
+  `);
+  db.run('CREATE INDEX IF NOT EXISTS ix_pm_attach_occ ON pm_attachments (task_id, due_month)');
+  db.run(`
+    CREATE TABLE IF NOT EXISTS pm_audit (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      entity      TEXT NOT NULL,
+      entity_id   INTEGER,
+      action      TEXT NOT NULL,
+      before_json TEXT,
+      after_json  TEXT,
+      actor       TEXT,
+      at          TEXT
     )
   `);
 

@@ -184,10 +184,31 @@ function loadRecorders(db, dates) {
   return out;
 }
 
+// GET /api/write/record-dates?from=&to= — DailyLab ที่บันทึกแล้วต่อวัน (นับอย่างเดียว ไม่คืนค่า) สำหรับปฏิทินหน้า DailyReport ของ BellBeast
+router.get('/record-dates', (req, res) => {
+  const { from, to } = req.query;
+  const re = /^\d{4}-\d{2}-\d{2}$/;
+  if (!re.test(from || '') || !re.test(to || '') || from > to) return res.status(400).json({ error: 'from/to required (YYYY-MM-DD)' });
+  try {
+    const db = getDb();
+    const rows = db.all(
+      `SELECT trans_dtm AS date, COUNT(DISTINCT param_key || '|' || trans_time) AS values_count, MAX(recorded_at) AS last_recorded_at
+         FROM node_records WHERE trans_dtm BETWEEN ? AND ? GROUP BY trans_dtm ORDER BY trans_dtm`,
+      [from, to]
+    );
+    const slots = db.all('SELECT trans_dtm AS date, COUNT(*) AS n FROM slot_recorders WHERE trans_dtm BETWEEN ? AND ? GROUP BY trans_dtm', [from, to]);
+    const slotsBy = Object.fromEntries(slots.map(s => [s.date, s.n]));
+    res.json(rows.map(r => ({ ...r, recorder_slots: slotsBy[r.date] || 0 })));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── DailyLab ดาวน์โหลด (Excel เท่านั้น — PDF ผ่าน Excel COM ช้าเกินไปเมื่อหลายวัน): ?from=YYYY-MM-DD&to=YYYY-MM-DD → 1 ชีทต่อวัน จาก theme + node_records ──
 const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const MAX_EXPORT_DAYS = 62;
-router.get('/export.xlsx', requireAuth, async (req, res) => {
+// ไม่ต้อง login: หน้า DailyReport ของ BellBeast โหลดไฟล์นี้โดยไม่มี session LabVenture (อ่านอย่างเดียว)
+router.get('/export.xlsx', async (req, res) => {
   const { from, to } = req.query;
   const re = /^\d{4}-\d{2}-\d{2}$/;
   if (!re.test(from || '') || !re.test(to || '') || from > to) return res.status(400).json({ error: 'ช่วงวันที่ไม่ถูกต้อง' });
@@ -200,13 +221,19 @@ router.get('/export.xlsx', requireAuth, async (req, res) => {
   const db = getDb();
   // ค่าวันละครั้ง: ใช้ค่าล่าสุดของวัน ไม่ว่าจะบันทึกใน slot ไหน (เหมือน GET /nodes?slot=daily)
   const daily = new Set(getNodesConfig().nodes.flatMap(n => n.parameters || []).filter(p => p.frequency === 'daily').map(p => p.param_key));
-  const records = db.all(
+  const { dailyLabMarkup, LOOKBACK_DAYS } = require('../services/dailyLabMarkup');
+  const lbFrom = new Date(Date.parse(from + 'T00:00:00Z') - LOOKBACK_DAYS * 86400000).toISOString().slice(0, 10);
+  const all = db.all(
     'SELECT param_key, trans_dtm, trans_time, trans_value FROM node_records WHERE trans_dtm BETWEEN ? AND ? ORDER BY recorded_at ASC, id ASC',
-    [from, to]
+    [lbFrom, to]
   ).map(r => {
     const param_key = normalizeParamKey(r.param_key);
     return { ...r, param_key, trans_time: daily.has(param_key) ? 'daily' : r.trans_time };
   });
+  const records = all.filter(r => r.trans_dtm >= from);
+  // ตัวล่าสุดต่อ param/วัน/รอบ (เหมือนที่ excel_writer เขียนทับ) → ใช้ตัดสินการเกินเกณฑ์
+  const latest = list => [...new Map(list.map(r => [`${r.param_key}|${r.trans_dtm}|${r.trans_time}`, r])).values()];
+  const markup = dailyLabMarkup(dates, latest(records), latest(all.filter(r => r.trans_dtm < from)));
 
   const be = d => `${+d.slice(0, 4) + 543}-${d.slice(5)}`;
   const [y, m] = from.split('-');
@@ -215,23 +242,174 @@ router.get('/export.xlsx', requireAuth, async (req, res) => {
     : from === `${y}-${m}-01` && to === monthEnd ? `${m}DailyLab_${MONTH_ABBR[+m - 1]}${String((+y + 543) % 100).padStart(2, '0')}`
     : `DailyLab_${be(from)}_${be(to)}`;
 
-  // dosage=1 (from /record "Operation daily report generator"): Daily Dosage cells
-  // from the Daily Report the user just queried (server cache) — per date
-  const extraCells = {};
+  // dosage=1 (from /record "DailyLab + Operation daily report"): Daily Dosage cells per date —
+  // today / yesterday: the Daily Report the user just queried (server cache);
+  // older days: the values stored by SAVE DB on the DAILY page.
+  const extraCells = markup.cells;   // Control Value / ตัวเลขนับ / หมายเหตุ ของแต่ละวัน
   if (req.query.dosage === '1') {
-    const { getCachedReport } = require('./dailyReport');
-    const { dailyLabDosageCells } = require('../services/dailyReport');
+    const { getCachedReport, isLiveReportDate, getSavedMhCells } = require('./dailyReport');
+    const { dailyLabDosageCells, dailyLabDosageFromMh } = require('../services/dailyReport');
     for (const d of dates) {
-      const cells = dailyLabDosageCells(getCachedReport(d));
-      if (Object.keys(cells).length) extraCells[d] = cells;
+      const cells = isLiveReportDate(d)
+        ? dailyLabDosageCells(getCachedReport(d))
+        : dailyLabDosageFromMh(getSavedMhCells(d));
+      if (Object.keys(cells).length) extraCells[d] = { ...extraCells[d], ...cells };
     }
   }
 
   try {
-    const buf = await buildDailyLab(dates, records, loadRecorders(db, dates), extraCells);
+    const buf = await buildDailyLab(dates, records, loadRecorders(db, dates), extraCells, markup.fonts);
     require('../services/sendFile').sendFile(res, 'xlsx', name, buf, 'dailylab');
   } catch (e) {
     console.error('[write/export]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── ตารางดิบ (ไม่ลงฟอร์ม) สำหรับหน้า DailyReport ของ BellBeast: ?from=&to=&lab=1&mh=1 ──
+// DailyLab: 1 แถวต่อ วันที่+เวลา, 1 คอลัมน์ต่อ param_key · MH_summary / MH_detail: 1 แถวต่อวัน (SAVE DB ล่าสุด)
+// ไม่ต้อง login (อ่านอย่างเดียว เหมือน export.xlsx)
+router.get('/table.xlsx', async (req, res) => {
+  const { from, to } = req.query;
+  const wantLab = req.query.lab === '1', wantMh = req.query.mh === '1';
+  const re = /^\d{4}-\d{2}-\d{2}$/;
+  if (!re.test(from || '') || !re.test(to || '') || from > to) return res.status(400).json({ error: 'ช่วงวันที่ไม่ถูกต้อง' });
+  if ((Date.parse(to) - Date.parse(from)) / 86400000 + 1 > MAX_EXPORT_DAYS) return res.status(400).json({ error: `เลือกได้ไม่เกิน ${MAX_EXPORT_DAYS} วัน` });
+  if (!wantLab && !wantMh) return res.status(400).json({ error: 'เลือก lab=1 และ/หรือ mh=1' });
+
+  // 'YYYY-MM-DD' (+ 'HH:MM') → Date that Excel shows as that local time
+  const toExcelDate = (ymd, hm = '00:00') => {
+    const [y, mo, d] = ymd.split('-').map(Number);
+    const [h, mi] = /^\d{2}:\d{2}$/.test(hm) ? hm.split(':').map(Number) : [0, 0];
+    return new Date(Date.UTC(y, mo - 1, d, h, mi));
+  };
+  const num = v => (v !== null && v !== '' && !isNaN(Number(v)) ? Number(v) : v);
+  const styleHeader = ws => {
+    ws.getRow(1).font = { bold: true };
+    ws.views = [{ state: 'frozen', xSplit: 1, ySplit: 1 }];
+  };
+
+  try {
+    const ExcelJS = require('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const db = getDb();
+
+    if (wantLab) {
+      const nodes = getNodesConfig().nodes || [];
+      const meta = new Map();
+      for (const n of nodes) for (const p of n.parameters || []) meta.set(p.param_key, { node: n.label || n.id, ...p });
+      const daily = new Set([...meta.values()].filter(p => p.frequency === 'daily').map(p => p.param_key));
+
+      // same rule as export.xlsx: daily params collapse to one 'daily' value per day, latest wins
+      const cells = new Map(); // 'date|time' → { param_key: value }
+      const used = new Set();
+      for (const r of db.all('SELECT param_key, trans_dtm, trans_time, trans_value FROM node_records WHERE trans_dtm BETWEEN ? AND ? ORDER BY recorded_at ASC, id ASC', [from, to])) {
+        const key = normalizeParamKey(r.param_key);
+        const time = daily.has(key) ? 'daily' : r.trans_time;
+        const rowKey = `${r.trans_dtm}|${time}`;
+        if (!cells.has(rowKey)) cells.set(rowKey, {});
+        cells.get(rowKey)[key] = r.trans_value;
+        used.add(key);
+      }
+      const order = [...meta.keys()].filter(k => used.has(k)).concat([...used].filter(k => !meta.has(k)).sort());
+
+      const ws = wb.addWorksheet('DailyLab');
+      ws.columns = [
+        { header: 'DateTime', key: '_dt', width: 18, style: { numFmt: 'yyyy-mm-dd hh:mm' } },
+        { header: 'Slot', key: '_slot', width: 8 },
+        ...order.map(k => ({ header: k, key: k, width: Math.max(10, Math.min(28, k.length + 2)) })),
+      ];
+      // rows: by date, 'daily' first, then by time
+      const rowKeys = [...cells.keys()].sort((a, b) => {
+        const [da, ta] = a.split('|'), [dbb, tb] = b.split('|');
+        if (da !== dbb) return da < dbb ? -1 : 1;
+        if (ta === 'daily' || tb === 'daily') return ta === 'daily' ? -1 : 1;
+        return ta < tb ? -1 : ta > tb ? 1 : 0;
+      });
+      for (const rk of rowKeys) {
+        const [d, t] = rk.split('|');
+        const row = { _dt: toExcelDate(d, t), _slot: t };
+        for (const [k, v] of Object.entries(cells.get(rk))) row[k] = num(v);
+        ws.addRow(row);
+      }
+      styleHeader(ws);
+
+      const wp = wb.addWorksheet('Params');
+      wp.columns = [
+        { header: 'param_key', key: 'param_key', width: 28 },
+        { header: 'กลุ่ม', key: 'node', width: 22 },
+        { header: 'ชื่อ', key: 'label', width: 28 },
+        { header: 'หน่วย', key: 'unit', width: 10 },
+        { header: 'ความถี่', key: 'frequency', width: 10 },
+      ];
+      for (const k of order) wp.addRow({ param_key: k, ...(meta.get(k) || {}) });
+      styleHeader(wp);
+    }
+
+    if (wantMh) {
+      const SKIP = new Set(['MhCells', 'RecycleCfg']);
+      const sheetFromRows = (title, rows) => {
+        const ws = wb.addWorksheet(title);
+        const cols = rows.length ? Object.keys(rows[0]).filter(c => !SKIP.has(c) && c !== 'DateKey') : [];
+        ws.columns = [
+          { header: 'DateTime', key: '_dt', width: 14, style: { numFmt: 'yyyy-mm-dd' } },
+          ...cols.map(c => ({ header: c, key: c, width: Math.max(10, Math.min(26, c.length + 2)) })),
+        ];
+        for (const r of rows) {
+          const row = { _dt: toExcelDate(r.DateKey) };
+          for (const c of cols) row[c] = num(r[c]);
+          ws.addRow(row);
+        }
+        styleHeader(ws);
+      };
+      const saved = db.all('SELECT * FROM summary_table WHERE DateKey BETWEEN ? AND ? ORDER BY DateKey, GeneratedAt', [from, to]);
+      const lastPerDay = {};
+      for (const r of saved) lastPerDay[r.DateKey] = r; // later save wins (same as export-mh)
+      const details = db.all('SELECT * FROM detail_table WHERE DateKey BETWEEN ? AND ? ORDER BY DateKey', [from, to]);
+      const detailByDay = Object.fromEntries(details.map(d => [d.DateKey, d]));
+
+      // MH_summary: per-phase values (from detail_table) placed just before their total column
+      const P = [1, 2, 3, 4];
+      const BEFORE = {
+        RWS_TotalF: ['RWS1_P1F', 'RWS1_P2F', 'RWS2_P3F', 'RWS2_P4F'],
+        Cl_Total_tonuse: [...P.map(p => `PreCl_P${p}tonuse`), ...P.map(p => `PosCl_P${p}tonuse`)],
+        Alum_Total_tonuse: P.map(p => `Alum_P${p}tonuse`),
+        Pacl_Total_tonuse: P.map(p => `Pacl_P${p}tonuse`),
+        Polymer_Total_tonuse: P.map(p => `Polymer_P${p}tonuse`),
+        FRT_Avg: P.map(p => `FRT_P${p}`),
+        Sludge_drain_Total: P.map(p => `Sludge_drain_P${p}`),
+        Wash_water_Total: P.map(p => `Wash_water_P${p}`),
+      };
+      // dose target / actual (mg/L) per phase, just after the chemical's total use
+      const dose = (...chems) => chems.flatMap(c => ['targer', 'actual'].flatMap(k => P.map(p => `${c}_P${p}${k}_dose`)));
+      const AFTER = {
+        Cl_Total_tonuse: dose('PreCl', 'PosCl'),
+        Alum_Total_tonuse: dose('Alum'),
+        Pacl_Total_tonuse: dose('Pacl'),
+      };
+      const withPhases = s => {
+        const d = detailByDay[s.DateKey] || {};
+        const out = {};
+        const put = pc => {
+          // no polymer dosing data per phase — 0 when the day's polymer total is 0
+          out[pc] = pc.startsWith('Polymer_') ? (s.Polymer_Total_tonuse === 0 ? 0 : null) : (d[pc] ?? null);
+        };
+        for (const [col, v] of Object.entries(s)) {
+          (BEFORE[col] || []).forEach(put);
+          out[col] = v;
+          (AFTER[col] || []).forEach(put);
+        }
+        return out;
+      };
+      sheetFromRows('MH_summary', Object.values(lastPerDay).map(withPhases));
+      sheetFromRows('MH_detail', details);
+    }
+
+    const be = d => `${+d.slice(0, 4) + 543}-${d.slice(5)}`;
+    const name = from === to ? `DailyReport_table_${be(from)}` : `DailyReport_table_${be(from)}_${be(to)}`;
+    require('../services/sendFile').sendFile(res, 'xlsx', name, await wb.xlsx.writeBuffer(), 'dailyreport_table');
+  } catch (e) {
+    console.error('[write/table]', e.message);
     res.status(500).json({ error: e.message });
   }
 });
@@ -441,6 +619,44 @@ router.post('/nodes', requireAuth, async (req, res) => {
       excel: excelError ?? null,
     },
   });
+});
+
+// POST /api/write/dosage { date } — ปุ่ม "Query daily chemical dosing" (/record):
+// เขียน Daily Dosage (ACTUAL) ลงไฟล์ DailyLab ใน excel_data_dir (เซลล์ X/Y/Z/AA แถว 4,5,7,9)
+// วันนี้/เมื่อวาน → Daily Report ที่เพิ่ง QUERY (fetch-all) · เก่ากว่านั้น → ค่าที่ SAVE DB ไว้ (กฎเดียวกับ export.xlsx?dosage=1)
+router.post('/dosage', requireAuth, async (req, res) => {
+  const date = req.body?.date;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return res.status(400).json({ error: 'date required (YYYY-MM-DD)' });
+  const { getCachedReport, isLiveReportDate, getSavedMhCells } = require('./dailyReport');
+  const { dailyLabDosageCells, dailyLabDosageFromMh } = require('../services/dailyReport');
+
+  let cells;
+  if (isLiveReportDate(date)) {
+    const report = getCachedReport(date);
+    if (!report) return res.status(409).json({ error: 'ยังไม่ได้ QUERY Daily Report ของวันนั้น' });
+    if (report.day_complete === false) return res.status(409).json({ error: 'วันยังไม่ครบ (ก่อน 24:00) — ยังบันทึก Daily Dosage ไม่ได้' });
+    cells = dailyLabDosageCells(report);
+  } else {
+    const mh = getSavedMhCells(date);
+    if (!mh) return res.status(409).json({ error: 'ยังไม่ได้ SAVE DB วันนั้นที่หน้า DAILY' });
+    cells = dailyLabDosageFromMh(mh);
+  }
+  if (!Object.keys(cells).length) return res.status(409).json({ error: 'ไม่มีค่า Daily Dosage (ACTUAL) ที่คำนวณได้' });
+
+  const payload = { records: [], recordersByDate: {}, cells: { [date]: cells } };
+  try {
+    const result = await writeToExcel([], {}, payload.cells);
+    res.json({ ok: true, cells, result });
+  } catch (err) {
+    console.error('[write/dosage] Excel write failed:', err.message);
+    const db = getDb();
+    db.run(
+      `INSERT INTO excel_queue (created_at, trans_dtm, payload, status) VALUES (?, ?, ?, 'pending')`,
+      [nowTH(), date, JSON.stringify(payload)]
+    );
+    persist();
+    res.json({ ok: false, queued: true, cells, error: err.message });
+  }
 });
 
 // GET /api/write/queue — list pending/dead AquaDAT queue items

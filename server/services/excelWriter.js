@@ -4,18 +4,19 @@ const fs = require('fs');
 const os = require('os');
 
 const WRITER = path.join(__dirname, '..', 'excel_writer.py');
-const { getControlValues } = require('./scenario');
 
 let _excelForceFail = false;
 function setExcelForceFail(v) { _excelForceFail = !!v; }
 function getExcelForceFail() { return _excelForceFail; }
 
-async function writeToExcel(records, recordersByDate = {}) {
-  if (!records || records.length === 0) return { written: 0 };
+// cells = { date: { addr: value } } เซลล์ตรง เช่น Daily Dosage ACTUAL (ปุ่ม Query daily chemical dosing)
+async function writeToExcel(records, recordersByDate = {}, cells = {}) {
+  records = records || [];
+  if (records.length === 0 && !Object.keys(cells || {}).length) return { written: 0 };
   if (_excelForceFail) throw new Error('[force-fail] Excel write disabled for testing');
   return new Promise((resolve, reject) => {
-    // controls = Control Value ของสถานการณ์ที่ active → เติมช่องค่าควบคุมในฟอร์ม
-    const input = JSON.stringify({ records, recorders: recordersByDate, controls: getControlValues() });
+    // ไฟล์ปลายทาง = ของระบบเดิม → ส่งเฉพาะข้อมูล (ไม่ส่งเกณฑ์/สี — ดู excel_writer.py)
+    const input = JSON.stringify({ records, recorders: recordersByDate, cells });
     const py = spawn('python', [WRITER, input]);
     py.stdout.setEncoding('utf8');   // กัน UTF-8 ภาษาไทยถูกตัดกลาง byte ระหว่าง chunk
     py.stderr.setEncoding('utf8');
@@ -36,12 +37,13 @@ async function writeToExcel(records, recordersByDate = {}) {
 }
 
 // ไฟล์ DailyLab สำหรับดาวน์โหลด/พิมพ์ (1 ชีทต่อวัน) — JSON ส่งผ่านไฟล์ temp เพราะทั้งเดือนเกินขีดจำกัด argv ของ Windows
-// extraCells = { date: { addr: value } } — written last (e.g. Daily Dosage from the Daily Report)
-async function buildDailyLab(dates, records, recordersByDate = {}, extraCells = {}) {
+// cells = { date: { addr: value } } — Control Value / ตัวเลขนับ / หมายเหตุ / Daily Dosage (เขียนทับท้ายสุด)
+// fonts = { date: { addr: 'first'|'repeat' } } — สีของค่าที่เกินเกณฑ์ (services/dailyLabMarkup.js)
+async function buildDailyLab(dates, records, recordersByDate = {}, cells = {}, fonts = {}) {
   const base = path.join(os.tmpdir(), `lv_dailylab_${process.pid}_${Date.now()}`);
   const inF = `${base}.json`;
   const outF = `${base}.xlsx`;
-  fs.writeFileSync(inF, JSON.stringify({ dates, records, recorders: recordersByDate, controls: getControlValues(), cells: extraCells }));
+  fs.writeFileSync(inF, JSON.stringify({ dates, records, recorders: recordersByDate, cells, fonts }));
   try {
     await new Promise((resolve, reject) => {
       const py = spawn('python', [WRITER, '--build', inF, outF]);

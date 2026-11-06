@@ -8,16 +8,18 @@
     "tw_pos_cl": "ตรวจพบค่าคลอรีนคงเหลือปลายท่อ (TW Pos-Cl) ไม่อยู่ในช่วงมาตรฐานติดต่อกันหลายช่วงเวลา ต้องดำเนินการปรับปริมาณการเติมคลอรีนและตรวจสอบระบบจ่ายน้ำ"
   },
   "chem_cost": {
-    "alum_ton": 1,
-    "pacl_ton": 0,
-    "chlorine_ton": 0,
-    "sludge_day": 0
+    "alum_ton": 4470,
+    "pacl_ton": 5980,
+    "chlorine_ton": 13550,
+    "sludge_day": 8601.88
   },
   "energy_cost": {
-    "peak_price": 0,
-    "offpeak_price": 0,
+    "peak_price": 4.1839,
+    "offpeak_price": 2.6037,
     "ft_price": 0,
-    "max_energy": 0
+    "max_energy": 0,
+    "demand_kw": 0,
+    "service_charge": 0
   },
   "rw_cost": 0,
   "cwt_area_m2": 48000

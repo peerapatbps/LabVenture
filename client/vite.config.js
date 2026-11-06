@@ -5,9 +5,11 @@ export default defineConfig({
   base: '/labventure',
   plugins: [react()],
   server: {
+    // server/shared holds rules used by both sides (dailyReportRules.mjs)
+    fs: { allow: ['..'] },
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: process.env.API_TARGET || 'http://localhost:8889',
         changeOrigin: true,
         credentials: true,
         // allow SSE / streaming responses to pass through without buffering

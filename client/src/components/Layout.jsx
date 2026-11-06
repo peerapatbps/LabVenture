@@ -4,32 +4,25 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { get, post } from '../api.js';
 import TokenCountdown from './TokenCountdown.jsx';
 import { SidebarContext } from '../context/SidebarContext.jsx';
+import { allowedPagesFor, hasRole } from '../config/pageAccess.js';
+import { mhxViewUrl } from '../utils/mhxView.js';
 
 const ALL_NAV = [
-  { to: '/op-dashboard', label: 'OP ภาพรวม',   icon: '🏭', page: 'op-dashboard', roles: ['operator', 'superadmin'] },
-  { to: '/op-record',    label: 'OP บันทึก',   icon: '📋', page: 'op-record',    roles: ['operator', 'superadmin'] },
+  { to: '/op-dashboard', label: 'OP ภาพรวม',   icon: '🏭', page: 'op-dashboard', roles: ['operator'] },
+  { to: '/op-record',    label: 'OP บันทึก',   icon: '📋', page: 'op-record',    roles: ['operator'] },
   { to: '/dashboard',    label: 'Sci ภาพรวม',  icon: '📊', page: 'dashboard' },
   { to: '/record',       label: 'Sci บันทึก',  icon: '✏️', page: 'record' },
   { to: '/chem-intake',  label: 'รับสารเคมี',   icon: '🧪', page: 'chem-intake' },
   { to: '/car',          label: 'CAR Log',     icon: '🔴', page: 'car' },
   { to: '/report',       label: 'รายงาน',      icon: '📈', page: 'report' },
+  { to: '/event-class',  label: 'Event Class', icon: '🔔', page: 'event-class' },
+  { to: '/pm',           label: 'แผนงาน',      icon: '📅', page: 'pm' },
   { to: '/config',       label: 'Config',      icon: '⚙️', page: 'config' },
 ];
 
-// Pages each role may access (null = no restriction)
-const ROLE_PAGES = {
-  scientist:    null,
-  operator:     ['op-dashboard', 'op-record', 'chem-intake', 'car', 'report'],
-  executive_3a: ['car', 'report'],
-  executive_3b: ['car', 'report'],
-  observer:     null,
-  superadmin:   null,
-};
-
 const SCENARIO_COLORS = {
   'ปกติ':       'bg-teal-500',
-  'น้ำขุ่น':    'bg-amber-400',
-  'สาหร่ายสูง': 'bg-red-400',
+  'น้ำดิบความขุ่นสูง': 'bg-amber-400',
 };
 
 export default function Layout() {
@@ -40,12 +33,32 @@ export default function Layout() {
   const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => get('/api/auth/me') });
 
   const role = me?.role ?? null;
-  const allowedPages = ROLE_PAGES[role] ?? null;
+  const allowedPages = allowedPagesFor(me);
   const NAV = ALL_NAV.filter(n => {
-    if (n.roles && role && !n.roles.includes(role)) return false;
+    if (n.roles && role && !hasRole(me, n.roles)) return false;
     if (allowedPages && !allowedPages.includes(n.page)) return false;
     return true;
   });
+  const showChem = NAV.some(n => n.page === 'chem-intake');
+  const { data: chemCases } = useQuery({
+    queryKey: ['chem-lab', 'cases', 'open'],
+    queryFn: () => get('/api/chem-lab/cases?status=open'),
+    enabled: showChem, retry: false, refetchInterval: 120000,
+  });
+  const showEvents = NAV.some(n => n.page === 'event-class');
+  const { data: eventOcc } = useQuery({
+    queryKey: ['eventclass', 'occurrences'],
+    queryFn: () => get('/api/eventclass/occurrences?limit=200'),
+    enabled: showEvents, retry: false, refetchInterval: 120000,
+  });
+  const showPm = NAV.some(n => n.page === 'pm');
+  const { data: pmPending } = useQuery({
+    queryKey: ['pm', 'pending'],
+    queryFn: () => get('/api/pm/summary/pending'),
+    enabled: showPm, retry: false, refetchInterval: 120000,
+  });
+  const badges = { 'chem-intake': chemCases?.cases?.length || 0, 'event-class': eventOcc?.pending || 0, pm: pmPending?.pending || 0 };
+  const BADGE_TITLE = { 'event-class': 'เหตุการณ์รอตัดสินใจเรื่อง CAR', 'chem-intake': 'เคสชดเชยเปิดอยู่', pm: 'งานตามแผนค้างเดือนนี้ (รวมเกินกำหนด)' };
   const { data: scenario } = useQuery({ queryKey: ['active-scenario'], queryFn: () => get('/api/scenarios/active'), refetchInterval: 30000 });
   const { data: epidemicData } = useQuery({ queryKey: ['epidemic'], queryFn: () => get('/api/scenarios/epidemic'), refetchInterval: 30000 });
   const isEpidemic = !!epidemicData?.epidemic;
@@ -69,11 +82,14 @@ export default function Layout() {
               onClick={() => setMenuOpen(o => !o)}
               aria-label="เมนู"
             >☰</button>
-            {/* Logo mark — FOCAL */}
-            <div className="w-7 h-7 rounded-lg bg-brand flex items-center justify-center shrink-0">
-              <span className="text-white font-black text-[10px] tracking-tight">LV</span>
-            </div>
+            {/* Logo mark */}
+            <img src="/labventure/icon.png" alt="LabVenture" className="w-7 h-7 rounded-lg shrink-0 object-contain" />
             <span className="font-bold text-base tracking-wide text-earth-ink">LabVenture</span>
+            <a
+              href={mhxViewUrl()}
+              title="กลับไปหน้า MHxView (BellBeast)"
+              className="flex items-center gap-1 border border-earth-border rounded-lg px-2.5 py-1 text-xs font-medium text-earth-ink2 hover:bg-earth-DEFAULT/60 transition-colors ml-1 whitespace-nowrap"
+            >↩ MHxView</a>
             {scenario && (
               <div className="flex items-center gap-1.5 border border-earth-border rounded-lg px-2.5 py-1 text-xs text-earth-ink2 ml-1">
                 <span className={`w-2 h-2 rounded-full shrink-0 ${SCENARIO_COLORS[scenario.name] ?? 'bg-gray-400'}`} />
@@ -140,13 +156,24 @@ export default function Layout() {
                        : 'text-earth-ink2 hover:bg-earth-DEFAULT/60 border-l-[3px] border-transparent'}`
                   }
                 >
-                  <span className="shrink-0 w-6 text-center">{n.icon}</span>
+                  <span className="shrink-0 w-6 text-center relative">
+                    {n.icon}
+                    {badges[n.page] > 0 && <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-red-600 text-white text-[10px] leading-4 text-center" title={BADGE_TITLE[n.page]}>{badges[n.page]}</span>}
+                  </span>
                   <span className={`transition-opacity duration-150 ${sidebarHover ? 'opacity-100' : 'opacity-0'}`}>
                     {n.label}
                   </span>
                 </NavLink>
               ))}
             </nav>
+            <a
+              href={mhxViewUrl()}
+              title="กลับไปหน้า MHxView (BellBeast)"
+              className="flex items-center gap-3 mx-1 mb-2 px-2 py-2.5 rounded-lg text-sm font-medium text-earth-ink2 hover:bg-earth-DEFAULT/60 border-l-[3px] border-transparent whitespace-nowrap"
+            >
+              <span className="shrink-0 w-6 text-center">↩</span>
+              <span className={`transition-opacity duration-150 ${sidebarHover ? 'opacity-100' : 'opacity-0'}`}>MHxView</span>
+            </a>
           </div>
 
           {/* Mobile menu overlay */}
@@ -168,8 +195,15 @@ export default function Layout() {
                     }
                   >
                     <span>{n.icon}</span> {n.label}
+                    {badges[n.page] > 0 && <span className="ml-auto min-w-5 px-1.5 rounded-full bg-red-600 text-white text-xs leading-5 text-center">{badges[n.page]}</span>}
                   </NavLink>
                 ))}
+                <a
+                  href={mhxViewUrl()}
+                  className="flex items-center gap-3 px-4 py-3 mt-2 rounded-lg text-sm font-medium touch-target text-earth-ink2 hover:bg-earth-DEFAULT/60 border-l-[3px] border-transparent border-t border-t-earth-border"
+                >
+                  <span>↩</span> กลับ MHxView
+                </a>
               </nav>
             </div>
           )}

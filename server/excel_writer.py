@@ -1,10 +1,14 @@
 """
 รับ JSON records แล้วเขียนค่าลง monthly Excel
-กฎ: copy theme → เติมค่าใน cell ที่มีอยู่แล้วเท่านั้น ห้ามแตะโครงสร้าง
 
-Flow:
-  1. เขียนลง server/data/ เสมอ (source of truth / recovery base)
-  2. ถ้า excel_data_dir ตั้งค่าไว้ → copy ไปปลายทาง + attrib -U เพื่อ unpin จาก OneDrive
+ไฟล์ปลายทาง (excel_data_dir) เป็นของระบบเดิมที่คนยังใช้งานอยู่ (ช่วงเดินขนาน):
+  - เขียน "เฉพาะค่าแลป" + ผู้บันทึก + วันที่หัวชีท ผ่าน xlwings — ไม่แตะ style / conditional formatting /
+    Control Value (เกณฑ์) ของไฟล์
+  - ไม่สร้างไฟล์หรือชีทเอง: ยังไม่มี → error → excel_queue รอคนสร้าง (ระบบ retry เอง)
+ไม่ได้ตั้ง excel_data_dir (เครื่อง dev) → เขียนไฟล์ของเราเองใน server/data/
+
+--build = ไฟล์พิมพ์ DailyLab ของเรา (จาก templates/DailyLab_theme.xlsx): Node ส่งค่าเกณฑ์ ณ วันนั้น, ตัวเลขนับ,
+หมายเหตุ (cells) และสีตัวอักษรของค่าที่เกินเกณฑ์ (fonts) มาให้ — ไม่มี conditional formatting
 """
 import sys, json, os, shutil, zipfile, re, subprocess
 sys.stdout.reconfigure(encoding='utf-8')
@@ -34,7 +38,7 @@ def pin_local(path):
         pass
 
 BASE       = os.path.dirname(os.path.abspath(__file__))
-THEME      = os.path.join(BASE, 'data', 'DailyLab_theme.xlsx')
+THEME      = os.path.join(BASE, 'templates', 'DailyLab_theme.xlsx')
 LOCAL_DATA = os.environ.get('LV_LOCAL_DATA') or os.path.join(BASE, 'data')   # env override ใช้ตอน e2e test
 
 def _load_push_dir():
@@ -82,7 +86,12 @@ _STATIC_LABELS = {
     'H69': 'at temp (  ̊C)',
     'Q63': 'at temp (  ̊C)',  # TW2 Langelier temp label
     'Q69': 'at temp (  ̊C)',
+    'D74': 'ResCl2 =',   # template เขียนค่าเก่าไว้ "ResCl2 = 0.7 - 1.2" — ค่าจริงอยู่ช่องถัดไป (Control Value)
+    'N74': 'ResCl2 =',
+    'W74': 'ResCl2 =',
 }
+# ชื่อ/ตำแหน่งผู้บันทึกที่ค้างใน template — ล้างก่อนเขียน (กะที่ไม่มีคนบันทึกต้องว่าง ไม่ใช่ชื่อเก่า)
+_RECORDER_CELLS = ['P77', 'R77', 'P78', 'R78', 'P79', 'R79', 'S77', 'T78']
 
 _MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 _MONTH_TH   = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน',
@@ -115,14 +124,6 @@ def ensure_local(local_path):
         os.remove(local_path)
         shutil.copy(THEME, local_path)
         return load_workbook(local_path)
-
-def push_to_dest(local_path, push_path):
-    """Copy local file ไปปลายทาง แล้ว pin ให้เห็นใน OneDrive. ล้มเหลว → raise ให้เข้า excel_queue."""
-    dest_dir = os.path.dirname(push_path)
-    if dest_dir:
-        os.makedirs(dest_dir, exist_ok=True)
-    shutil.copy2(local_path, push_path)
-    pin_local(push_path)
 
 def _find_open_book(file_path):
     """คืน (app, book) ถ้าไฟล์เปิดอยู่ใน Excel instance ที่รันอยู่แล้ว ไม่เช่นนั้นคืน (None, None)."""
@@ -164,8 +165,9 @@ def _clear_stale_lock(file_path):
             sys.stderr.write(f'[excel_writer] cannot remove stale lock {lock_path}: {e}\n')
 
 
-def _write_day_xlwings(file_path, date_str, day_records, recorders, controls=None):
+def _write_day_xlwings(file_path, date_str, day_records, recorders, extra=None):
     """เขียนข้อมูลลงไฟล์ที่มีอยู่แล้วผ่าน Excel COM — ไม่ rewrite ไฟล์ทั้งหมด.
+    extra = { addr: value } เซลล์ตรง (Daily Dosage ACTUAL) เขียนหลังค่าแลป.
 
     ถ้า Excel มีไฟล์นี้เปิดอยู่แล้ว → เขียนผ่าน book นั้นโดยตรง (ไม่สร้าง instance ใหม่)
     เพื่อหลีกเลี่ยงการเปิด read-only copy ที่ save แล้วไม่เขียนทับไฟล์จริง
@@ -196,14 +198,10 @@ def _write_day_xlwings(file_path, date_str, day_records, recorders, controls=Non
 
         sheet_names = [s.name for s in wb.sheets]
 
+        # ไฟล์ของระบบเดิมมีครบทุกวันอยู่แล้ว — ไม่มีชีท = ไฟล์ผิดรูป ไม่สร้างเอง
         if day not in sheet_names:
-            theme = wb.sheets['theme']
-            theme.api.Copy(Before=wb.sheets[0].api)
-            new_ws = wb.sheets[0]
-            new_ws.name = day
-            ws = new_ws
-        else:
-            ws = wb.sheets[day]
+            raise RuntimeError(f'ไม่พบชีท "{day}" ใน {os.path.basename(file_path)} — ระบบไม่สร้างชีทเอง (รอแก้ไฟล์แล้วจะ retry เอง)')
+        ws = wb.sheets[day]
 
         ws['V1'].value = int(day)
         ws['X1'].value = month_th
@@ -226,6 +224,10 @@ def _write_day_xlwings(file_path, date_str, day_records, recorders, controls=Non
             ws[addr].value = val
             cells[addr] = val
 
+        for addr, val in (extra or {}).items():
+            ws[addr].value = val
+            cells[addr] = val
+
         date_recorders = (recorders or {}).get(date_str, {})
         night = date_recorders.get('16-24', {})
         for shift_range, row in _SHIFT_ROWS.items():
@@ -237,11 +239,6 @@ def _write_day_xlwings(file_path, date_str, day_records, recorders, controls=Non
         if night:
             ws['S77'].value = _first_name(night.get('name', ''))
             ws['T78'].value = _position_abbr(night.get('position_label', ''))
-
-        for addr, label in _STATIC_LABELS.items():
-            ws[addr].value = label
-        for addr, v in (controls or {}).items():   # Control Value จากสถานการณ์ที่ active
-            ws[addr].value = v
 
         wb.save()
         if owned_app:
@@ -275,7 +272,7 @@ def _verify_saved(file_path, sheet, cells):
         wb.close()
 
 
-def _write_day(wb, date_str, day_records, recorders, sheet_name=None, controls=None):
+def _write_day(wb, date_str, day_records, recorders, sheet_name=None):
     """เขียน records ของวันเดียวลง workbook ที่โหลดแล้ว (in-place)."""
     y, m, d = date_str.split('-')
     day = str(int(d))
@@ -306,6 +303,8 @@ def _write_day(wb, date_str, day_records, recorders, sheet_name=None, controls=N
             val = r['trans_value']
         ws[addr] = val
 
+    for addr in _RECORDER_CELLS:
+        ws[addr] = None
     date_recorders = (recorders or {}).get(date_str, {})
     night = date_recorders.get('16-24', {})
     for shift_range, row in _SHIFT_ROWS.items():
@@ -325,14 +324,14 @@ def _write_day(wb, date_str, day_records, recorders, sheet_name=None, controls=N
 
     for addr, label in _STATIC_LABELS.items():
         ws[addr] = label
-    for addr, v in (controls or {}).items():   # Control Value จากสถานการณ์ที่ active
-        ws[addr] = v
 
 
 DETAILS = []   # ไฟล์/ชีท/เซลล์ที่เขียนจริง — ส่งกลับใน JSON ให้ตรวจจาก response ได้
 
-def write_records(records, recorders=None, controls=None):
-    by_date = {}
+def write_records(records, recorders=None, cells=None):
+    """cells = { date: { addr: value } } เซลล์ตรง (Daily Dosage ACTUAL จากปุ่ม Query daily chemical dosing)."""
+    cells = cells or {}
+    by_date = {d: [] for d in cells}
     for r in records:
         by_date.setdefault(r['trans_dtm'], []).append(r)
 
@@ -342,40 +341,35 @@ def write_records(records, recorders=None, controls=None):
     for date_str, day_records in by_date.items():
         local_path = local_monthly_path(date_str)
         push_path  = push_monthly_path(date_str)
+        extra = cells.get(date_str) or {}
 
-        # ถ้าปลายทางมีไฟล์อยู่แล้ว → ใช้ xlwings เขียนเฉพาะ cell (ไม่ rewrite ไฟล์)
-        # ล้มเหลว → เก็บ error แล้ว exit 1 ให้ Node เข้า excel_queue (เดิมกลืน error แล้วคืน written 0)
-        if push_path and os.path.exists(push_path):
+        # ปลายทางเป็นไฟล์ของระบบเดิม → xlwings เขียนเฉพาะ cell ข้อมูล (ไม่ rewrite ไฟล์)
+        # ล้มเหลว → เก็บ error แล้ว exit 1 ให้ Node เข้า excel_queue
+        if push_path:
+            if not os.path.exists(push_path):
+                # ไม่สร้างไฟล์ของระบบเดิมเอง — รอคนสร้าง (queueWorker ไม่นับเป็นครั้งที่ล้มเหลว)
+                errors.append(f'ยังไม่มีไฟล์ปลายทาง {os.path.basename(push_path)} — รอผู้ใช้สร้างไฟล์ ระบบจะ retry เอง')
+                continue
             try:
-                cells = _write_day_xlwings(push_path, date_str, day_records, recorders, controls)
-                total += len(cells)
+                written = _write_day_xlwings(push_path, date_str, day_records, recorders, extra)
+                total += len(written)
                 DETAILS.append({'file': push_path, 'sheet': str(int(date_str[-2:])),
-                                'mode': 'xlwings', 'cells': cells})
+                                'mode': 'xlwings', 'cells': written})
             except Exception as e:
                 errors.append(f'xlwings write to {push_path} failed: {type(e).__name__}: {e}')
             continue
 
-        # ปลายทางไม่มีไฟล์ → ใช้ local staging แล้ว copy ออกไป
-        if push_path and os.path.exists(local_path) and not os.path.exists(push_path):
-            try:
-                shutil.copy2(local_path, push_path)
-            except Exception as e:
-                sys.stderr.write(f'[excel_writer] pull from local to dest failed: {e}\n')
-
+        # ไม่ได้ตั้งปลายทาง (เครื่อง dev) → ไฟล์ของเราเองใน local staging
         wb = ensure_local(local_path)
-        _write_day(wb, date_str, day_records, recorders, controls=controls)
+        sheet = str(int(date_str[-2:]))
+        if day_records or sheet not in wb.sheetnames:
+            _write_day(wb, date_str, day_records, recorders)   # dosage อย่างเดียว → ไม่ล้างชื่อผู้บันทึกที่มีอยู่
+        for addr, val in extra.items():
+            wb[sheet][addr] = val
         wb.save(local_path)
         strip_defined_names(local_path)
-        total += sum(1 for r in day_records if CELL_MAP.get(r['param_key'], {}).get(r['trans_time']))
-
-        if push_path:
-            try:
-                push_to_dest(local_path, push_path)
-            except Exception as e:
-                errors.append(f'push to {push_path} failed: {type(e).__name__}: {e}')
-                continue
-        DETAILS.append({'file': push_path or local_path, 'sheet': str(int(date_str[-2:])),
-                        'mode': 'openpyxl', 'local': local_path})
+        total += sum(1 for r in day_records if CELL_MAP.get(r['param_key'], {}).get(r['trans_time'])) + len(extra)
+        DETAILS.append({'file': local_path, 'sheet': str(int(date_str[-2:])), 'mode': 'openpyxl'})
 
     if errors:
         raise RuntimeError('; '.join(errors))
@@ -386,8 +380,16 @@ _MONTH_TH_ABBR = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','
 
 _PRINT_AREA = 'A1:AA79'
 
-def build_export(dates, records, recorders, out_path, controls=None, cells=None):
-    """ไฟล์ใหม่สำหรับดาวน์โหลด/พิมพ์: 1 ชีทต่อวัน (copy จาก theme) — ไม่แตะไฟล์เดือน."""
+_FONT_COLORS = {'first': 'FF0000FF', 'repeat': 'FFFF0000'}   # เกินครั้งแรก = น้ำเงิน · เกินต่อเนื่อง = แดง (เหมือนหน้าเว็บ)
+_REMARK_CELLS = ('B77', 'B78', 'B79')
+_DATA_CELLS = sorted({a for m in CELL_MAP.values() if isinstance(m, dict) for a in m.values()})
+
+def build_export(dates, records, recorders, out_path, cells=None, fonts=None):
+    """ไฟล์ใหม่สำหรับดาวน์โหลด/พิมพ์: 1 ชีทต่อวัน (copy จาก theme) — ไม่แตะไฟล์เดือน.
+    cells = { date: { addr: value } } (Control Value ณ วันนั้น, ตัวเลขนับ, หมายเหตุ, Daily Dosage)
+    fonts = { date: { addr: 'first'|'repeat' } } สีตัวอักษรของค่าที่เกินเกณฑ์ (แทน conditional formatting)"""
+    from copy import copy
+    from openpyxl.styles import Alignment
     by_date = {}
     for r in records:
         by_date.setdefault(r['trans_dtm'], []).append(r)
@@ -396,9 +398,28 @@ def build_export(dates, records, recorders, out_path, controls=None, cells=None)
     for date_str in sorted(dates):
         _, m, d = date_str.split('-')
         name = str(int(d)) if one_month else f'{int(d)} {_MONTH_TH_ABBR[int(m) - 1]}'
-        _write_day(wb, date_str, by_date.get(date_str, []), recorders, sheet_name=name, controls=controls)
-        for addr, v in ((cells or {}).get(date_str) or {}).items():   # เช่น Daily Dosage จาก Daily Report
-            wb[name][addr] = v
+        _write_day(wb, date_str, by_date.get(date_str, []), recorders, sheet_name=name)
+        ws = wb[name]
+        for addr, v in ((cells or {}).get(date_str) or {}).items():
+            ws[addr] = v
+            if addr in _REMARK_CELLS:   # หมายเหตุอยู่ในเซลล์รวม B:F ที่แคบ → ย่อตัวอักษรให้พอดี
+                ws[addr].alignment = Alignment(horizontal='left', vertical='center', shrink_to_fit=True)
+        # template มีสีแดง/น้ำเงินที่ทาตายตัวไว้ในบางช่องข้อมูล (เคยใช้ปิดช่องที่ CF ครอบไม่ถึง) → ล้างก่อน
+        # ไม่งั้นค่าในเกณฑ์จะพิมพ์เป็นสีแดง; สีของค่าที่เกินมาจาก fonts ด้านล่างเท่านั้น
+        for addr in _DATA_CELLS:
+            c = ws[addr].font.color
+            if c is not None and isinstance(c.rgb, str) and c.rgb in _FONT_COLORS.values():
+                f = copy(ws[addr].font)
+                f.color = None
+                ws[addr].font = f
+        for addr, level in ((fonts or {}).get(date_str) or {}).items():
+            color = _FONT_COLORS.get(level)
+            if not color:
+                continue
+            f = copy(ws[addr].font)
+            f.color = color
+            f.bold = True
+            ws[addr].font = f
     del wb['theme']
     for i, ws in enumerate(wb.worksheets):
         ws.sheet_view.tabSelected = i == 0   # กันชีทถูก group (copy มาจาก theme ที่ selected)
@@ -413,12 +434,12 @@ if __name__ == '__main__':
     if sys.argv[1] == '--build':
         with open(sys.argv[2], encoding='utf-8') as f:
             data = json.load(f)
-        build_export(data['dates'], data['records'], data.get('recorders', {}), sys.argv[3], data.get('controls'), data.get('cells'))
+        build_export(data['dates'], data['records'], data.get('recorders', {}), sys.argv[3], data.get('cells'), data.get('fonts'))
         print(json.dumps({'ok': True}))
         sys.exit(0)
     data = json.loads(sys.argv[1])
     try:
-        written = write_records(data['records'], data.get('recorders', {}), data.get('controls'))
+        written = write_records(data.get('records', []), data.get('recorders', {}), data.get('cells'))
     except Exception as e:
         sys.stderr.write(f'[excel_writer] {e}\n')
         sys.exit(1)

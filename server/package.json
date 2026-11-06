@@ -13,6 +13,7 @@
     "dotenv": "^16.4.5",
     "exceljs": "^4.4.0",
     "express": "^4.19.2",
+    "jszip": "^3.10.1",
     "node-fetch": "^2.7.0",
     "node-sqlite3-wasm": "^0.8.27",
     "uuid": "^10.0.0"

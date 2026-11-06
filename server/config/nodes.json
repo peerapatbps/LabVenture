@@ -10,14 +10,14 @@
           "param_key": "RW.turb",
           "label": "Turbidity",
           "unit": "NTU",
-          "frequency": "4h",
+          "frequency": "2h",
           "configparam_id": 887
         },
         {
           "param_key": "RW.pH",
           "label": "pH",
           "unit": "",
-          "frequency": "12h",
+          "frequency": "4h",
           "configparam_id": 888
         },
         {
@@ -57,10 +57,21 @@
         },
         {
           "param_key": "RW.OC",
-          "label": "Organic Compound",
+          "label": "Oxygen Consume",
           "unit": "mg/L",
           "frequency": "daily",
+          "fixedTime": "09:00",
+          "inSlot": true,
           "configparam_id": 893
+        },
+        {
+          "param_key": "RW.TSS",
+          "label": "Total Suspended Solids",
+          "unit": "mg/L",
+          "frequency": "daily",
+          "fixedTime": "05:00",
+          "inSlot": true,
+          "configparam_id": 4334
         }
       ]
     },
@@ -704,9 +715,11 @@
         },
         {
           "param_key": "CW1.OC",
-          "label": "Organic Carbon",
+          "label": "Oxygen Consume",
           "unit": "mg/L",
           "frequency": "daily",
+          "fixedTime": "09:00",
+          "inSlot": true,
           "subgroup": "CW1",
           "configparam_id": 1003
         },
@@ -729,9 +742,11 @@
         },
         {
           "param_key": "FW1.OC",
-          "label": "Organic Carbon",
+          "label": "Oxygen Consume",
           "unit": "mg/L",
           "frequency": "daily",
+          "fixedTime": "09:00",
+          "inSlot": true,
           "subgroup": "FW1",
           "configparam_id": 1006
         },
@@ -739,7 +754,7 @@
           "param_key": "FW1.ResCl2",
           "label": "Residual Chlorine",
           "unit": "mg/L",
-          "frequency": "4h",
+          "frequency": "none",
           "subgroup": "FW1",
           "configparam_id": 1007,
           "skip_progress": true
@@ -809,9 +824,11 @@
         },
         {
           "param_key": "CW2.OC",
-          "label": "Organic Carbon",
+          "label": "Oxygen Consume",
           "unit": "mg/L",
           "frequency": "daily",
+          "fixedTime": "09:00",
+          "inSlot": true,
           "subgroup": "CW2",
           "configparam_id": 1015
         },
@@ -834,9 +851,11 @@
         },
         {
           "param_key": "FW2.OC",
-          "label": "Organic Carbon",
+          "label": "Oxygen Consume",
           "unit": "mg/L",
           "frequency": "daily",
+          "fixedTime": "09:00",
+          "inSlot": true,
           "subgroup": "FW2",
           "configparam_id": 1018
         },
@@ -844,7 +863,7 @@
           "param_key": "FW2.ResCl2",
           "label": "Residual Chlorine",
           "unit": "mg/L",
-          "frequency": "4h",
+          "frequency": "none",
           "subgroup": "FW2",
           "configparam_id": 1019,
           "skip_progress": true
@@ -914,9 +933,11 @@
         },
         {
           "param_key": "CW3.OC",
-          "label": "Organic Carbon",
+          "label": "Oxygen Consume",
           "unit": "mg/L",
           "frequency": "daily",
+          "fixedTime": "09:00",
+          "inSlot": true,
           "subgroup": "CW3",
           "configparam_id": 1027
         },
@@ -939,9 +960,11 @@
         },
         {
           "param_key": "FW3.OC",
-          "label": "Organic Carbon",
+          "label": "Oxygen Consume",
           "unit": "mg/L",
           "frequency": "daily",
+          "fixedTime": "09:00",
+          "inSlot": true,
           "subgroup": "FW3",
           "configparam_id": 1030
         },
@@ -949,7 +972,7 @@
           "param_key": "FW3.ResCl2",
           "label": "Residual Chlorine",
           "unit": "mg/L",
-          "frequency": "4h",
+          "frequency": "none",
           "subgroup": "FW3",
           "configparam_id": 1031,
           "skip_progress": true
@@ -1019,9 +1042,11 @@
         },
         {
           "param_key": "CW4.OC",
-          "label": "Organic Carbon",
+          "label": "Oxygen Consume",
           "unit": "mg/L",
           "frequency": "daily",
+          "fixedTime": "09:00",
+          "inSlot": true,
           "subgroup": "CW4",
           "configparam_id": 1039
         },
@@ -1044,9 +1069,11 @@
         },
         {
           "param_key": "FW4.OC",
-          "label": "Organic Carbon",
+          "label": "Oxygen Consume",
           "unit": "mg/L",
           "frequency": "daily",
+          "fixedTime": "09:00",
+          "inSlot": true,
           "subgroup": "FW4",
           "configparam_id": 1042
         },
@@ -1054,7 +1081,7 @@
           "param_key": "FW4.ResCl2",
           "label": "Residual Chlorine",
           "unit": "mg/L",
-          "frequency": "4h",
+          "frequency": "none",
           "subgroup": "FW4",
           "configparam_id": 1043,
           "skip_progress": true
@@ -1100,9 +1127,9 @@
         },
         {
           "param_key": "TW1.OC",
-          "label": "Organic Carbon",
+          "label": "Oxygen Consume",
           "unit": "mg/L",
-          "frequency": "daily",
+          "frequency": "12h",
           "subgroup": "TW1",
           "configparam_id": 1048
         },
@@ -1181,9 +1208,9 @@
         },
         {
           "param_key": "TW2.OC",
-          "label": "Organic Carbon",
+          "label": "Oxygen Consume",
           "unit": "mg/L",
-          "frequency": "daily",
+          "frequency": "12h",
           "subgroup": "TW2",
           "configparam_id": 1057
         },

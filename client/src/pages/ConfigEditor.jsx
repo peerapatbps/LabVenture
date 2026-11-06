@@ -2,14 +2,18 @@
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { get, post, put, patch, del } from '../api.js';
+import { isSuperadmin as isSuperadminUser } from '../config/pageAccess.js';
+import ScenarioThresholdModal from '../components/ScenarioThresholdModal.jsx';
+import TestModePanel from '../components/TestModePanel.jsx';
 
 // true = can perform actions; false = read-only (bypass mode)
 const BypassCtx = createContext(true);
+// true = test mode เปิดอยู่ (Ctrl+Shift+F10, super admin) — ปลดล็อกการเปลี่ยนสถานการณ์ และ log เป็น [TEST]
+const TestCtx = createContext(false);
 
 const SCENARIO_COLORS = {
   'ปกติ':       'bg-teal-500',
-  'น้ำขุ่น':    'bg-amber-400',
-  'สาหร่ายสูง': 'bg-red-400',
+  'น้ำดิบความขุ่นสูง': 'bg-amber-400',
 };
 
 const GROUP_LABEL = { '1': 'นักวิทยาศาสตร์', '2': 'Operator', '3a': 'ผอ.กผจ.', '3b': 'ผอ.ฝผม.' };
@@ -34,12 +38,26 @@ function EpidemicToggle() {
       await patch('/api/scenarios/epidemic', { epidemic: !isEpidemic });
       qc.invalidateQueries({ queryKey: ['epidemic'] });
       qc.invalidateQueries({ queryKey: ['active-scenario'] });
+      qc.invalidateQueries({ queryKey: ['scenario-log'] });
     } finally { setSaving(false); }
   }
 
+  const [showThresholds, setShowThresholds] = useState(false);
+  const { data: epi } = useQuery({
+    queryKey: ['epidemic-thresholds'],
+    queryFn: () => get('/api/scenarios/epidemic/thresholds'),
+  });
+
   return (
-    <div className="flex items-center justify-between py-2">
-      <span className="text-sm font-medium text-earth-ink">สถานการณ์โรคระบาด</span>
+    <div className="flex items-center gap-3 py-2">
+      <div className="mr-auto">
+        <span className="text-sm font-medium text-earth-ink">สถานการณ์โรคระบาด</span>
+        <p className="text-xs text-earth-ink3">เปิดแล้วเกณฑ์ชุดนี้ทับสถานการณ์ที่ active · {epi?.thresholds?.length ?? '—'} เกณฑ์</p>
+      </div>
+      <button onClick={() => setShowThresholds(true)}
+        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-earth-card text-earth-ink2 hover:bg-earth-border">
+        {canAction ? 'ตั้งค่าเกณฑ์' : 'ดูเกณฑ์'}
+      </button>
       <button
         onClick={toggle}
         disabled={isLoading || saving || !canAction}
@@ -51,6 +69,19 @@ function EpidemicToggle() {
             ${isEpidemic ? 'translate-x-7' : 'translate-x-0.5'}`}
         />
       </button>
+      {showThresholds && (
+        <ScenarioThresholdModal
+          canEdit={canAction}
+          onClose={() => setShowThresholds(false)}
+          source={{
+            title: 'เกณฑ์ควบคุม — โหมดโรคระบาด',
+            loadUrl: '/api/scenarios/epidemic/thresholds',
+            saveUrl: '/api/scenarios/epidemic/thresholds',
+            queryKey: ['epidemic-thresholds'],
+            note: 'เกณฑ์ชุดนี้ทับค่าของสถานการณ์ที่ active เฉพาะพารามิเตอร์ที่ระบุ (พารามิเตอร์ที่สถานการณ์ไม่มีจะถูกเพิ่มเข้าไป) ขณะเปิดโหมดโรคระบาด',
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -62,41 +93,77 @@ function MarqueeEditor() {
     queryKey: ['marquee'],
     queryFn: () => get('/api/scenarios/marquee'),
   });
-  const [text, setText] = useState('');
+  const [items, setItems] = useState(['']);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   // Sync fetched value into local state once
+  const fetchedKey = JSON.stringify(data?.items ?? null);
   React.useEffect(() => {
-    if (data?.marquee_text !== undefined) setText(data.marquee_text);
-  }, [data?.marquee_text]);
+    if (Array.isArray(data?.items)) setItems(data.items.length ? data.items : ['']);
+  }, [fetchedKey]);
+
+  const setAt = (i, v) => setItems(xs => xs.map((x, j) => (j === i ? v : x)));
+  const removeAt = i => setItems(xs => (xs.length > 1 ? xs.filter((_, j) => j !== i) : ['']));
+  const move = (i, d) => setItems(xs => {
+    const j = i + d;
+    if (j < 0 || j >= xs.length) return xs;
+    const ys = [...xs]; [ys[i], ys[j]] = [ys[j], ys[i]]; return ys;
+  });
 
   async function save() {
     setSaving(true);
     try {
-      await patch('/api/scenarios/marquee', { marquee_text: text });
+      await patch('/api/scenarios/marquee', { items });
       qc.invalidateQueries({ queryKey: ['marquee'] });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } finally { setSaving(false); }
   }
 
+  const preview = items.map(t => t.trim()).filter(Boolean);
+
   return (
     <div className="space-y-2 pt-2 border-t border-earth-border">
-      <span className="text-sm font-medium text-earth-ink">ข้อความวิ่ง (Header)</span>
-      <textarea
-        value={text}
-        onChange={e => setText(e.target.value)}
-        rows={2}
-        className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand"
-      />
-      <button
-        onClick={save}
-        disabled={saving || !canAction}
-        className="px-4 py-1.5 rounded-lg bg-brand text-white text-sm font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        {saved ? '✓ บันทึกแล้ว' : saving ? 'กำลังบันทึก...' : 'บันทึก'}
-      </button>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-sm font-medium text-earth-ink">ข้อความวิ่ง (Header · LabVenture + MHxView)</span>
+        <span className="text-xs text-earth-ink3">{preview.length} ข้อความ</span>
+      </div>
+      {items.map((t, i) => (
+        <div key={i} className="flex items-start gap-1.5">
+          <span className="text-xs text-earth-ink3 pt-2 w-6 shrink-0 text-right">[{i + 1}]</span>
+          <textarea
+            value={t}
+            onChange={e => setAt(i, e.target.value)}
+            rows={1}
+            className="flex-1 border border-earth-border rounded-lg px-3 py-1.5 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-brand"
+          />
+          <button type="button" onClick={() => move(i, -1)} disabled={i === 0} title="เลื่อนขึ้น"
+            className="px-1.5 py-1 text-xs text-earth-ink2 disabled:opacity-30">▲</button>
+          <button type="button" onClick={() => move(i, 1)} disabled={i === items.length - 1} title="เลื่อนลง"
+            className="px-1.5 py-1 text-xs text-earth-ink2 disabled:opacity-30">▼</button>
+          <button type="button" onClick={() => removeAt(i)} title="ลบข้อความนี้"
+            className="px-1.5 py-1 text-xs text-red-600">✕</button>
+        </div>
+      ))}
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={() => setItems(xs => [...xs, ''])} disabled={items.length >= 20}
+          className="px-3 py-1.5 rounded-lg border border-earth-border text-sm text-earth-ink2 hover:bg-earth disabled:opacity-40">
+          + เพิ่มข้อความ
+        </button>
+        <button
+          onClick={save}
+          disabled={saving || !canAction}
+          className="px-4 py-1.5 rounded-lg bg-brand text-white text-sm font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {saved ? '✓ บันทึกแล้ว' : saving ? 'กำลังบันทึก...' : 'บันทึก'}
+        </button>
+      </div>
+      {preview.length > 0 && (
+        <div className="text-xs text-earth-ink3 truncate" title="ตัวอย่างที่จะวิ่ง">
+          ตัวอย่าง: 📢 {preview.join(' 📢 ')} 📢
+        </div>
+      )}
     </div>
   );
 }
@@ -104,7 +171,8 @@ function MarqueeEditor() {
 // ── Scenario tab ─────────────────────────────────────────────────────────
 
 function ScenarioTab() {
-  const canAction = useContext(BypassCtx);
+  const testMode = useContext(TestCtx);
+  const canAction = useContext(BypassCtx) || testMode;
   const qc = useQueryClient();
   const { data: scenarios, isLoading } = useQuery({
     queryKey: ['scenarios-list'],
@@ -114,16 +182,41 @@ function ScenarioTab() {
     queryKey: ['active-scenario'],
     queryFn: () => get('/api/scenarios/active'),
   });
+  const { data: allThresholds } = useQuery({
+    queryKey: ['scenario-thresholds'],
+    queryFn: () => get('/api/scenarios/thresholds'),
+  });
+  const countById = Object.fromEntries((allThresholds || []).map(s => [s.id, s.thresholds.length]));
+  const [editing, setEditing] = useState(null);
   const [pending, setPending] = useState(false);
   const activeId = scenarios?.find(s => s.active === 1)?.id ?? '';
+  // เปลี่ยนสถานการณ์ = ประกาศ/ยกเลิกภาวะ → ยืนยันพร้อมหมายเหตุก่อน แล้วเก็บประวัติ
+  const [confirmId, setConfirmId] = useState(null);
+  const [note, setNote] = useState('');
+  const [result, setResult] = useState(null);   // { ok, text }
+  const { data: log } = useQuery({
+    queryKey: ['scenario-log'],
+    queryFn: () => get('/api/scenarios/log?limit=8'),
+  });
+  const confirmTarget = scenarios?.find(s => s.id === confirmId);
 
-  async function handleActivate(id) {
-    if (!id) return;
+  async function handleActivate() {
+    if (!confirmId) return;
     setPending(true);
     try {
-      await put(`/api/scenarios/${id}/activate`);
+      const r = await put(`/api/scenarios/${confirmId}/activate`, { note, test: testMode });
+      setResult({
+        ok: true,
+        text: r?.sync === 'ok' ? 'เปลี่ยนแล้ว · แจ้ง Uroboros ให้ใช้เกณฑ์ใหม่แล้ว'
+          : r?.sync ? `เปลี่ยนแล้ว · แจ้ง Uroboros ไม่สำเร็จ (${r.sync}) — alarm จะได้เกณฑ์ใหม่ในรอบ sync ถัดไป`
+          : 'เปลี่ยนแล้ว',
+      });
+      setConfirmId(null); setNote('');
       qc.invalidateQueries({ queryKey: ['scenarios-list'] });
       qc.invalidateQueries({ queryKey: ['active-scenario'] });
+      qc.invalidateQueries({ queryKey: ['scenario-log'] });
+    } catch (e) {
+      setResult({ ok: false, text: e?.message || 'เปลี่ยนสถานการณ์ไม่สำเร็จ' });
     } finally { setPending(false); }
   }
 
@@ -134,11 +227,33 @@ function ScenarioTab() {
         <h2 className="font-semibold text-earth-ink">สถานการณ์ระบบผลิต</h2>
         {isLoading ? <p className="text-sm text-earth-ink3">กำลังโหลด...</p> : (
           <>
-            <select value={activeId} onChange={e => handleActivate(Number(e.target.value))}
+            <select value={confirmId ?? activeId}
+              onChange={e => { const id = Number(e.target.value); setResult(null); setConfirmId(id === activeId ? null : id); }}
               disabled={pending || !canAction}
               className="w-full border border-earth-border rounded-lg px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-brand disabled:opacity-50 disabled:cursor-not-allowed">
               {(scenarios || []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
+            {confirmTarget && (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 space-y-2">
+                <p className="text-sm text-amber-900">
+                  เปลี่ยนสถานการณ์เป็น <b>{confirmTarget.name}</b> — เกณฑ์ใน /record, dashboard, BellBeast และ alarm จะเปลี่ยนทันที
+                </p>
+                <input value={note} onChange={e => setNote(e.target.value)} maxLength={300}
+                  placeholder="หมายเหตุ เช่น ประกาศตามแผน SD-MS-HACCP-สกล-09 ข้อ 2.1 (ไม่บังคับ)"
+                  className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand" />
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => { setConfirmId(null); setNote(''); }} disabled={pending}
+                    className="px-3 py-1.5 text-sm rounded-lg bg-earth-card text-earth-ink2 hover:bg-earth-border">ยกเลิก</button>
+                  <button onClick={handleActivate} disabled={pending}
+                    className="px-3 py-1.5 text-sm font-semibold rounded-lg bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50">
+                    {pending ? 'กำลังเปลี่ยน...' : 'ยืนยันเปลี่ยนสถานการณ์'}
+                  </button>
+                </div>
+              </div>
+            )}
+            {result && (
+              <p className={`text-xs ${result.ok ? 'text-teal-700' : 'text-red-700'}`}>{result.text}</p>
+            )}
             {activeScenario && (
               <div className="flex items-center gap-3 bg-earth-DEFAULT rounded-lg px-4 py-3">
                 <span className={`w-3 h-3 rounded-full shrink-0 ${SCENARIO_COLORS[activeScenario.name] ?? 'bg-gray-400'}`} />
@@ -146,9 +261,54 @@ function ScenarioTab() {
                 <span className="ml-auto text-xs text-earth-ink3">{activeScenario.thresholds?.length ?? 0} เกณฑ์</span>
               </div>
             )}
+            {log?.length > 0 && (
+              <details className="text-xs text-earth-ink2">
+                <summary className="cursor-pointer text-earth-ink3">ประวัติการเปลี่ยนสถานการณ์</summary>
+                <ul className="mt-2 space-y-1">
+                  {log.map(l => (
+                    <li key={l.id} className="flex flex-wrap gap-x-2">
+                      <span className="text-earth-ink3 tabular-nums">{String(l.at).slice(0, 16).replace('T', ' ')}</span>
+                      {l.reason === 'scenario' || l.reason === 'init'
+                        ? <span>{l.from_name ?? '—'} → <b>{l.to_name ?? `#${l.to_id}`}</b></span>
+                        : <span>{{ thresholds: 'แก้เกณฑ์', epidemic: l.epidemic ? 'เปิดโหมดโรคระบาด' : 'ปิดโหมดโรคระบาด', epidemic_thresholds: 'แก้เกณฑ์โรคระบาด' }[l.reason] ?? l.reason} · <b>{l.to_name}</b></span>}
+                      {l.rev > 1 && <span className="text-earth-ink3">rev {l.rev}</span>}
+                      {l.epidemic && l.reason !== 'epidemic' && <span className="text-earth-ink3">+ โรคระบาด</span>}
+                      <span className="text-earth-ink3">โดย {l.actor || '—'}</span>
+                      {l.note && <span className="text-earth-ink3">· {l.note}</span>}
+                      {l.sync_result && l.sync_result !== 'ok' && <span className="text-amber-700">· Uroboros: {l.sync_result}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </>
         )}
       </div>
+
+      {/* เกณฑ์ควบคุมของแต่ละสถานการณ์ */}
+      <div className="border-t border-earth-border pt-4 space-y-2">
+        <div>
+          <h2 className="font-semibold text-earth-ink">เกณฑ์ควบคุม (LCL / UCL)</h2>
+          <p className="text-xs text-earth-ink3 mt-0.5">ต้นฉบับของเกณฑ์ทุกสถานการณ์ — alarm ใน Event Class คำนวณจากค่าเหล่านี้ของสถานการณ์ที่ active</p>
+        </div>
+        <ul className="divide-y divide-earth-border border border-earth-border rounded-lg">
+          {(scenarios || []).map(s => (
+            <li key={s.id} className="flex items-center gap-3 px-4 py-2.5">
+              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${s.active === 1 ? 'bg-teal-500' : 'bg-earth-border'}`} />
+              <span className="text-sm text-earth-ink">{s.name}</span>
+              {s.active === 1 && <span className="text-xs px-1.5 py-0.5 rounded bg-teal-100 text-teal-800">active</span>}
+              <span className="ml-auto text-xs text-earth-ink3">{countById[s.id] ?? '—'} เกณฑ์</span>
+              <button onClick={() => setEditing(s)}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-earth-card text-earth-ink2 hover:bg-earth-border">
+                {canAction ? 'ตั้งค่าเกณฑ์' : 'ดูเกณฑ์'}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+      {editing && (
+        <ScenarioThresholdModal scenario={editing} scenarios={scenarios || []} canEdit={canAction} onClose={() => setEditing(null)} />
+      )}
 
       {/* สถานการณ์โรคระบาด — single line toggle */}
       <div className="border-t border-earth-border pt-4">
@@ -1552,11 +1712,27 @@ export default function ConfigEditor() {
   });
 
   const { data: meData } = useQuery({ queryKey: ['me'], queryFn: () => get('/api/auth/me') });
-  // bypass active → read-only; normal login → can act
-  const canAction = !(meData?.bypass);
+  const isSuperadmin = isSuperadminUser(meData);
+  // bypass active → read-only; normal login (or Super Admin bypass) → can act
+  const canAction = !(meData?.bypass) || isSuperadmin;
 
-  const isAdmin = myRole?.isAdmin;
-  const isSuperadmin = myRole?.name === SUPERADMIN_NAME;
+  const isAdmin = myRole?.isAdmin || isSuperadmin;
+
+  // Test mode: Ctrl+Shift+F10 เปิด/ปิด panel ด้านขวา (เฉพาะ super admin — server ตรวจซ้ำทุก request)
+  const canTest = !!(meData?.is_admin || myRole?.isAdmin);
+  const [testMode, setTestMode] = useState(false);
+  const [testDenied, setTestDenied] = useState(false);
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!(e.ctrlKey && e.shiftKey && e.key === 'F10')) return;
+      e.preventDefault();
+      if (canTest) setTestMode(v => !v);
+      else { setTestDenied(true); setTimeout(() => setTestDenied(false), 3000); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [canTest]);
+  const testActive = testMode && canTest;
 
   const tabs = [
     { key: 'scenario',        label: 'สถานการณ์',         show: true },
@@ -1572,8 +1748,17 @@ export default function ConfigEditor() {
 
   return (
     <BypassCtx.Provider value={canAction}>
-    <div className={`${wideTab ? 'max-w-[84rem]' : 'max-w-4xl'} mx-auto space-y-5`}>
-      {!canAction && (
+    <TestCtx.Provider value={testActive}>
+    <div className={`${wideTab ? 'max-w-[84rem]' : 'max-w-4xl'} mx-auto space-y-5 ${testActive ? 'lg:mr-[25rem]' : ''}`}>
+      {testActive && (
+        <div className="bg-fuchsia-50 border border-fuchsia-300 rounded-xl px-4 py-2.5 text-sm text-fuchsia-800 font-medium">
+          🧪 TEST MODE — เปลี่ยนสถานการณ์ได้ และจะบันทึกเป็น [TEST] · alarm จากค่าปลอมไม่ออก CAR
+        </div>
+      )}
+      {testDenied && (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 text-sm text-red-700">test mode ใช้ได้เฉพาะ super admin</div>
+      )}
+      {!canAction && !testActive && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-sm text-amber-800 font-medium">
           🔒 Bypass Mode — ดูได้อย่างเดียว ปุ่ม action ทั้งหมดถูก disable
         </div>
@@ -1598,6 +1783,8 @@ export default function ConfigEditor() {
       {tab === 'admins'      && isSuperadmin && <AdminListTab />}
       {tab === 'module-test' && <ModuleTestTab />}
     </div>
+    {testActive && <TestModePanel onClose={() => setTestMode(false)} />}
+    </TestCtx.Provider>
     </BypassCtx.Provider>
   );
 }

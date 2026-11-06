@@ -2,14 +2,16 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { GridLayout } from 'react-grid-layout';
 import { get, post, patch, del, BASE } from '../api.js';
-import { initRefDate, setRefDate, confirmNonToday } from '../utils/refDate.js';
+import { isSuperadmin } from '../config/pageAccess.js';
+import { initRefDate, setRefDate, confirmNonToday, isToday, fmtThaiDate, todayThai } from '../utils/refDate.js';
 import DateSyncBar from '../components/DateSyncBar.jsx';
 import MiniChartCard from '../components/MiniChart.jsx';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { sankey as d3Sankey, sankeyLinkHorizontal } from 'd3-sankey';
-import { PieChart, Pie, Cell } from 'recharts';
+import { ChemAccuracyWall, buildChemDonutRows } from '../components/ChemAccuracyWall.jsx';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
+import { FWS_BW_PHASES, parseBWPhase } from '../../../server/shared/dailyReportRules.mjs';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -1444,25 +1446,6 @@ const SANKEY_DATA_UNUSED = {
   ],
 };
 
-const CHEM_DONUT_ROWS = [
-  { col: 'left',  phase: 'PACl PHASE#1',    useUnit: 'TON', doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
-  { col: 'right', phase: 'PRE-CL PHASE#1',  useUnit: 'kg',  doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
-  { col: 'left',  phase: 'PACl PHASE#2',    useUnit: 'TON', doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
-  { col: 'right', phase: 'PRE-CL PHASE#2',  useUnit: 'kg',  doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
-  { col: 'left',  phase: 'PACl PHASE#3',    useUnit: 'TON', doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
-  { col: 'right', phase: 'PRE-CL PHASE#3',  useUnit: 'kg',  doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
-  { col: 'left',  phase: 'PACl PHASE#4',    useUnit: 'TON', doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
-  { col: 'right', phase: 'PRE-CL PHASE#4',  useUnit: 'kg',  doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
-  { col: 'left',  phase: 'ALUM PHASE#1',    useUnit: 'TON', doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
-  { col: 'right', phase: 'POST-CL PHASE#1', useUnit: 'kg',  doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
-  { col: 'left',  phase: 'ALUM PHASE#2',    useUnit: 'TON', doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
-  { col: 'right', phase: 'POST-CL PHASE#2', useUnit: 'kg',  doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
-  { col: 'left',  phase: 'ALUM PHASE#3',    useUnit: 'TON', doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
-  { col: 'right', phase: 'POST-CL PHASE#3', useUnit: 'kg',  doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
-  { col: 'left',  phase: 'ALUM PHASE#4',    useUnit: 'TON', doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
-  { col: 'right', phase: 'POST-CL PHASE#4', useUnit: 'kg',  doseUnit: 'mg/L', use: 0, target: 0, actual: 0, pct: 0 },
-];
-
 const DR_RIGHT_SUMMARY = [
   {
     title: 'สถานีสูบน้ำดิบ 1 และ 2',
@@ -1561,46 +1544,6 @@ function DailyTableCardUI({ title, rows, compact = false, grow = false, na = fal
   );
 }
 
-// ── Donut card (Section C) ───────────────────────────────────────────────────
-
-function ChemDonutCard({ phase, useUnit, doseUnit, use, target, actual, pct, noData, useNA = false, actualNA = false, targetNA = false }) {
-  const inactive = noData === true;
-  const red = !inactive && (useNA || actualNA || targetNA);
-  const color = red ? '#dc2626' : inactive ? '#9ca3af'
-              : pct >= 80 ? '#16a34a'
-              : pct >= 70 ? '#d97706'
-              :             '#dc2626';
-  const data = inactive || red
-    ? [{ value: 0 }, { value: 100 }]
-    : [{ value: pct }, { value: 100 - pct }];
-  return (
-    <div className={`border rounded p-1.5 flex gap-2 items-center ${red ? 'border-red-400 bg-red-50' : 'border-earth-border bg-earth-DEFAULT'}`}>
-      <div className="relative shrink-0" style={{ width: 60, height: 60 }}>
-        <PieChart width={60} height={60}>
-          <Pie data={data} cx={25} cy={25} innerRadius={17} outerRadius={27} startAngle={90} endAngle={-270} dataKey="value" stroke="none">
-            <Cell fill={color} />
-            <Cell fill="#e5e7eb" />
-          </Pie>
-        </PieChart>
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span className="font-black leading-none" style={{ color, fontSize: 12 }}>
-            {inactive ? '—' : red ? 'N/A' : `${pct}%`}
-          </span>
-        </div>
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className={`font-bold leading-tight mb-1 ${red ? 'text-red-700' : 'text-earth-ink'}`} style={{ fontSize: 14 }}>{phase}</div>
-        <div className="grid grid-cols-3 gap-x-1 text-earth-ink2" style={{ fontSize: 14 }}>
-          <span>USE</span><span>TARGET</span><span>ACTUAL</span>
-          <span className="font-mono text-earth-ink">{useNA && !inactive ? <NA /> : use}<span className="text-earth-ink3 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{useUnit}</span></span>
-          <span className="font-mono text-earth-ink">{inactive ? '—' : targetNA ? <NA /> : (target ?? 0)}<span className="text-earth-ink3 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{doseUnit}</span></span>
-          <span className="font-mono text-earth-ink">{inactive ? '—' : actualNA ? <NA /> : actual}<span className="text-earth-ink3 font-sans font-normal ml-0.5" style={{ fontSize: 11 }}>{doseUnit}</span></span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── QueryModal ───────────────────────────────────────────────────────────────
 function QueryModal({ selectedDate, stationRows, querying, onAllQuery, onReQuery, onClose }) {
   const STATION_LIST = ['RWS1','RWS2','CHEM1','CHEM2','FWS1','FWS2','TPS','DPS','CWS1','CWS2'];
@@ -1656,6 +1599,7 @@ function QueryModal({ selectedDate, stationRows, querying, onAllQuery, onReQuery
 // ── DailyReportTab ───────────────────────────────────────────────────────────
 
 const DR_RIGHT_SUB_TABS = ['SUMMARY', 'CHEMICAL', 'FILTRATION', 'RECYCLE WATER'];
+const DEFAULT_RECYCLE = [0, 1, 2, 3].map(() => ({ on: true, pct: 100 }));
 
 const DR_CHEM_REMAINING_ROWS = [
   { label: 'PA1', value: null, unit: 'm³' },
@@ -1698,59 +1642,8 @@ function addStrict(a, b) {
 
 // ── Filtration Backwash Constants ─────────────────────────────────────────────
 
-// FWS2 LEVEL BEFORE BACKWASH IDs are not in the normal stride (+2 from byShift).
-// They live in a separate, interleaved range (7944-7971) and must be listed explicitly.
-const P3_LEVEL_IDS = [7944,7951,7945,7952,7946,7953,7947,7954,7948,7955,7949,7956,7950,7957];
-const P4_LEVEL_IDS = [7958,7965,7959,7966,7960,7967,7961,7968,7962,7969,7963,7970,7964,7971];
-
-export const FWS_BW_PHASES = [
-  { id: 'P1', src: 'FWS#1', totalBeds: 8,  startNo: 1,  station: 'FWS1', topic: 'BACKWASHING P#12', base: 317 },
-  { id: 'P2', src: 'FWS#1', totalBeds: 8,  startNo: 9,  station: 'FWS1', topic: 'BACKWASHING P#12', base: 399 },
-  { id: 'P3', src: 'FWS#2', totalBeds: 14, startNo: 1,  station: 'FWS2', topic: 'BACKWASHING P#3',  base: 479, levelIds: P3_LEVEL_IDS },
-  { id: 'P4', src: 'FWS#2', totalBeds: 14, startNo: 1,  station: 'FWS2', topic: 'BACKWASHING P#4',  base: 621, levelIds: P4_LEVEL_IDS },
-];
-
-const BW_SLOTS = ['08:00', '16:00', '24:00'];
-
-// Parse backwash events from raw history for a phase.
-// Returns a flat list — one entry per wash event (slot with any data).
-// Each bed may contribute 0–3 entries (one per BW_SLOT).
-// complete=true if all 6 fields present (green card), false = some missing (red card).
-// Fields: +0 byShift, +1 filterRun, +2 level, +3 startTime, +5 endTime, +6 washQty
-export function parseBWPhase(history, base, count, startNo = 1, levelIds = null) {
-  if (!history) return null;
-  const events = [];
-  for (let i = 0; i < count; i++) {
-    const b           = base + i * 10;
-    const byShiftId   = b;
-    const filterRunId = b + 1;
-    const levelId     = levelIds ? levelIds[i] : b + 2;
-    const startTimeId = b + 3;
-    const endTimeId   = b + 5;
-    const washQtyId   = b + 6;
-    const fieldIds    = [byShiftId, filterRunId, levelId, startTimeId, endTimeId, washQtyId];
-    for (const slot of BW_SLOTS) {
-      const vals = fieldIds.map(id => history[String(id)]?.[slot]);
-      const hasValue = v => v !== null && v !== undefined && v !== '' && parseFloat(v) !== 0;
-      const anyNonZero = vals.some(hasValue);
-      if (!anyNonZero) continue;         // all null/zero → ไม่มีการล้าง ไม่สร้างการ์ด
-      const allNonZero = vals.every(hasValue);
-      const shiftNum  = parseInt(history[String(byShiftId)]?.[slot], 10);
-      const filterRun = parseFloat(history[String(filterRunId)]?.[slot]);
-      const washQty   = parseFloat(history[String(washQtyId)]?.[slot]);
-      events.push({
-        no:        startNo + i,
-        byShiftId: b,
-        slot,
-        shift:     !isNaN(shiftNum)  ? shiftNum   : null,
-        filterRun: !isNaN(filterRun) && filterRun !== 0 ? filterRun  : null,
-        washQty:   !isNaN(washQty)   && washQty   !== 0 ? washQty    : null,
-        complete:  allNonZero,
-      });
-    }
-  }
-  return events;
-}
+// Backwash constants + parser live in server/shared (also used by the server auto-run)
+export { FWS_BW_PHASES, parseBWPhase };
 
 // ── Settings Modal ────────────────────────────────────────────────────────────
 function ReportSettingsModal({ onClose, onSaved }) {
@@ -1887,22 +1780,218 @@ function ReportSettingsModal({ onClose, onSaved }) {
   );
 }
 
+// ── SAVE DB confirm: pick ผลัด + ผู้จัดทำ and ผลัด + ผู้ทบทวน (CAR whitelist group 2, by shift) ──
+// Each person has their own ผลัด, so someone covering for another shift can still be picked.
+function SaveConfirmModal({ selectedDate, saving, onConfirm, onClose }) {
+  const [shift, setShift]           = useState(null);
+  const [preparer, setPreparer]     = useState('');
+  const [revShift, setRevShift]     = useState(null);
+  const [reviewer, setReviewer]     = useState('');
+  const { data: people = [], isLoading, error } = useQuery({
+    queryKey: ['daily-report-preparers'],
+    queryFn: () => get('/api/daily-report/preparers'),
+  });
+  const shifts   = [1, 2, 3, 4];
+
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const notToday = !isToday(selectedDate);
+  const canSave = shift != null && preparer && revShift != null && reviewer && !saving;
+  const sel ='w-full border border-earth-border rounded px-2 py-1.5 text-sm bg-earth-DEFAULT text-earth-ink focus:outline-none focus:ring-2 focus:ring-purple-300';
+
+  // [ผลัด][ชื่อ] on one line
+  const personRow = (label, sh, setSh, name, setName) => {
+    const list = people.filter(p => p.shift === sh);
+    return (
+      <div className="grid grid-cols-[110px_1fr] gap-2">
+        <label className="block">
+          <span className="text-xs font-semibold text-earth-ink2">ผลัด</span>
+          <select className={sel} value={sh ?? ''} disabled={saving}
+                  onChange={e => { setSh(e.target.value ? Number(e.target.value) : null); setName(''); }}>
+            <option value="">— ผลัด —</option>
+            {shifts.map(s => (
+              <option key={s} value={s}>ผลัด {s} ({people.filter(p => p.shift === s).length})</option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-xs font-semibold text-earth-ink2">{label}</span>
+          <select className={sel} value={name} disabled={saving || sh == null}
+                  onChange={e => setName(e.target.value)}>
+            <option value="">{sh == null ? '— เลือกผลัดก่อน —' : `— เลือก${label} —`}</option>
+            {list.map(p => (
+              <option key={p.name} value={p.name}>{p.name}{p.position_label ? ` · ${p.position_label}` : ''}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-earth rounded-xl shadow-2xl w-[460px] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-3 border-b border-earth-border bg-purple-50">
+          <h3 className="font-bold text-purple-900">ยืนยันการบันทึก Daily Report</h3>
+          <p className="text-xs text-purple-700 mt-0.5">วันที่ {fmtThaiDate(selectedDate)}</p>
+        </div>
+        <div className="px-5 py-4 space-y-3">
+          {notToday && (
+            <div className="flex gap-2 items-start rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
+              <span className="text-amber-600 text-base leading-5">⚠</span>
+              <div className="text-xs text-amber-900 leading-5">
+                <p className="font-bold">ไม่ใช่วันปัจจุบัน</p>
+                <p>จะบันทึกลงวันที่ <strong>{fmtThaiDate(selectedDate)}</strong> (วันนี้ {todayThai()})</p>
+              </div>
+            </div>
+          )}
+          {personRow('ผู้จัดทำ', shift, setShift, preparer, setPreparer)}
+          {personRow('ผู้ทบทวน', revShift, setRevShift, reviewer, setReviewer)}
+          {isLoading && <p className="text-xs text-earth-ink3">กำลังโหลดรายชื่อ...</p>}
+          {error && <p className="text-xs text-red-600">โหลดรายชื่อไม่สำเร็จ: {error.message}{/404/.test(error.message) ? ' — LabVenture server ยังเป็นเวอร์ชันเก่า ต้อง restart' : ''}</p>}
+          {!isLoading && !error && [shift, revShift].filter((s, i, a) => s != null && a.indexOf(s) === i && people.every(p => p.shift !== s)).map(s => (
+            <p key={s} className="text-xs text-amber-700">ไม่มีรายชื่อผลัด {s} ใน Whitelist CAR กลุ่ม 2 — เพิ่มได้ที่หน้า Config › Whitelist</p>
+          ))}
+        </div>
+        <div className="px-5 py-3 border-t border-earth-border flex justify-end gap-2">
+          <button onClick={onClose} disabled={saving}
+                  className="px-3 py-1.5 text-sm text-earth-ink2 border border-earth-border rounded hover:bg-earth-card disabled:opacity-50">ยกเลิก</button>
+          <button onClick={() => onConfirm(shift, preparer, reviewer, revShift)} disabled={!canSave}
+                  className="px-4 py-1.5 text-sm font-bold text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed rounded">
+            {saving ? 'กำลังบันทึก…' : notToday ? `ยืนยันบันทึกวันที่ ${fmtThaiDate(selectedDate)}` : 'ยืนยันบันทึก'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PRINT EXCEL: pick the day (calendar) → รายงานการผลิตน้ำประจำวัน ─────────────
+// Opens on the page's date; only days with a SAVE DB can be printed.
+const PX_WEEKDAYS = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'];
+const PX_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+const pxPad = n => String(n).padStart(2, '0');
+
+function PrintExcelModal({ selectedDate, onClose }) {
+  const [value, setValue] = useState(selectedDate);
+  const [ym, setYm] = useState(selectedDate.slice(0, 7));
+  const [y, m] = ym.split('-').map(Number);
+  const nDays = new Date(y, m, 0).getDate();
+  const first = `${ym}-01`, last = `${ym}-${pxPad(nDays)}`;
+
+  const { data, isFetching, isError } = useQuery({
+    queryKey: ['daily-report-saved-dates', first, last],
+    queryFn: () => get(`/api/daily-report/saved-dates?from=${first}&to=${last}`),
+  });
+  const saved = Object.fromEntries((data ?? []).map(r => [r.date, r]));
+
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const move = k => { const d = new Date(y, m - 1 + k, 1); setYm(`${d.getFullYear()}-${pxPad(d.getMonth() + 1)}`); };
+  const lead = (new Date(y, m - 1, 1).getDay() + 6) % 7; // จันทร์ = คอลัมน์แรก
+  const cells = [...Array(lead).fill(null), ...Array.from({ length: nDays }, (_, i) => `${ym}-${pxPad(i + 1)}`)];
+
+  const inMonth = value.slice(0, 7) === ym;
+  const info = saved[value];
+  const canPrint = !!info;
+
+  function confirm() {
+    window.location.href = `${BASE}/api/daily-report/export-mh.xlsx?date=${value}`;
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-earth rounded-xl shadow-2xl w-[400px] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-3 border-b border-earth-border bg-teal-50">
+          <h3 className="font-bold text-teal-900">พิมพ์รายงานการผลิตน้ำประจำวัน (Excel)</h3>
+          <p className="text-xs text-teal-700 mt-0.5">เลือกวันที่ที่ SAVE DB แล้ว</p>
+        </div>
+        <div className="px-5 py-4">
+          <div className="flex items-center justify-between mb-2">
+            <button onClick={() => move(-1)} className="px-2 py-0.5 rounded border border-earth-border text-earth-ink2 hover:bg-earth-card" aria-label="เดือนก่อน">‹</button>
+            <span className="font-semibold text-earth-ink text-sm">📅 {PX_MONTHS[m - 1]} {y + 543}</span>
+            <button onClick={() => move(1)} className="px-2 py-0.5 rounded border border-earth-border text-earth-ink2 hover:bg-earth-card" aria-label="เดือนถัดไป">›</button>
+          </div>
+          <div className="grid grid-cols-7 gap-1 text-center text-xs">
+            {PX_WEEKDAYS.map(w => <div key={w} className="text-earth-ink3 font-semibold py-0.5">{w}</div>)}
+            {cells.map((d, i) => {
+              if (!d) return <div key={'e' + i} />;
+              const ok = !!saved[d], sel = d === value;
+              return (
+                <button key={d} onClick={() => setValue(d)} data-date={d}
+                  title={ok ? `SAVE DB แล้ว · ผู้จัดทำ ${saved[d].prepared_by ?? '—'}` : 'ยังไม่ได้ SAVE DB'}
+                  className={`py-1.5 rounded-md border ${sel
+                    ? (ok ? 'bg-teal-700 border-teal-700 text-white font-bold' : 'bg-earth-ink3 border-earth-ink3 text-white font-bold')
+                    : ok ? 'bg-teal-100 border-teal-300 text-teal-800 font-semibold hover:bg-teal-200'
+                    : 'border-transparent text-earth-ink3 opacity-60 hover:bg-earth-card'} ${d === selectedDate && !sel ? 'ring-1 ring-earth-ink' : ''}`}>
+                  {+d.slice(8)}
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-2 flex items-center gap-3 text-[11px] text-earth-ink3">
+            <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded bg-teal-100 border border-teal-300" />SAVE DB แล้ว</span>
+            <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded ring-1 ring-earth-ink" />วันที่ของหน้า</span>
+            <span className="ml-auto">
+              {isError ? <span className="text-red-600">โหลดไม่สำเร็จ (restart server?)</span>
+                : isFetching && !data ? 'กำลังโหลด...' : `${data?.length ?? 0} วันในเดือนนี้`}
+            </span>
+          </div>
+          <div className={`mt-3 rounded-lg border px-3 py-2 text-xs ${canPrint ? 'border-teal-300 bg-teal-50 text-teal-900' : 'border-amber-300 bg-amber-50 text-amber-900'}`}>
+            <p className="font-bold">วันที่ {fmtThaiDate(value)}</p>
+            {canPrint ? (
+              <p>{info.shift === 0 ? 'สร้างโดยระบบ (AUTO β)' : `ผลัด ${info.shift}`} · ผู้จัดทำ {info.prepared_by ?? '—'} · ผู้ทบทวน {info.reviewed_by ?? '—'}</p>
+            ) : (
+              <p>{isFetching && inMonth && !data ? 'กำลังตรวจ...' : 'ยังไม่ได้ SAVE DB วันนี้ — กด SAVE DB ก่อนพิมพ์'}</p>
+            )}
+          </div>
+        </div>
+        <div className="px-5 py-3 border-t border-earth-border flex justify-end gap-2">
+          <button onClick={onClose}
+                  className="px-3 py-1.5 text-sm text-earth-ink2 border border-earth-border rounded hover:bg-earth-card">ยกเลิก</button>
+          <button onClick={confirm} disabled={!canPrint}
+                  className="px-4 py-1.5 text-sm font-bold text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed rounded">
+            ยืนยันดาวน์โหลด Excel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DailyReportTab({ selectedDate, stage }) {
   const navigate = useNavigate();
   const [rightSubTab, setRightSubTab] = useState('SUMMARY');
-  const [shift, setShift]             = useState(1);
   const [reportData, setReportData]   = useState(null);
-  const [validation, setValidation]   = useState(null);
+  const [showSaveModal, setShowSaveModal] = useState(false);
   const [saving, setSaving]           = useState(false);
   const [saveMsg, setSaveMsg]         = useState(null);
   const [showSettings, setShowSettings] = useState(false);
   const [fwsBW, setFwsBW]             = useState(null);
-  const [recycleSettings, setRecycleSettings] = useState([
-    { on: true, pct: 100 },
-    { on: true, pct: 100 },
-    { on: true, pct: 100 },
-    { on: true, pct: 100 },
-  ]);
+  const [recycleSettings, setRecycleSettings] = useState(DEFAULT_RECYCLE);
+  const [showMissing, setShowMissing] = useState(false);
+
+  // RECYCLE WATER settings: use what was saved with SAVE DB for this day, else the default
+  useEffect(() => {
+    let cancelled = false;
+    setRecycleSettings(DEFAULT_RECYCLE);
+    get(`/api/daily-report/saved?date=${selectedDate}`)
+      .then(r => {
+        const cfg = r?.recycle;
+        if (!cancelled && Array.isArray(cfg) && cfg.length === 4) setRecycleSettings(cfg);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [selectedDate]);
 
   // Restore cached query results from sessionStorage when date changes (or on mount).
   // If no sessionStorage cache, auto-load SQLite-only snapshot from /quick.
@@ -1956,7 +2045,6 @@ function DailyReportTab({ selectedDate, stage }) {
 
   async function handleDbQuery() {
     setDbLoading(true);
-    setValidation(null);
     setSaveMsg(null);
     try {
       const d = await get(`/api/daily-report/fetch-db?date=${selectedDate}`);
@@ -2026,7 +2114,6 @@ function DailyReportTab({ selectedDate, stage }) {
   }
 
   function handleQuery() {
-    setValidation(null);
     setSaveMsg(null);
     setStationRows(Object.fromEntries(STATION_LIST.map(s => [s, { status: 'pending', count: 0, patterns: {} }])));
     setShowQueryModal(true);
@@ -2079,34 +2166,37 @@ function DailyReportTab({ selectedDate, stage }) {
       if (!d.cached) return { ok: false, text: 'ยังไม่มีข้อมูลที่ query ไว้ — กด QUERY DATA เพื่อคำนวณด้วยค่าใหม่' };
       setReportData(d.report);
       try { sessionStorage.setItem(`dr_report_${selectedDate}`, JSON.stringify(d.report)); } catch {}
-      setValidation(null);
       return { ok: true };
     } catch (e) {
       return { ok: false, text: 'รีเฟรชรายงานไม่สำเร็จ: ' + e.message };
     }
   }
 
-  async function handleValidate() {
-    setSaveMsg(null);
-    try {
-      const r = await post('/api/daily-report/validate', { date: selectedDate });
-      setValidation(r);
-    } catch (e) {
-      setSaveMsg({ ok: false, text: 'VALIDATE ล้มเหลว: ' + e.message });
-    }
+  // The not-today warning is shown inside SaveConfirmModal (no separate browser confirm)
+  function handleSaveClick() {
+    if (incomplete) { setShowMissing(true); return; }
+    setShowSaveModal(true);
   }
 
-  async function handleSave() {
-    if (!confirmNonToday(selectedDate)) return;
+  // Called from SaveConfirmModal with the shift, preparer and reviewer chosen there
+  async function handleSave(shift, preparedBy, reviewedBy, reviewedShift) {
     setSaving(true);
     setSaveMsg(null);
     try {
-      const r = await post('/api/daily-report/save', { date: selectedDate, shift });
-      setSaveMsg({ ok: true, text: `บันทึกแล้ว (${r.savedAt})` });
+      const r = await post('/api/daily-report/save', {
+        date: selectedDate, shift, prepared_by: preparedBy, reviewed_by: reviewedBy, reviewed_shift: reviewedShift,
+        recycle: recycleSettings,   // RECYCLE WATER tab: % of backwash water returned to the plant, per phase
+      });
+      setSaveMsg({ ok: true, text: `บันทึกแล้ว (${r.savedAt}) · ผลัด ${shift} · ผู้จัดทำ ${preparedBy} · ผู้ทบทวน ${reviewedBy}` });
+      setShowSaveModal(false);
     } catch (e) {
       setSaveMsg({ ok: false, text: 'SAVE ล้มเหลว: ' + e.message });
+      setShowSaveModal(false);
     } finally { setSaving(false); }
   }
+
+  // PRINT EXCEL → calendar popup (defaults to the page's date)
+  const [showPrintModal, setShowPrintModal] = useState(false);
 
   // ── Derive display values from reportData ──────────────────────────────
   const d = reportData;
@@ -2267,82 +2357,55 @@ function DailyReportTab({ selectedDate, stage }) {
                     : null,
   } : { rw: 0, tps: 0, dpsA: 0, dpsB: 0, sludge: 0, serviceWater: 0, washWater: 0, loss: null };
 
-  const cd = d?.card14_chem_dosing;
   const dayOpen = !!d && d.day_complete === false;
-  const chemDonutRows = CHEM_DONUT_ROWS.map(r => {
-    const v =
-      r.phase === 'PACl PHASE#1'    ? cd?.pacl_p1    :
-      r.phase === 'PACl PHASE#2'    ? cd?.pacl_p2    :
-      r.phase === 'ALUM PHASE#1'    ? cd?.alum_p1    :
-      r.phase === 'ALUM PHASE#2'    ? cd?.alum_p2    :
-      r.phase === 'PRE-CL PHASE#1'  ? cd?.pre_cl_p1  :
-      r.phase === 'POST-CL PHASE#1' ? cd?.post_cl_p1 :
-      r.phase === 'PRE-CL PHASE#2'  ? cd?.pre_cl_p2  :
-      r.phase === 'POST-CL PHASE#2' ? cd?.post_cl_p2 :
-      r.phase === 'PACl PHASE#3'    ? cd?.pacl_p3    :
-      r.phase === 'PACl PHASE#4'    ? cd?.pacl_p4    :
-      r.phase === 'ALUM PHASE#3'    ? cd?.alum_p3    :
-      r.phase === 'ALUM PHASE#4'    ? cd?.alum_p4    :
-      r.phase === 'PRE-CL PHASE#3'  ? cd?.pre_cl_p3  :
-      r.phase === 'POST-CL PHASE#3' ? cd?.post_cl_p3 :
-      r.phase === 'PRE-CL PHASE#4'  ? cd?.pre_cl_p4  :
-      r.phase === 'POST-CL PHASE#4' ? cd?.post_cl_p4 : null;
-    const u =
-      r.phase === 'ALUM PHASE#1'    ? cd?.alum_use_p1      :
-      r.phase === 'ALUM PHASE#2'    ? cd?.alum_use_p2      :
-      r.phase === 'ALUM PHASE#3'    ? cd?.alum_use_p3      :
-      r.phase === 'ALUM PHASE#4'    ? cd?.alum_use_p4      :
-      r.phase === 'PACl PHASE#1'    ? cd?.pacl_use_p1      :
-      r.phase === 'PACl PHASE#2'    ? cd?.pacl_use_p2      :
-      r.phase === 'PACl PHASE#3'    ? cd?.pacl_use_p3      :
-      r.phase === 'PACl PHASE#4'    ? cd?.pacl_use_p4      :
-      r.phase === 'PRE-CL PHASE#1'  ? cd?.cl_use_pre_p1   :
-      r.phase === 'POST-CL PHASE#1' ? cd?.cl_use_post_p1  :
-      r.phase === 'PRE-CL PHASE#2'  ? cd?.cl_use_pre_p2   :
-      r.phase === 'POST-CL PHASE#2' ? cd?.cl_use_post_p2  :
-      r.phase === 'PRE-CL PHASE#3'  ? cd?.cl_use_pre_p3   :
-      r.phase === 'POST-CL PHASE#3' ? cd?.cl_use_post_p3  :
-      r.phase === 'PRE-CL PHASE#4'  ? cd?.cl_use_pre_p4   :
-      r.phase === 'POST-CL PHASE#4' ? cd?.cl_use_post_p4  : null;
-    const a =
-      r.phase === 'ALUM PHASE#1'    ? cd?.alum_actual_p1      :
-      r.phase === 'ALUM PHASE#2'    ? cd?.alum_actual_p2      :
-      r.phase === 'ALUM PHASE#3'    ? cd?.alum_actual_p3      :
-      r.phase === 'ALUM PHASE#4'    ? cd?.alum_actual_p4      :
-      r.phase === 'PACl PHASE#1'    ? cd?.pacl_actual_p1      :
-      r.phase === 'PACl PHASE#2'    ? cd?.pacl_actual_p2      :
-      r.phase === 'PACl PHASE#3'    ? cd?.pacl_actual_p3      :
-      r.phase === 'PACl PHASE#4'    ? cd?.pacl_actual_p4      :
-      r.phase === 'PRE-CL PHASE#1'  ? cd?.cl_actual_pre_p1   :
-      r.phase === 'POST-CL PHASE#1' ? cd?.cl_actual_post_p1  :
-      r.phase === 'PRE-CL PHASE#2'  ? cd?.cl_actual_pre_p2   :
-      r.phase === 'POST-CL PHASE#2' ? cd?.cl_actual_post_p2  :
-      r.phase === 'PRE-CL PHASE#3'  ? cd?.cl_actual_pre_p3   :
-      r.phase === 'POST-CL PHASE#3' ? cd?.cl_actual_post_p3  :
-      r.phase === 'PRE-CL PHASE#4'  ? cd?.cl_actual_pre_p4   :
-      r.phase === 'POST-CL PHASE#4' ? cd?.cl_actual_post_p4  : null;
-    const tgt = v != null ? +v.toFixed(2) : 0;
-    const act = a != null ? +a.toFixed(2) : 0;
-    const pct = tgt > 0 ? Math.max(0, Math.round((tgt - Math.abs(act - tgt)) / tgt * 100)) : 0;
-    return {
-      ...r,
-      target: tgt,
-      use:    u != null ? +u.toFixed(3) : 0,
-      actual: act,
-      noData: v == null,
-      // day not finished (before 24:00) → TARGET is only a partial-day average: not final
-      targetNA: dayOpen,
-      useNA:    dayOpen || (!!d && u == null),
-      actualNA: dayOpen || (!!d && a == null),
-      pct,
-    };
-  });
-  const leftDonuts  = chemDonutRows.filter(r => r.col === 'left');
-  const rightDonuts = chemDonutRows.filter(r => r.col === 'right');
+  const chemDonutRows = buildChemDonutRows(d);
+
+  // CHEMICAL sub-tab cards (also checked by SAVE DB)
+  const chemCards = [
+    { title: 'CHEM1 PACl',     rows: [{ label: 'Δ Tank A', value: d ? fmt(d.card5_chem1_pacl.tankA_delta, 2) : null, unit: 'm³' }, { label: 'Δ Tank B', value: d ? fmt(d.card5_chem1_pacl.tankB_delta, 2) : null, unit: 'm³' }, { label: 'Net', value: d ? fmt(d.card5_chem1_pacl.net, 2) : null, unit: 'TON' }, { label: 'IN', value: d ? fmt(d.card5_chem1_pacl.in, 2) : null, unit: 'TON' }, { label: 'OUT (USE)', value: d ? fmt(d.card5_chem1_pacl.out, 2) : null, unit: 'TON', bold: true }] },
+    { title: 'CHEM2 PACl',     rows: [{ label: 'Δ Tank C', value: d ? fmt(d.card6_chem2_pacl.tankC_delta, 2) : null, unit: 'm³' }, { label: 'Δ Tank D', value: d ? fmt(d.card6_chem2_pacl.tankD_delta, 2) : null, unit: 'm³' }, { label: 'Net', value: d ? fmt(d.card6_chem2_pacl.net, 2) : null, unit: 'TON' }, { label: 'IN', value: d ? fmt(d.card6_chem2_pacl.in, 2) : null, unit: 'TON' }, { label: 'OUT (USE)', value: d ? fmt(d.card6_chem2_pacl.out, 2) : null, unit: 'TON', bold: true }] },
+    { title: 'CHEM1 ALUM',     rows: [{ label: 'Δ Tank A', value: d ? fmt(d.card9_chem1_alum.tankA_delta, 2) : null, unit: 'm³' }, { label: 'Δ Tank B', value: d ? fmt(d.card9_chem1_alum.tankB_delta, 2) : null, unit: 'm³' }, { label: 'Net', value: d ? fmt(d.card9_chem1_alum.net, 2) : null, unit: 'TON' }, { label: 'IN', value: d ? fmt(d.card9_chem1_alum.in, 2) : null, unit: 'TON' }, { label: 'OUT (USE)', value: d ? fmt(d.card9_chem1_alum.out, 2) : null, unit: 'TON', bold: true }] },
+    { title: 'CHEM2 ALUM',     rows: [{ label: 'Δ Tank C', value: d ? fmt(d.card10_chem2_alum.tankC_delta, 2) : null, unit: 'm³' }, { label: 'Δ Tank D', value: d ? fmt(d.card10_chem2_alum.tankD_delta, 2) : null, unit: 'm³' }, { label: 'Net', value: d ? fmt(d.card10_chem2_alum.net, 2) : null, unit: 'TON' }, { label: 'IN', value: d ? fmt(d.card10_chem2_alum.in, 2) : null, unit: 'TON' }, { label: 'OUT (USE)', value: d ? fmt(d.card10_chem2_alum.out, 2) : null, unit: 'TON', bold: true }] },
+    { title: 'CHEM1 Chlorine', rows: [{ label: 'Δ Line A', value: d ? fmt(d.card7_chem1_cl.lineA_delta, 1) : null, unit: 'kg' }, { label: 'Δ Line B', value: d ? fmt(d.card7_chem1_cl.lineB_delta, 1) : null, unit: 'kg' }, { label: 'IN', value: d ? fmt(d.card7_chem1_cl.in_kg, 1) : null, unit: 'kg' }, { label: 'USE', value: d ? fmt(d.card7_chem1_cl.use_kg, 1) : null, unit: 'kg', bold: true }] },
+    { title: 'CHEM2 Chlorine', rows: [{ label: 'Δ Line C', value: d ? fmt(d.card8_chem2_cl.lineC_delta, 1) : null, unit: 'kg' }, { label: 'Δ Line D', value: d ? fmt(d.card8_chem2_cl.lineD_delta, 1) : null, unit: 'kg' }, { label: 'IN', value: d ? fmt(d.card8_chem2_cl.in_kg, 1) : null, unit: 'kg' }, { label: 'USE', value: d ? fmt(d.card8_chem2_cl.use_kg, 1) : null, unit: 'kg', bold: true }] },
+  ];
+
+  // Everything the page shows as N/A or a red box. SAVE DB is blocked while this is not empty.
+  const missing = [];
+  if (d) {
+    const need = (v, label) => { if (v == null) missing.push(label); };
+    kpi.forEach(k => need(k.value, k.label));
+    kpiCostRows.forEach(c => need(c.value, `TOTAL COST · ${c.label}`));
+    summaryCards.forEach(card => card.rows.forEach(r => need(r.value, `${card.title} · ${r.label}`)));
+    need(d.summary.service_water_m3, 'SERVICE WATER');
+    chemRemaining.forEach(r => need(r.value, `CHEMICAL REMAINING · ${r.label}`));
+    chemDays.forEach((v, i) => need(v, `CHEMICAL REMAINING (Day) · ${chemRemaining[i]?.label}`));
+    [['Alum USE', alumUse], ['Alum INCOME', alumInc], ['PACl USE', paclUse], ['PACl INCOME', paclInc],
+     ['CHLORINE USE', clUseKg], ['CHLORINE INCOME', d.cl_income], ['CHLORINE RETURN', d.cl_return]]
+      .forEach(([label, v]) => need(v, `การใช้สารเคมี · ${label}`));
+    chemDonutRows.forEach(r => {
+      if (!r.noData && (r.useNA || r.actualNA || r.targetNA))
+        missing.push(`CHEMICAL ACCURACY · ${r.phase}${dayOpen ? ' (ยังไม่ครบ 24:00)' : ''}`);
+    });
+    chemCards.forEach(card => card.rows.forEach(r => need(r.value, `${card.title} · ${r.label}`)));
+    washSummary.forEach((ws, i) => { if (ws?.hasRed) missing.push(`Phase ${i + 1} WASH Water (ข้อมูลล้างบ่อกรองไม่ครบ)`); });
+  }
+  const incomplete = missing.length > 0;
 
   return (
     <div className="h-full min-h-0 flex overflow-hidden bg-earth-DEFAULT">
       {showSettings && <ReportSettingsModal onClose={() => setShowSettings(false)} onSaved={handleSettingsSaved} />}
+      {showPrintModal && (
+        <PrintExcelModal selectedDate={selectedDate} onClose={() => setShowPrintModal(false)} />
+      )}
+      {showSaveModal && (
+        <SaveConfirmModal
+          selectedDate={selectedDate}
+          saving={saving}
+          onConfirm={handleSave}
+          onClose={() => !saving && setShowSaveModal(false)}
+        />
+      )}
 
       {/* ── Query Modal ── */}
       {showQueryModal && (
@@ -2376,46 +2439,45 @@ function DailyReportTab({ selectedDate, stage }) {
           )}
 
           <button
-            onClick={handleValidate}
-            disabled={!reportData}
-            className="px-2.5 py-1 bg-blue-500 hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold rounded transition-colors"
-          >VALIDATE</button>
-
-          <button
-            onClick={handleSave}
-            disabled={saving || !reportData}
+            onClick={handleSaveClick}
+            disabled={saving || !reportData || incomplete}
+            title={incomplete ? `ข้อมูลไม่ครบ ${missing.length} รายการ — SAVE DB ไม่ได้:\n• ${missing.slice(0, 25).join('\n• ')}${missing.length > 25 ? `\n… และอีก ${missing.length - 25} รายการ` : ''}` : undefined}
             className="px-2.5 py-1 bg-purple-500 hover:bg-purple-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold rounded transition-colors"
           >{saving ? '⏳...' : 'SAVE DB'}</button>
+          {incomplete && (
+            <button
+              onClick={() => setShowMissing(v => !v)}
+              className="px-1.5 py-0.5 text-xs font-bold rounded border border-red-400 bg-red-50 text-red-700 hover:bg-red-100"
+              title="ดูรายการข้อมูลที่ไม่ครบ"
+            >⚠ ไม่ครบ {missing.length}</button>
+          )}
 
-          <div className="flex items-center gap-1 text-sm text-earth-ink2 ml-auto">
-            Shift:
-            <select
-              value={shift}
-              onChange={e => setShift(Number(e.target.value))}
-              className="border border-earth-border rounded px-1 py-0.5 text-sm bg-earth-DEFAULT ml-0.5"
-            >
-              <option value={1}>1</option><option value={2}>2</option>
-              <option value={3}>3</option><option value={4}>4</option>
-            </select>
-          </div>
+          <button
+            onClick={() => setShowPrintModal(true)}
+            disabled={saving}
+            className="px-2.5 py-1 bg-teal-600 hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-bold rounded transition-colors"
+            title="ดาวน์โหลดรายงานการผลิตน้ำประจำวัน (Excel) จากข้อมูลที่ SAVE DB ไว้"
+          >PRINT EXCEL</button>
 
           <button
             onClick={() => setShowSettings(true)}
-            className="px-2.5 py-1 bg-earth-DEFAULT hover:bg-earth-card text-earth-ink2 text-sm font-medium rounded border border-earth-border transition-colors"
+            className="ml-auto px-2.5 py-1 bg-earth-DEFAULT hover:bg-earth-card text-earth-ink2 text-sm font-medium rounded border border-earth-border transition-colors"
             title="ตั้งค่าราคาและค่าคงที่"
           >⚙ ตั้งค่า</button>
         </div>
 
+        {/* Missing data list (blocks SAVE DB) */}
+        {incomplete && showMissing && (
+          <div className="shrink-0 px-2 py-1 text-xs border-b bg-red-50 text-red-700 border-red-200 max-h-32 overflow-y-auto">
+            <div className="font-bold mb-0.5">SAVE DB ไม่ได้ — ข้อมูลไม่ครบ {missing.length} รายการ (กล่องสีแดง / N/A)</div>
+            <ul className="list-disc pl-4">{missing.map(m => <li key={m}>{m}</li>)}</ul>
+          </div>
+        )}
+
         {/* Status bar */}
-        {(saveMsg || validation) && (
-          <div className={`shrink-0 px-2 py-1 text-xs font-medium border-b ${saveMsg?.ok === false ? 'bg-red-50 text-red-700 border-red-200' : saveMsg?.ok ? 'bg-green-50 text-green-700 border-green-200' : 'bg-earth-DEFAULT border-earth-border'}`}>
-            {saveMsg && <span>{saveMsg.text}</span>}
-            {validation && !saveMsg && (
-              <span>
-                VALIDATE: ERROR {validation.errorCount} · WARNING {validation.warningCount}
-                {validation.errorCount > 0 && ` — ${validation.errors.slice(0, 3).join(', ')}${validation.errors.length > 3 ? '...' : ''}`}
-              </span>
-            )}
+        {saveMsg && (
+          <div className={`shrink-0 px-2 py-1 text-xs font-medium border-b ${saveMsg.ok === false ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'}`}>
+            <span>{saveMsg.text}</span>
           </div>
         )}
 
@@ -2423,18 +2485,6 @@ function DailyReportTab({ selectedDate, stage }) {
         <div className="shrink-0 border-b border-earth-border px-2 py-1.5">
           <div className="flex items-center justify-between mb-1">
             <span className="text-sm font-bold text-earth-ink2 uppercase tracking-wider">A. SUMMARY KPI</span>
-            {validation && (
-              <div className="flex items-center gap-1.5">
-                <div className="flex items-center gap-1 bg-red-100 border border-red-300 rounded px-1.5 py-0.5">
-                  <span className="text-sm font-bold text-red-600">ERROR</span>
-                  <span className="text-base font-black text-red-700">{validation.errorCount}</span>
-                </div>
-                <div className="flex items-center gap-1 bg-yellow-100 border border-yellow-300 rounded px-1.5 py-0.5">
-                  <span className="text-sm font-bold text-yellow-700">WARNING</span>
-                  <span className="text-base font-black text-yellow-800">{validation.warningCount}</span>
-                </div>
-              </div>
-            )}
           </div>
           <div className="grid grid-cols-3 gap-1.5">
             {kpi.map(k => (
@@ -2550,20 +2600,8 @@ function DailyReportTab({ selectedDate, stage }) {
         </div>
       </div>
 
-      {/* ── COL 2 (3.6): C. Chemical Accuracy Wall ── */}
-      <div className="min-w-0 border-r border-earth-border flex flex-col overflow-hidden bg-earth-DEFAULT" style={{ flex: '4.04 1 0%' }}>
-        <div className="shrink-0 px-3 py-1 bg-earth-card border-b border-earth-border">
-          <span className="text-base font-bold text-earth-ink2 uppercase tracking-wider">C. CHEMICAL ACCURACY WALL</span>
-        </div>
-        <div className="flex-1 min-h-0 flex flex-col gap-0.5 p-1">
-          {leftDonuts.map((ld, i) => (
-            <div key={ld.phase} className="flex-1 min-h-0 grid grid-cols-2 gap-1">
-              <ChemDonutCard {...ld} />
-              <ChemDonutCard {...rightDonuts[i]} />
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* ── COL 2 (3.6): C. Chemical Accuracy Wall (components/ChemAccuracyWall.jsx — ใช้ร่วมกับ popup ใน /record) ── */}
+      <ChemAccuracyWall rows={chemDonutRows} className="min-w-0 border-r border-earth-border" style={{ flex: '4.04 1 0%' }} />
 
       {/* ── COL 3 (4.4): Data tables ── */}
       <div className="min-w-0 flex flex-col overflow-hidden bg-earth-DEFAULT" style={{ flex: '3.96 1 0%' }}>
@@ -2642,14 +2680,7 @@ function DailyReportTab({ selectedDate, stage }) {
           )}
           {rightSubTab === 'CHEMICAL' && (
             <div className="grid grid-cols-2 gap-2">
-              {[
-                { title: 'CHEM1 PACl',     rows: [{ label: 'Δ Tank A', value: d ? fmt(d.card5_chem1_pacl.tankA_delta, 2) : null, unit: 'm³' }, { label: 'Δ Tank B', value: d ? fmt(d.card5_chem1_pacl.tankB_delta, 2) : null, unit: 'm³' }, { label: 'Net', value: d ? fmt(d.card5_chem1_pacl.net, 2) : null, unit: 'TON' }, { label: 'IN', value: d ? fmt(d.card5_chem1_pacl.in, 2) : null, unit: 'TON' }, { label: 'OUT (USE)', value: d ? fmt(d.card5_chem1_pacl.out, 2) : null, unit: 'TON', bold: true }] },
-                { title: 'CHEM2 PACl',     rows: [{ label: 'Δ Tank C', value: d ? fmt(d.card6_chem2_pacl.tankC_delta, 2) : null, unit: 'm³' }, { label: 'Δ Tank D', value: d ? fmt(d.card6_chem2_pacl.tankD_delta, 2) : null, unit: 'm³' }, { label: 'Net', value: d ? fmt(d.card6_chem2_pacl.net, 2) : null, unit: 'TON' }, { label: 'IN', value: d ? fmt(d.card6_chem2_pacl.in, 2) : null, unit: 'TON' }, { label: 'OUT (USE)', value: d ? fmt(d.card6_chem2_pacl.out, 2) : null, unit: 'TON', bold: true }] },
-                { title: 'CHEM1 ALUM',     rows: [{ label: 'Δ Tank A', value: d ? fmt(d.card9_chem1_alum.tankA_delta, 2) : null, unit: 'm³' }, { label: 'Δ Tank B', value: d ? fmt(d.card9_chem1_alum.tankB_delta, 2) : null, unit: 'm³' }, { label: 'Net', value: d ? fmt(d.card9_chem1_alum.net, 2) : null, unit: 'TON' }, { label: 'IN', value: d ? fmt(d.card9_chem1_alum.in, 2) : null, unit: 'TON' }, { label: 'OUT (USE)', value: d ? fmt(d.card9_chem1_alum.out, 2) : null, unit: 'TON', bold: true }] },
-                { title: 'CHEM2 ALUM',     rows: [{ label: 'Δ Tank C', value: d ? fmt(d.card10_chem2_alum.tankC_delta, 2) : null, unit: 'm³' }, { label: 'Δ Tank D', value: d ? fmt(d.card10_chem2_alum.tankD_delta, 2) : null, unit: 'm³' }, { label: 'Net', value: d ? fmt(d.card10_chem2_alum.net, 2) : null, unit: 'TON' }, { label: 'IN', value: d ? fmt(d.card10_chem2_alum.in, 2) : null, unit: 'TON' }, { label: 'OUT (USE)', value: d ? fmt(d.card10_chem2_alum.out, 2) : null, unit: 'TON', bold: true }] },
-                { title: 'CHEM1 Chlorine', rows: [{ label: 'Δ Line A', value: d ? fmt(d.card7_chem1_cl.lineA_delta, 1) : null, unit: 'kg' }, { label: 'Δ Line B', value: d ? fmt(d.card7_chem1_cl.lineB_delta, 1) : null, unit: 'kg' }, { label: 'IN', value: d ? fmt(d.card7_chem1_cl.in_kg, 1) : null, unit: 'kg' }, { label: 'USE', value: d ? fmt(d.card7_chem1_cl.use_kg, 1) : null, unit: 'kg', bold: true }] },
-                { title: 'CHEM2 Chlorine', rows: [{ label: 'Δ Line C', value: d ? fmt(d.card8_chem2_cl.lineC_delta, 1) : null, unit: 'kg' }, { label: 'Δ Line D', value: d ? fmt(d.card8_chem2_cl.lineD_delta, 1) : null, unit: 'kg' }, { label: 'IN', value: d ? fmt(d.card8_chem2_cl.in_kg, 1) : null, unit: 'kg' }, { label: 'USE', value: d ? fmt(d.card8_chem2_cl.use_kg, 1) : null, unit: 'kg', bold: true }] },
-              ].map(c => <DailyTableCardUI key={c.title} {...c} na={!!d} />)}
+              {chemCards.map(c => <DailyTableCardUI key={c.title} {...c} na={!!d} />)}
             </div>
           )}
           {rightSubTab === 'RECYCLE WATER' && (
@@ -2745,7 +2776,7 @@ function DailyReportTab({ selectedDate, stage }) {
             </div>
           )}
           {rightSubTab === 'FILTRATION' && (
-            <div className="flex flex-col gap-2">
+            <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-y-scroll pr-1">
               {querying && (
                 <div className="text-xs text-earth-ink3 text-center py-3">กำลังโหลดข้อมูลบ่อกรอง...</div>
               )}
@@ -2754,7 +2785,7 @@ function DailyReportTab({ selectedDate, stage }) {
                 const events    = fwsBW ? parseBWPhase(fwsBW[histKey], ph.base, ph.totalBeds, ph.startNo, ph.levelIds ?? null) : null;
                 const totalBWVol = events ? events.reduce((s, e) => s + (e.washQty ?? 0), 0) : 0;
                 return (
-                  <div key={ph.id} className="border border-earth-border rounded-md overflow-hidden bg-earth-DEFAULT">
+                  <div key={ph.id} className="shrink-0 border border-earth-border rounded-md overflow-hidden bg-earth-DEFAULT">
                     {/* Phase header stripe */}
                     <div className="flex items-center gap-2 px-3 py-1.5" style={{ background: '#1a2b3c' }}>
                       <span className="font-black text-sm tracking-wide" style={{ color: '#38bdf8' }}>{ph.id}</span>
@@ -2978,7 +3009,7 @@ export default function OpRecord() {
   });
 
   const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => get('/api/auth/me') });
-  const canRecord = !(me?.bypass) || me?.role === 'superadmin';
+  const canRecord = !(me?.bypass) || isSuperadmin(me);
   const loginId   = me?.username ?? me?.name ?? me?.user_id ?? 'default';
 
   const stationDef = stationNode?.station ?? null;

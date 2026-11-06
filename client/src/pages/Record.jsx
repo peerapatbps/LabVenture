@@ -2,9 +2,10 @@
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { get, post } from '../api.js';
+import { isSuperadmin } from '../config/pageAccess.js';
 import { initRefDate, setRefDate, confirmNonToday } from '../utils/refDate.js';
 import DateSyncBar from '../components/DateSyncBar.jsx';
-import ExportBar from '../components/PrintReport.jsx';
+import ExportBar, { DosingSyncButton } from '../components/PrintReport.jsx';
 
 const SLOTS_2H = ['01:00','03:00','05:00','07:00','09:00','11:00','13:00','15:00','17:00','19:00','21:00','23:00'];
 const SLOTS_4H = new Set(['01:00','05:00','09:00','13:00','17:00','21:00']);
@@ -453,7 +454,12 @@ export default function Record() {
   }, [progress]);
 
   const { data: nodesConfig } = useQuery({ queryKey: ['nodes-config'], queryFn: () => get('/api/config/nodes') });
-  const { data: scenario } = useQuery({ queryKey: ['active-scenario'], queryFn: () => get('/api/scenarios/active') });
+  // เกณฑ์ ณ วัน/รอบที่เลือก (scenario_periods) — ดูย้อนหลังข้ามวันที่เปลี่ยนสถานการณ์ก็ได้เกณฑ์ของตอนนั้น
+  const { data: scenario } = useQuery({
+    queryKey: ['active-scenario', 'at', selectedDate, selectedSlot],
+    queryFn: () => get(`/api/scenarios/at?date=${selectedDate}&slot=${encodeURIComponent(selectedSlot)}`),
+    enabled: !!selectedDate && !!selectedSlot,
+  });
   // ครั้งที่เกินเกณฑ์ติดกันก่อนรอบนี้ → เกินครั้งแรก = น้ำเงิน, เกินต่อเนื่อง = แดง (กติกาเดียวกับ Dashboard / MHxView)
   const { data: streaks } = useQuery({
     queryKey: ['streaks', selectedDate, selectedSlot],
@@ -587,7 +593,7 @@ export default function Record() {
 
   const { data: meData } = useQuery({ queryKey: ['me'], queryFn: () => get('/api/auth/me') });
   const me = meData;
-  const bypassRole = (me?.bypass && me?.role && me.role !== 'superadmin') ? me.role : null;
+  const bypassRole = (me?.bypass && me?.role && !isSuperadmin(me)) ? me.role : null;
   const canRecord = !bypassRole || stage === 0;
 
   // Auto-switch real scientist login → bypass when stage drops to 0.
@@ -867,10 +873,11 @@ export default function Record() {
               </button>
             );
           })()}
-          <ExportBar key={selectedDate} date={selectedDate} weekly={selectedSlot === WEEKLY_SLOT} className="ml-auto" />
+          <DosingSyncButton key={'dose' + selectedDate} date={selectedDate} className="ml-auto" />
+          <ExportBar key={selectedDate} date={selectedDate} weekly={selectedSlot === WEEKLY_SLOT} />
         </div>
         {scenario && (
-          <p className="text-xs text-blue-600">เกณฑ์: <strong>{scenario.name}</strong></p>
+          <p className="text-xs text-blue-600">เกณฑ์: <strong>{scenario.name}</strong>{scenario.epidemic && ' + โหมดโรคระบาด'}{scenario.rev > 1 && ` (rev ${scenario.rev})`}</p>
         )}
       </div>
 

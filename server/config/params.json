@@ -60,29 +60,29 @@
     },
     {
       "configparam_id": 984,
-      "label": "Jar test - Alum - RW_ref_Turb",
-      "unit": "NTU",
+      "label": "Jar test - Alum - RW_ref_Temp",
+      "unit": "degC",
       "frequency": "daily",
       "online_configparam_id": 984
     },
     {
       "configparam_id": 986,
-      "label": "Jar test - Alum - RW_ref_pH",
-      "unit": "",
+      "label": "Jar test - Alum - RW_ref_Turb",
+      "unit": "NTU",
       "frequency": "daily",
       "online_configparam_id": 986
     },
     {
       "configparam_id": 987,
-      "label": "Jar test - Alum - RW_ref_Alk",
-      "unit": "mg/L",
+      "label": "Jar test - Alum - RW_ref_pH",
+      "unit": "",
       "frequency": "daily",
       "online_configparam_id": 987
     },
     {
       "configparam_id": 988,
-      "label": "Jar test - Alum - RW_ref_Temp",
-      "unit": "degC",
+      "label": "Jar test - Alum - RW_ref_Alk",
+      "unit": "mg/L",
       "frequency": "daily",
       "online_configparam_id": 988
     },
@@ -846,7 +846,7 @@
       "configparam_id": 1048,
       "label": "Tap water - TW1 - OC",
       "unit": "mg/L",
-      "frequency": "daily",
+      "frequency": "12h",
       "online_configparam_id": 1048
     },
     {
@@ -909,7 +909,7 @@
       "configparam_id": 1057,
       "label": "Tap water - TW2 - OC",
       "unit": "mg/L",
-      "frequency": "daily",
+      "frequency": "12h",
       "online_configparam_id": 1057
     },
     {

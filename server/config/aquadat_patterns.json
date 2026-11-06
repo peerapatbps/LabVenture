@@ -6,7 +6,7 @@
       { "topic": "Status",               "pattern_id": 122, "node_topics": ["PUMP STATUS"] },
       { "topic": "Power",                "pattern_id": 121, "node_topics": ["POWER / SPEED / BATTERY"] },
       { "topic": "Energy Feeder",        "pattern_id": 448, "node_topics": ["FEEDER 5&6"] },
-      { "topic": "Temperature",          "pattern_id": 123, "node_topics": ["CURRENT TEMP", "Temperature"] },
+      { "topic": "Temperature",          "pattern_id": 123, "node_topics": ["CURRENT TEMP"] },
       { "topic": "Compensate",           "pattern_id": 429, "node_topics": ["COMPENSATE"] },
       { "topic": "PUMP TOTALIZER & IHM", "pattern_id": 19,  "node_topics": ["PUMP TOTALIZER & IHM"] }
     ],

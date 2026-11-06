@@ -79,6 +79,7 @@ async function writeData(token, records) {
       'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify(payload),
+    timeout: 20000,  // node-fetch v2 — ถ้า AquaDAT ค้าง อย่าให้ /write/nodes ค้างจน Excel ไม่ถูกเขียน
   });
   if (!res.ok) throw new Error(`GraphQL write failed: ${res.status}`);
   const data = await res.json();
@@ -109,7 +110,9 @@ async function readRemarks(token, { plant_id, station_id = 0, begin_dt, end_dt, 
       load_file_data: ${load_file_data}
     ) {
       trans_remark_id
+      station_id
       station_name_th
+      trans_type
       trans_remark_date
       description
       created_user
@@ -163,6 +166,7 @@ async function fetchUserProfile(token) {
     const firstPart = [u.title_name, u.first_name].filter(Boolean).join('');
     const name = [firstPart, u.last_name].filter(Boolean).join(' ');
     return {
+      userId: u.user_id != null ? String(u.user_id) : null,
       name: name || null,
       position: u.position_name || null,
       avatarUrl: u.user_profile || null,

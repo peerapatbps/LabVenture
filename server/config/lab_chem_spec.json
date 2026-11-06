@@ -1,0 +1,36 @@
+{
+  "_note": "เกณฑ์คุณภาพสารเคมีสำหรับ นว. — min/max = null คือไม่มีขอบเขตด้านนั้น; is_key = พารามิเตอร์หลักที่ใช้คำนวณปริมาณชดเชย (ชดเชย = ΣNET_KG × (1 − ค่าวัด/ค่า min)); verified=false = ค่าเกณฑ์ยังไม่ได้ยืนยันกับสัญญา/มอก. ต้องแก้ก่อนใช้งานจริง",
+  "chemicals": {
+    "PACL": {
+      "label": "PACl",
+      "name_th": "สารพอลิอะลูมิเนียมคลอไรด์ (PACl)",
+      "form_code": "F-MS-HACCP-สคบ-14 REV02",
+      "spec_ref": "",
+      "product_code": "03",
+      "verified": false,
+      "params": [
+        { "key": "rd",        "label_th": "ความหนาแน่นสัมพัทธ์", "unit": "",       "min": 1.19, "max": null, "decimals": 3, "is_key": false, "with_temp": true },
+        { "key": "ph",        "label_th": "pH",                  "unit": "",       "min": 3.5,  "max": 5.0,  "decimals": 2, "is_key": false },
+        { "key": "al2o3",     "label_th": "อะลูมินา",             "unit": "%(m/m)", "min": 10.0, "max": null, "decimals": 2, "is_key": true },
+        { "key": "basicity",  "label_th": "เบสิกซิตี้",            "unit": "%(m/m)", "min": 40.0, "max": 90.0, "decimals": 1, "is_key": false },
+        { "key": "fe",        "label_th": "เหล็ก",                "unit": "mg/kg",  "min": null, "max": 200,  "decimals": 0, "is_key": false },
+        { "key": "insoluble", "label_th": "สารไม่ละลายน้ำ",        "unit": "%(m/m)", "min": null, "max": 0.1,  "decimals": 3, "is_key": false }
+      ]
+    },
+    "ALUM": {
+      "label": "Alum",
+      "name_th": "สารอะลูมิเนียมซัลเฟต ชนิดน้ำ",
+      "form_code": "",
+      "spec_ref": "",
+      "product_code": "01",
+      "verified": false,
+      "params": [
+        { "key": "rd",        "label_th": "ความหนาแน่นสัมพัทธ์", "unit": "",       "min": 1.30, "max": null, "decimals": 3, "is_key": false, "with_temp": true },
+        { "key": "ph",        "label_th": "pH",                  "unit": "",       "min": null, "max": null, "decimals": 2, "is_key": false },
+        { "key": "al2o3",     "label_th": "อะลูมินา",             "unit": "%(m/m)", "min": 8.0,  "max": null, "decimals": 2, "is_key": true },
+        { "key": "fe",        "label_th": "เหล็ก",                "unit": "mg/kg",  "min": null, "max": 100,  "decimals": 0, "is_key": false },
+        { "key": "insoluble", "label_th": "สารไม่ละลายน้ำ",        "unit": "%(m/m)", "min": null, "max": 0.2,  "decimals": 3, "is_key": false }
+      ]
+    }
+  }
+}

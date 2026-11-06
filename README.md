@@ -62,7 +62,7 @@ npm run dev
 Default local URLs:
 
 - Frontend: `http://localhost:5173`
-- Backend: `http://localhost:3001`
+- Backend: `http://localhost:8889`
 
 ## Production Build
 
