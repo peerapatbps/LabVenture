@@ -7,6 +7,7 @@ const { initDb } = require('./services/db');
 const stageMonitor = require('./services/stageMonitor');
 const queueWorker = require('./services/queueWorker');
 const alarmWatcher = require('./services/alarmWatcher');
+const dbHealth = require('./services/dbHealth');
 
 const app = express();
 const PORT = process.env.PORT || 8889;
@@ -39,6 +40,10 @@ app.use('/api/testmode', require('./routes/testMode'));   // /config test panel 
 const eventClassRouter = require('./routes/eventClass');
 app.use('/api/eventclass', eventClassRouter);
 app.use('/labventure/api/eventclass', eventClassRouter);
+// DB health — ตารางที่ขาด / ไฟล์ที่เปิดอยู่จริง (ดู services/dbHealth.js)
+const healthRouter = require('./routes/health');
+app.use('/api/health', healthRouter);
+app.use('/labventure/api/health', healthRouter);
 // Daily Report auto-run — Uroboros task labventure.dailyreport calls /labventure/api/daily-report/auto-run directly
 app.use('/labventure/api/daily-report', require('./routes/dailyReport'));
 
@@ -56,9 +61,19 @@ if (fs.existsSync(CLIENT_DIST)) {
   });
 }
 
+// query เจอ "no such table" (ไฟล์ DB ถูกวางทับตอน server รันอยู่) → ซ่อมตารางทันที แล้วตอบ 503 ให้ caller ลองใหม่
+app.use((err, req, res, next) => {
+  if (!/no such table/i.test(err?.message || '')) return next(err);
+  console.warn(`[DB] ${req.method} ${req.originalUrl}: ${err.message}`);
+  let st;
+  try { st = dbHealth.ensureDb(`${req.method} ${req.originalUrl}`); } catch (e) { return next(e); }
+  res.status(503).json({ ok: false, error: `${err.message} — ซ่อมตาราง DB แล้ว ลองใหม่อีกครั้ง`, db: { ok: st.ok, path: st.path, missing: st.missing } });
+});
+
 async function start() {
   await initDb();
   require('./services/scenarioHistory').initScenarioHistory();   // ย้าย scenario_log → scenario_periods (ครั้งแรก) + sync เกณฑ์
+  dbHealth.start();   // ทุก 60 วิ: ตารางหาย → init ใหม่
   stageMonitor.start();
   queueWorker.start();
   alarmWatcher.start();

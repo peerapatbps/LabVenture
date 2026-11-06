@@ -5,7 +5,7 @@
 // Writes: scientist / superadmin (can(actor, SCI_WRITE)). Validation: services/eventClass.js.
 const express = require('express');
 const router = express.Router();
-const { getDb, nowTH } = require('../services/db');
+const { getDb, nowTH, eventClassesRecreatedAt } = require('../services/db');
 const { attachActor, can, SCI_WRITE } = require('../services/actor');
 const ec = require('../services/eventClass');
 const alarmWatcher = require('../services/alarmWatcher');
@@ -64,6 +64,12 @@ router.get('/', (req, res) => {
   const enabledOnly = req.query.enabled === 'true' || req.query.enabled === '1';
   const scenarioId = activeScenarioId();
   if (enabledOnly) {
+    // ตาราง event_classes เพิ่งถูกสร้างใหม่ (ว่าง) → ตอบ 503 ให้ Uroboros eventclass.sync ใช้ cache เดิมต่อ แทนที่จะล้างเป็น 0
+    const recreatedAt = eventClassesRecreatedAt();
+    if (recreatedAt) return res.status(503).json({
+      ok: false,
+      error: `event_classes ถูกสร้างใหม่เป็นตารางว่างเมื่อ ${recreatedAt} (ไฟล์ DB อาจถูกวางทับ) — กู้ Event Class หรือสร้าง class อย่างน้อย 1 ตัวเพื่อปลด`,
+    });
     // what Uroboros evaluates: rule.ref → number from the active scenario's thresholds; no bound there → left out
     const byKey = ec.activeThresholdsByKey();
     const scenarioName = getActiveScenario()?.row?.name ?? null;

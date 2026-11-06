@@ -5,8 +5,15 @@ const fs = require('fs');
 const DB_PATH = process.env.LV_DB_PATH || path.join(__dirname, '..', 'labventure.db');   // env override ใช้ตอน e2e test
 
 let db;
+let lastInit = null;   // { at, path, tables, created } — ตารางที่ initDb รอบล่าสุดเห็น/สร้าง (ใช้เทียบใน dbStatus)
+
+const listTables = (d) => d.all("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").map(r => r.name);
+
+// เรียกซ้ำได้ (ทุกคำสั่งเป็น IF NOT EXISTS / migration แบบตรวจก่อน) — dbHealth ใช้ซ่อมตารางที่หายตอน server รันอยู่
 function initDb() {
+  if (db) { try { db.close(); } catch {} }
   db = new Database(DB_PATH);
+  const before = new Set(listTables(db));
 
   db.run(`
     CREATE TABLE IF NOT EXISTS scenarios (
@@ -605,12 +612,47 @@ function initDb() {
     )
   `);
 
+  db.run('CREATE TABLE IF NOT EXISTS db_meta (key TEXT PRIMARY KEY, value TEXT)');
+  const tables = listTables(db);
+  const created = tables.filter(t => !before.has(t) && t !== 'db_meta');
+  // event_classes เพิ่งถูกสร้าง = ตารางว่าง (ไฟล์ DB เก่า/ถูกวางทับ) → ห้ามส่งรายการว่างให้ Uroboros
+  // ไม่งั้น cache Event Class ใน Uroboros ถูกล้างเป็น 0 และ alarm แลปหยุด — ดู eventClassesRecreatedAt()
+  if (created.includes('event_classes'))
+    db.run("INSERT OR REPLACE INTO db_meta (key, value) VALUES ('event_classes_recreated_at', ?)", [nowTH()]);
+  lastInit = { at: nowTH(), path: DB_PATH, tables, created };
+  console.log(`[DB] ${DB_PATH} — ${tables.length} tables`);
+  if (before.size && created.length)
+    console.warn(`[DB] ไฟล์ DB ไม่มีตาราง ${created.join(', ')} — สร้างใหม่เป็นตารางว่างแล้ว (ไฟล์อาจเป็นรุ่นเก่าหรือถูกวางทับ)`);
+
   return db;
 }
 
 function getDb() {
   if (!db) throw new Error('DB not initialized');
   return db;
+}
+
+// ตารางที่ initDb รอบล่าสุดมี เทียบกับไฟล์ตอนนี้ — missing ไม่ว่าง = ไฟล์ถูกเปลี่ยน/วางทับหลัง server เปิด
+function dbStatus() {
+  const expected = lastInit?.tables || [];
+  let present = [];
+  let error = null;
+  try { present = listTables(getDb()); } catch (e) { error = e.message; }
+  const missing = expected.filter(t => !present.includes(t));
+  return { ok: !error && missing.length === 0, path: DB_PATH, table_count: present.length, missing, error, last_init: lastInit };
+}
+
+// เวลาที่ event_classes ถูกสร้างใหม่เป็นตารางว่าง (null = ปกติ). ปลดเองเมื่อมี class อย่างน้อย 1 แถว (เปิดหรือปิดก็ได้)
+function eventClassesRecreatedAt() {
+  try {
+    const at = db.get("SELECT value FROM db_meta WHERE key = 'event_classes_recreated_at'")?.value;
+    if (!at) return null;
+    if (db.get('SELECT COUNT(*) AS n FROM event_classes').n > 0) {
+      db.run("DELETE FROM db_meta WHERE key = 'event_classes_recreated_at'");
+      return null;
+    }
+    return at;
+  } catch { return null; }
 }
 
 // node-sqlite3-wasm writes directly to file — no manual persist needed
@@ -621,4 +663,4 @@ function nowTH() {
   return new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().replace('Z', '+07:00');
 }
 
-module.exports = { initDb, getDb, persist, nowTH };
+module.exports = { initDb, getDb, persist, nowTH, dbStatus, eventClassesRecreatedAt };
