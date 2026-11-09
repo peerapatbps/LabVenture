@@ -16,7 +16,10 @@ export const PAGE_ROUTES = {
 };
 
 // Partial deploy: pages hidden from everyone except the superadmin
-export const HIDDEN_PAGES = ['op-dashboard', 'op-record', 'car', 'report', 'event-class'];
+export const HIDDEN_PAGES = ['car', 'report', 'event-class'];
+
+// Operator-only pages: never part of the "unrestricted" set (scientist / observer / no role)
+export const OPERATOR_ONLY_PAGES = ['op-dashboard', 'op-record'];
 
 export function isSuperBypass(me) {
   return !!me?.bypass && me?.role === 'superadmin';
@@ -38,7 +41,7 @@ export function allowedPagesFor(me) {
   if (isSuperadmin(me)) return null;
   const base = ROLE_PAGES[me?.role] ?? null;
   if (base) return base.filter(p => !HIDDEN_PAGES.includes(p));
-  return Object.keys(PAGE_ROUTES).filter(p => !HIDDEN_PAGES.includes(p));
+  return Object.keys(PAGE_ROUTES).filter(p => !HIDDEN_PAGES.includes(p) && !OPERATOR_ONLY_PAGES.includes(p));
 }
 
 // Can this user open `page`? Use it to hide in-page links (e.g. "ไปออก CAR") to pages they can't reach.
