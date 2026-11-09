@@ -9,6 +9,7 @@ import WeeklyProgress from '../components/WeeklyProgress.jsx';
 import MiniChartCard, { latestStreak, latestStreakInfo } from '../components/MiniChart.jsx';
 import { MINI_FILTERS, CHART_REFRESH_MS, LAB_CHART_ENDPOINT, getThreshold } from '../config/chartConfig.js';
 import { localDateStr, nowHours, useNow, SlotCell, SlotLegend } from '../components/SlotStrip.jsx';
+import { canOpenPage } from '../config/pageAccess.js';
 
 // Station IDs — update station_id values to match actual AquaDAT IDs
 const AQUADAT_STATIONS = [
@@ -612,7 +613,7 @@ function ManualRemarks({ selectedDate, me }) {
 
 // ── Mini Charts Section ───────────────────────────────────────────────────
 
-function MiniChartsSection() {
+function MiniChartsSection({ canCar }) {
   const [activeFilter, setActiveFilter] = useState('cw_turbid');
 
   const def = MINI_FILTERS.find(f => f.key === activeFilter) ?? MINI_FILTERS[0];
@@ -804,7 +805,7 @@ function MiniChartsSection() {
       </div>
 
       {/* CAR prompt — shown only when any card is BAD */}
-      {hasBad && (
+      {hasBad && canCar && (
         <div className="flex gap-2 items-start bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
           <textarea
             value={carMsg || 'เลือก chart ที่ต้องการออก CAR...'}
@@ -828,7 +829,7 @@ function MiniChartsSection() {
 
 // ── Right Column ──────────────────────────────────────────────────────────
 
-function RightColumn({ selectedDate, today, progressNodes, carAnalytics, onSelectDate, me }) {
+function RightColumn({ selectedDate, today, progressNodes, carAnalytics, canCar, onSelectDate, me }) {
   return (
     <div className="space-y-4">
       {/* Row 1: Calendar + Todo */}
@@ -847,7 +848,7 @@ function RightColumn({ selectedDate, today, progressNodes, carAnalytics, onSelec
       <ManualRemarks selectedDate={selectedDate} me={me} />
 
       {/* Row 4: Mini Charts */}
-      <MiniChartsSection />
+      <MiniChartsSection canCar={canCar} />
     </div>
   );
 }
@@ -869,12 +870,14 @@ export default function Dashboard() {
     refetchInterval: selectedDate === today ? 60000 : false,
   });
 
+  const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => get('/api/auth/me') });
+  const canCar = !!me && canOpenPage(me, 'car');
+
   const { data: carAnalytics } = useQuery({
     queryKey: ['car-analytics'],
     queryFn: () => get('/api/car/analytics'),
+    enabled: canCar,
   });
-
-  const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => get('/api/auth/me') });
 
   async function syncDateToDb(date) {
     const result = await post('/api/aquadat/sync', { date });
@@ -986,7 +989,8 @@ export default function Dashboard() {
             selectedDate={selectedDate}
             today={today}
             progressNodes={progress?.nodes}
-            carAnalytics={carAnalytics}
+            carAnalytics={canCar ? carAnalytics : null}
+            canCar={canCar}
             onSelectDate={handleDateChange}
             me={me}
           />

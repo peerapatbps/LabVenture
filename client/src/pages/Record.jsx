@@ -2,7 +2,7 @@
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { get, post } from '../api.js';
-import { isSuperadmin } from '../config/pageAccess.js';
+import { isSuperadmin, canOpenPage } from '../config/pageAccess.js';
 import { initRefDate, setRefDate, confirmNonToday } from '../utils/refDate.js';
 import DateSyncBar from '../components/DateSyncBar.jsx';
 import ExportBar, { DosingSyncButton } from '../components/PrintReport.jsx';
@@ -1019,9 +1019,11 @@ export default function Record() {
                       <p key={k} className="text-red-600">• {param?.label ?? k}: {values[k]} {param?.unit}</p>
                     );
                   })}
-                  <Link to="/car" className="inline-block mt-2 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                    ไปออก CAR
-                  </Link>
+                  {canOpenPage(me, 'car') && (
+                    <Link to="/car" className="inline-block mt-2 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                      ไปออก CAR
+                    </Link>
+                  )}
                 </div>
               )}
             </div>

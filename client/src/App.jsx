@@ -14,7 +14,6 @@ import ChemIntake from './pages/ChemIntake.jsx';
 import OpDashboard from './pages/OpDashboard.jsx';
 import OpRecord from './pages/OpRecord.jsx';
 import EventClass from './pages/EventClass.jsx';
-import ProjectPlan from './pages/ProjectPlan.jsx';
 import { PAGE_ROUTES, allowedPagesFor } from './config/pageAccess.js';
 
 function RequireAuth({ children, page }) {
@@ -33,8 +32,11 @@ function RequireAuth({ children, page }) {
   if (page) {
     const allowed = allowedPagesFor(data);
     if (allowed && !allowed.includes(page)) {
-      const firstAllowed = PAGE_ROUTES[allowed[0]] || '/car';
-      return <Navigate to={firstAllowed} replace />;
+      // No page left for this role (e.g. executive while CAR/รายงาน are hidden) → message, not a redirect loop
+      if (!allowed.length) return (
+        <div className="flex items-center justify-center h-full p-8 text-earth-ink2">ยังไม่มีหน้าที่เปิดให้สิทธิ์นี้ใช้งาน</div>
+      );
+      return <Navigate to={PAGE_ROUTES[allowed[0]]} replace />;
     }
   }
 
@@ -60,7 +62,6 @@ export default function App() {
         <Route path="op-dashboard"  element={<RequireAuth page="op-dashboard"> <OpDashboard />   </RequireAuth>} />
         <Route path="op-record"     element={<RequireAuth page="op-record">    <OpRecord />      </RequireAuth>} />
         <Route path="event-class"   element={<RequireAuth page="event-class">  <EventClass />    </RequireAuth>} />
-        <Route path="pm"            element={<RequireAuth page="pm">           <ProjectPlan />   </RequireAuth>} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

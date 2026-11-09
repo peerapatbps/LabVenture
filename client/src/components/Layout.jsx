@@ -16,7 +16,6 @@ const ALL_NAV = [
   { to: '/car',          label: 'CAR Log',     icon: '🔴', page: 'car' },
   { to: '/report',       label: 'รายงาน',      icon: '📈', page: 'report' },
   { to: '/event-class',  label: 'Event Class', icon: '🔔', page: 'event-class' },
-  { to: '/pm',           label: 'แผนงาน',      icon: '📅', page: 'pm' },
   { to: '/config',       label: 'Config',      icon: '⚙️', page: 'config' },
 ];
 
@@ -51,14 +50,8 @@ export default function Layout() {
     queryFn: () => get('/api/eventclass/occurrences?limit=200'),
     enabled: showEvents, retry: false, refetchInterval: 120000,
   });
-  const showPm = NAV.some(n => n.page === 'pm');
-  const { data: pmPending } = useQuery({
-    queryKey: ['pm', 'pending'],
-    queryFn: () => get('/api/pm/summary/pending'),
-    enabled: showPm, retry: false, refetchInterval: 120000,
-  });
-  const badges = { 'chem-intake': chemCases?.cases?.length || 0, 'event-class': eventOcc?.pending || 0, pm: pmPending?.pending || 0 };
-  const BADGE_TITLE = { 'event-class': 'เหตุการณ์รอตัดสินใจเรื่อง CAR', 'chem-intake': 'เคสชดเชยเปิดอยู่', pm: 'งานตามแผนค้างเดือนนี้ (รวมเกินกำหนด)' };
+  const badges = { 'chem-intake': chemCases?.cases?.length || 0, 'event-class': eventOcc?.pending || 0 };
+  const BADGE_TITLE = { 'event-class': 'เหตุการณ์รอตัดสินใจเรื่อง CAR', 'chem-intake': 'เคสชดเชยเปิดอยู่' };
   const { data: scenario } = useQuery({ queryKey: ['active-scenario'], queryFn: () => get('/api/scenarios/active'), refetchInterval: 30000 });
   const { data: epidemicData } = useQuery({ queryKey: ['epidemic'], queryFn: () => get('/api/scenarios/epidemic'), refetchInterval: 30000 });
   const isEpidemic = !!epidemicData?.epidemic;

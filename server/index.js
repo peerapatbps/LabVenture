@@ -34,7 +34,6 @@ app.use('/api/lab', require('./routes/labChart'));
 app.use('/api/test', require('./routes/test'));
 app.use('/api/operator', require('./routes/operator'));
 app.use('/api/daily-report', require('./routes/dailyReport'));
-app.use('/api/pm', require('./routes/pm'));
 app.use('/api/testmode', require('./routes/testMode'));   // /config test panel (super admin)
 // Event Class — also under /labventure/api: Uroboros pulls LabVenture directly (not via BellBeast proxy)
 const eventClassRouter = require('./routes/eventClass');
