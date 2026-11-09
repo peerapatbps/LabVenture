@@ -9,7 +9,7 @@ const fetch = require('node-fetch');
 
 const AQUADAT_PATTERNS = require('../config/aquadat_patterns.json');
 const GRAPHQL_URL = process.env.AQUADAT_GRAPHQL_URL || 'https://aquadat.mwa.co.th/graphql';
-const { getStage } = require('../services/stageMonitor');
+const { getStage, isStageKnown, getLoginStage } = require('../services/stageMonitor');
 
 const BELLBEAST_HOST = process.env.BELLBEAST_HOST || 'localhost';
 const BELLBEAST_PORT = parseInt(process.env.BELLBEAST_PORT || '443', 10);
@@ -521,7 +521,7 @@ router.get('/history', async (req, res) => {
 });
 
 router.get('/stage', (req, res) => {
-  res.json({ stage: getStage() });
+  res.json({ stage: getStage(), known: isStageKnown(), login_stage: getLoginStage() });
 });
 
 // Layout persistence per user+station

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { restLogin, graphqlLogin, fetchUserProfile } = require('../services/aquadat');
 const { getDb } = require('../services/db');
-const { getStage } = require('../services/stageMonitor');
+const { getStage, getLoginStage } = require('../services/stageMonitor');
 const { rememberToken } = require('../services/queueWorker');
 const { isSuperadminIdentity, SUPERADMIN_NAME } = require('../services/actor');
 const GROUP_ROLE_MAP = { '1': 'scientist', '2': 'operator', '3a': 'executive_3a', '3b': 'executive_3b' };
@@ -73,12 +73,13 @@ router.post('/login', async (req, res) => {
 });
 
 // Bypass login without AquaDAT
-// stage 1 (AquaDAT up): superadmin only (hidden, Ctrl+Shift+F12 on login page)
-// other stages: scientist | operator | superadmin
+// login stage 1 (AquaDAT up, reported by Aquadat.ping): superadmin only (hidden, Ctrl+Shift+F12 on login page)
+// other / unknown stage: scientist | operator | superadmin
 router.post('/bypass', (req, res) => {
   const { role = 'scientist' } = req.body;
-  const allowed = getStage() === 1 ? ['superadmin'] : ['scientist', 'operator', 'superadmin'];
-  if (!allowed.includes(role)) return res.status(403).json({ error: `bypass role '${role}' not allowed at stage ${getStage()}` });
+  const stage = getLoginStage();
+  const allowed = stage === 1 ? ['superadmin'] : ['scientist', 'operator', 'superadmin'];
+  if (!allowed.includes(role)) return res.status(403).json({ error: `bypass role '${role}' not allowed at stage ${stage}` });
   const iat = Math.floor(Date.now() / 1000);
   const exp = iat + 86400;
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');

@@ -14,9 +14,10 @@ export default function Login() {
   const offline = stage === 0 || stage === 2; // AquaDAT unavailable → bypass mode
 
   useEffect(() => {
+    // login_stage = 0 when the stage is unknown (Aquadat.ping not running / BellBeast unreachable) → offline + bypass
     get('/api/operator/stage')
-      .then(d => setStage(d.stage))
-      .catch(() => setStage(1));
+      .then(d => setStage(d.login_stage ?? d.stage))
+      .catch(() => setStage(0));
   }, []);
 
   useEffect(() => {
