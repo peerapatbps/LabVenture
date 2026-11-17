@@ -66,14 +66,14 @@ function clearReason(o, present, scenarioId, byKey) {
   return 'vanished';
 }
 
-// items: Uroboros AlarmItem[] (alarm_id "lab:<event_class_id>"). Exported for tests.
+// items: Uroboros AlarmItem[] (alarm_id "lab:<event_class_id>" แล็ป · "ec:<event_class_id>" realtime เช่นคลอรีน). Exported for tests.
 async function ingest(items, { dryRun = false } = {}) {
   const db = getDb();
   const now = nowTH();
   const active = new Map();
   const present = new Set();
   for (const it of items || []) {
-    if (typeof it.alarm_id !== 'string' || !it.alarm_id.startsWith('lab:')) continue;
+    if (typeof it.alarm_id !== 'string' || !/^(lab|ec):/.test(it.alarm_id)) continue;
     present.add(it.alarm_id);
     if (it.active) active.set(it.alarm_id, it);
   }
@@ -93,7 +93,7 @@ async function ingest(items, { dryRun = false } = {}) {
 
   const created = [];
   for (const [alarmId, it] of active) {
-    const ecId = alarmId.slice(4);
+    const ecId = alarmId.slice(alarmId.indexOf(':') + 1);
     const row = db.get('SELECT * FROM event_classes WHERE event_class_id = ?', [ecId]);
     const op = row ? (JSON.parse(row.rule || '{}').op || '>') : '>';
     const value = Number.isFinite(it.value) ? it.value : null;

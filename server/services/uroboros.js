@@ -79,4 +79,37 @@ async function kickSync() {
   }
 }
 
-module.exports = { kickSync, syncThenEval, enqueue, call, why, alarmTasks, ALARM_TASKS };
+// alarm.eval อีก n รอบ — ใช้กับกฎ for_polls > 1 (ต้องเห็นค่าเกินติดกัน N รอบ eval)
+// alarm.eval เป็น DropIfRunning: last_eval_at เปลี่ยนก่อน task จบ (ยังส่ง BellBeast อยู่ ≤ 6 วิ) → ต่อคิวซ้ำจนรับ (409 = ยังรันอยู่)
+// since = last_eval_at ก่อนรอบที่ต่อคิวไปแล้ว (เช่นจาก syncThenEval) → รอรอบนั้นก่อน ไม่นับซ้ำ
+const sleep = (ms) => new Promise(ok => setTimeout(ok, ms));
+const lastEvalAt = async () => (await call('GET', '/api/alarm/state')).body?.last_eval_at ?? null;
+async function evalRounds(n, { since } = {}) {
+  if (since !== undefined) {
+    for (let i = 0; i < 20; i++) {
+      if ((await lastEvalAt().catch(() => since)) !== since) break;
+      await sleep(300);
+    }
+  }
+  let done = 0;
+  for (let k = 0; k < n; k++) {
+    const before = await lastEvalAt().catch(() => null);
+    let accepted = false;
+    for (let i = 0; i < 24 && !accepted; i++) {
+      const r = await call('POST', '/tasks/enqueue', { Name: 'alarm.eval' });
+      if (r.status < 300) { accepted = true; break; }
+      if (r.status !== 409) throw new Error(`alarm.eval: Uroboros returned ${r.status}`);
+      if (r.body?.paused) throw new Error('Uroboros engine pause อยู่ — alarm.eval ไม่ทำงาน');
+      if (i === 0 && (await alarmTasks())?.['alarm.eval'] === false) throw new Error('task alarm.eval ปิดอยู่ใน Uroboros — เปิดที่ Uroboros Admin ก่อน');
+      await sleep(500);
+    }
+    if (!accepted) break;
+    for (let i = 0; i < 20; i++) {
+      await sleep(300);
+      if ((await lastEvalAt().catch(() => before)) !== before) { done++; break; }
+    }
+  }
+  return done;
+}
+
+module.exports = { kickSync, syncThenEval, evalRounds, lastEvalAt, enqueue, call, why, alarmTasks, ALARM_TASKS };
