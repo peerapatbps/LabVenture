@@ -402,6 +402,36 @@ router.post('/:id/reclaim', async (req, res) => {
   res.json({ ok: true, car: updated });
 });
 
+// ── Admin: ย้อนขั้นตอน (ไม่ส่ง LINE) ────────────────────────────────────────
+// to: 20 รออนุมัติ · 30 รอติดตาม#1 (ต้นขั้นที่ 4) · 40 รอติดตาม#2 · 50 รอ ผอ.ฝผม.
+// ล้างข้อมูลของขั้นที่อยู่หลังเป้าหมาย; ประวัติ car_steps เดิมเก็บไว้ + เพิ่มแถว revert:<to>
+const REVERT_CLEAR = {
+  20: [/^s2_approve/, /^s4_/, /^s5_/],
+  30: [/^s4_/, /^s5_/],
+  40: [/^s4_check2_(result|notes|date|by|by_pos|items)$/, /^s4_meeting_/, /^s5_/],
+  50: [/^s5_/],
+};
+router.post('/:id/revert', requireCarAdmin, (req, res) => {
+  const id = parseInt(req.params.id);
+  const to = Number(req.body?.to);
+  if (isNaN(id) || !REVERT_CLEAR[to]) return res.status(400).json({ error: 'to ต้องเป็น 20 / 30 / 40 / 50' });
+  const db = getDb();
+  const car = db.get('SELECT * FROM car_log WHERE id = ?', [id]);
+  if (!car) return res.status(404).json({ error: 'Not found' });
+  if ((car.status_code || 10) <= to) return res.status(409).json({ error: `สถานะปัจจุบัน ${car.status_code} ไม่ได้อยู่หลังขั้น ${to}` });
+
+  const fd = parseFdObj(car);
+  const removed = Object.keys(fd).filter(k => REVERT_CLEAR[to].some(re => re.test(k)));
+  removed.forEach(k => delete fd[k]);
+  const legacyStep = { 20: 'responded', 30: 'approved', 40: 'approved', 50: 'validated' }[to];
+  db.run(`UPDATE car_log SET status_code = ?, current_step = ?, form_data = ?${to <= 30 ? ', followup2_deadline = NULL' : ''} WHERE id = ?`,
+    [to, legacyStep, JSON.stringify(fd), id]);
+  db.run("INSERT INTO car_steps (car_id, step, updated_at) VALUES (?, ?, datetime('now'))", [id, `revert:${to}`]);
+  console.log(`[CAR] #${id} (${car.car_number || car.unique_key}) reverted ${car.status_code} → ${to} by ${req.carAdminUser.name}; cleared ${removed.join(',')}`);
+  persist();
+  res.json({ ok: true, car: db.get('SELECT * FROM car_log WHERE id = ?', [id]), cleared: removed });
+});
+
 // แก้ข้อมูลส่วนที่ 1 (ไม่เปลี่ยนสถานะ ไม่ส่ง LINE). ผู้ออกไม่ให้แก้ (ล็อกตามผู้ login ตอนออกใบ)
 router.put('/:id/section1', requireCarAdmin, (req, res) => {
   const id = parseInt(req.params.id);
