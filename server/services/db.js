@@ -110,6 +110,14 @@ function initDb() {
   for (const [col, def] of Object.entries(newCarCols)) {
     if (!carCols.includes(col)) db.run(`ALTER TABLE car_log ADD COLUMN ${col} ${def}`);
   }
+  // เลิกใช้สถานะ 45 "นำเข้าที่ประชุม" (ช่วงสั้น ๆ 17 พ.ย. 2569) → 50 + ป้าย s4_to_meeting
+  for (const r of db.all('SELECT id, form_data FROM car_log WHERE status_code = 45')) {
+    let fd = {};
+    try { fd = JSON.parse(r.form_data || '{}'); } catch { /* keep {} */ }
+    fd.s4_to_meeting = true;
+    db.run("UPDATE car_log SET status_code = 50, current_step = 'validated', form_data = ? WHERE id = ?", [JSON.stringify(fd), r.id]);
+    console.log(`[DB] car_log #${r.id}: status 45 → 50 (ประเด็นเข้าที่ประชุม)`);
+  }
   // Migrate existing records to status_code
   db.run(`UPDATE car_log SET status_code = CASE current_step
     WHEN 'issued' THEN 10 WHEN 'responded' THEN 20 WHEN 'approved' THEN 30

@@ -291,7 +291,8 @@ router.patch('/:id', async (req, res) => {
   const updated = db.get('SELECT * FROM car_log WHERE id = ?', [id]);
 
   if (status_code != null && status_code !== car.status_code) {
-    try { await pushCarMessage(updated, status_code); }
+    const toMeeting = status_code === 50 && !!parseFdObj(updated).s4_to_meeting;
+    try { await pushCarMessage(updated, status_code, toMeeting ? '🗣 ติดตาม 2 ครั้งยังปิดไม่ได้ → ประเด็นเข้าที่ประชุม' : null); }
     catch (e) { console.warn('[CAR] LINE push failed:', e.message); }
   }
 
@@ -408,7 +409,7 @@ router.post('/:id/reclaim', async (req, res) => {
 const REVERT_CLEAR = {
   20: [/^s2_approve/, /^s4_/, /^s5_/],
   30: [/^s4_/, /^s5_/],
-  40: [/^s4_check2_(result|notes|date|by|by_pos|items)$/, /^s4_meeting_/, /^s5_/],
+  40: [/^s4_check2_(result|notes|date|by|by_pos|items)$/, /^s4_meeting_/, /^s4_to_meeting$/, /^s5_/],
   50: [/^s5_/],
 };
 router.post('/:id/revert', requireCarAdmin, (req, res) => {
