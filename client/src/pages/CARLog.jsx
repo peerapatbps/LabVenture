@@ -749,28 +749,81 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
 
           {/* ผู้ถือใบ + ประวัติการส่งต่อ */}
           {(code === 10 || code === 15 || forwards.length > 0) && (
-            <div className="mx-1 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm space-y-1">
+            <div className="mx-1 rounded-xl border border-sky-200 bg-gradient-to-r from-sky-50 to-white overflow-hidden">
+              {/* ผู้รับปัจจุบัน + ปุ่มส่งต่อ / ปลดล็อก */}
               {(code === 10 || code === 15) && (
-                <p className="text-sky-900">
-                  ผู้รับ{code === 15 ? 'ปัจจุบัน (ส่งต่อ)' : ''}: <b>{holder.name || '—'}</b>{holder.dept ? ` (${holder.dept})` : ''}
-                  {!canAct && <span className="text-sky-700"> · รอผู้รับตอบ</span>}
-                </p>
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <span className="w-9 h-9 shrink-0 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center font-semibold">
+                    {(holder.name || '?').replace(/^(นาย|นางสาว|นาง|น\.ส\.|คุณ)/, '').trim().charAt(0) || '?'}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-sky-600">
+                      {code === 15 ? 'ผู้รับปัจจุบัน · ส่งต่อแล้ว' : 'ผู้รับ'}
+                    </p>
+                    <p className="text-sm text-sky-950 truncate">
+                      <b>{holder.name || '—'}</b>{holder.dept && <span className="text-sky-700"> · {holder.dept}</span>}
+                      {!canAct && !isFirstReceiverLocked && <span className="text-sky-600"> · รอผู้รับตอบ</span>}
+                    </p>
+                  </div>
+                  {canAct && !fwdOpen && (
+                    <button type="button" onClick={() => setFwdOpen(true)}
+                      className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-semibold text-sky-700 bg-white border border-sky-300 shadow-sm hover:bg-sky-600 hover:text-white hover:border-sky-600 transition-colors">
+                      <span aria-hidden="true">↪</span> ส่งให้ผู้อื่นตอบ
+                    </button>
+                  )}
+                  {isFirstReceiverLocked && (
+                    <button type="button" onClick={() => setLockOpen(true)}
+                      className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 shadow-sm">
+                      🔓 ปลดล็อก
+                    </button>
+                  )}
+                </div>
               )}
+
+              {/* ฟอร์มส่งต่อ (กางในการ์ดเดียวกัน) */}
+              {canAct && fwdOpen && (
+                <div className="mx-4 mb-3 rounded-xl bg-white border border-sky-200 p-3 space-y-3 shadow-sm">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-sm font-semibold text-sky-900">↪ ส่งต่อให้ผู้อื่นเป็นผู้ตอบ</p>
+                    <p className="text-[11px] italic text-sky-600">ผู้ก่อปัญหาย่อมเป็นผู้แก้ปัญหา</p>
+                  </div>
+                  <div className="grid grid-cols-[8.5rem_minmax(0,1.4fr)_minmax(0,1fr)] gap-2">
+                    <PersonRow row={fwd} onChange={setFwd} receivers={receivers} defaultHead label="ส่งต่อให้" />
+                  </div>
+                  <input value={fwdReason} onChange={e => setFwdReason(e.target.value)} placeholder="เหตุผล (เช่น เกิดในเวรของผลัด 2)"
+                    className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400" />
+                  <div className="flex gap-2 justify-end">
+                    <button type="button" onClick={() => { setFwdOpen(false); setFwd(blankPerson()); setFwdReason(''); }}
+                      className="px-4 py-2 rounded-lg text-sm font-medium border border-earth-border bg-white text-earth-ink hover:bg-earth-DEFAULT">ยกเลิก</button>
+                    <button type="button" disabled={!fwd.name?.trim() || fwd.name === holder.name || fwdBusy}
+                      onClick={async () => {
+                        setFwdBusy(true);
+                        try { await onForward?.(car, { to_name: fwd.name.trim(), to_dept: fwd.dept, to_group: fwd.group, reason: fwdReason.trim() }); }
+                        finally { setFwdBusy(false); }
+                      }}
+                      className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-40 inline-flex items-center gap-2">
+                      {fwdBusy && <span className="w-3.5 h-3.5 border-2 border-white/60 border-t-white rounded-full animate-spin" />}
+                      {fwdBusy ? 'กำลังส่งต่อ…' : 'ยืนยันส่งต่อ'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ประวัติการส่งต่อ (timeline) */}
               {forwards.length > 0 && (
-                <ul className="text-xs text-sky-800 space-y-0.5">
+                <ol className="border-t border-sky-100 px-4 py-2.5 space-y-1.5">
                   {forwards.map((f, i) => (
-                    <li key={i}>
-                      {String(f.at || '').slice(0, 16).replace('T', ' ')} ·{' '}
-                      {f.type === 'reclaim'
-                        ? <>🔓 {f.by} ปลดล็อก ยกเลิกการส่งต่อจาก {f.from_name}</>
-                        : <>↪ {f.from_name} ส่งต่อให้ {f.to_name}{f.to_dept ? ` (${f.to_dept})` : ''}{f.reason ? ` — ${f.reason}` : ''}</>}
+                    <li key={i} className="flex gap-2 text-xs text-sky-900">
+                      <span className={`mt-1 w-2 h-2 shrink-0 rounded-full ${f.type === 'reclaim' ? 'bg-amber-400' : 'bg-sky-400'}`} />
+                      <span>
+                        <span className="text-sky-500 tabular-nums">{String(f.at || '').slice(0, 16).replace('T', ' ')}</span>{' '}
+                        {f.type === 'reclaim'
+                          ? <>🔓 <b>{f.by}</b> ปลดล็อก ยกเลิกการส่งต่อจาก {f.from_name}</>
+                          : <><b>{f.from_name}</b> ส่งต่อให้ <b>{f.to_name}</b>{f.to_dept ? ` (${f.to_dept})` : ''}{f.reason ? <span className="text-sky-700"> — {f.reason}</span> : null}</>}
+                      </span>
                     </li>
                   ))}
-                </ul>
-              )}
-              {isFirstReceiverLocked && (
-                <button type="button" onClick={() => setLockOpen(true)}
-                  className="mt-1 px-3 py-1 rounded-lg text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700">🔓 ปลดล็อก</button>
+                </ol>
               )}
             </div>
           )}
@@ -819,37 +872,6 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
                 </SaveBtn>
               )}
 
-              {/* ส่งต่อให้ผู้อื่นตอบแทน */}
-              {!isObserver && (
-                <div className="rounded-xl border border-dashed border-sky-300 p-3 space-y-2">
-                  {!fwdOpen ? (
-                    <button type="button" onClick={() => setFwdOpen(true)}
-                      className="text-sm font-medium text-sky-700 hover:text-sky-900">↪ ส่งต่อให้ผู้อื่นเป็นผู้ตอบ…</button>
-                  ) : (
-                    <>
-                      <p className="text-xs font-semibold text-sky-800">ส่งต่อให้ (ผู้ก่อปัญหาย่อมเป็นผู้แก้ปัญหา)</p>
-                      <div className="grid grid-cols-[8.5rem_minmax(0,1.4fr)_minmax(0,1fr)] gap-2">
-                        <PersonRow row={fwd} onChange={setFwd} receivers={receivers} defaultHead label="ส่งต่อให้" />
-                      </div>
-                      <input value={fwdReason} onChange={e => setFwdReason(e.target.value)} placeholder="เหตุผล (เช่น เกิดในเวรของผลัด 2)"
-                        className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
-                      <div className="flex gap-2 justify-end">
-                        <button type="button" onClick={() => { setFwdOpen(false); setFwd(blankPerson()); setFwdReason(''); }}
-                          className="px-3 py-1.5 rounded-lg text-sm border border-earth-border bg-white">ยกเลิก</button>
-                        <button type="button" disabled={!fwd.name?.trim() || fwd.name === holder.name || fwdBusy}
-                          onClick={async () => {
-                            setFwdBusy(true);
-                            try { await onForward?.(car, { to_name: fwd.name.trim(), to_dept: fwd.dept, to_group: fwd.group, reason: fwdReason.trim() }); }
-                            finally { setFwdBusy(false); }
-                          }}
-                          className="px-3 py-1.5 rounded-lg text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-40">
-                          {fwdBusy ? 'กำลังส่งต่อ…' : 'ยืนยันส่งต่อ'}
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
             </div>
             ) : (
               <p className="px-1 text-sm text-earth-ink3">
