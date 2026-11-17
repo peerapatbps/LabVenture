@@ -9,6 +9,7 @@ import { CAR_UNITS, CAR_UNIT_OTHER } from '../config/carUnits.js';
 
 const STATUS = {
   10: { label: 'ออกใบแล้ว',   color: 'bg-blue-100 text-blue-700 border-blue-200' },
+  15: { label: 'ส่งต่อแล้ว',   color: 'bg-sky-100 text-sky-700 border-sky-200' },
   20: { label: 'รออนุมัติ',    color: 'bg-orange-100 text-orange-700 border-orange-200' },
   30: { label: 'รอติดตาม#1', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
   40: { label: 'รอติดตาม#2', color: 'bg-purple-100 text-purple-700 border-purple-200' },
@@ -82,7 +83,8 @@ function parseFd(car) {
 // ─── Progress stage dots ──────────────────────────────────────────────────
 
 function ProgressStages({ car }) {
-  const code = car.status_code || 10;
+  const raw = car.status_code || 10;
+  const code = raw === 15 ? 10 : raw;   // 15 (ส่งต่อ) ยังอยู่ขั้นที่ 1
   const stages = [10, 20, 30, 40, 50];
 
   return (
@@ -447,9 +449,134 @@ function SaveBtn({ onClick, disabled, color = 'bg-brand hover:bg-sky-700', child
   );
 }
 
+// ─── ตัวเลือกบุคคล: [กลุ่ม] [ชื่อ-สกุล] [ส่วน/กอง] ─────────────────────────
+// กลุ่ม: ผลัด 1-4 / ผู้ปฏิบัติงาน (ลูกจ้าง AquaDAT) → ชื่อจาก whitelist · อื่นๆ → พิมพ์ชื่อและส่วน/กองเอง
+// row = { group: '1'..'4' | 'worker' | 'other' | '', name, dept }
+const PERSON_GROUPS = [['1', 'ผลัด 1'], ['2', 'ผลัด 2'], ['3', 'ผลัด 3'], ['4', 'ผลัด 4'], ['worker', 'ผู้ปฏิบัติงาน'], ['other', 'อื่นๆ']];
+const blankPerson = () => ({ group: '', name: '', dept: '' });
+const personText = p => `${p.name}${p.dept ? ` (${p.dept})` : ''}`;
+const namesOf = rows => (rows || []).filter(p => p.name?.trim()).map(p => p.name.trim()).join(', ');
+// ข้อความเดิม (คั่นด้วย , หรือขึ้นบรรทัด) → แถว "อื่นๆ"
+const personsFromText = s => String(s || '').split(/[,\n]+/).map(x => x.trim()).filter(Boolean)
+  .map(name => ({ group: 'other', name, dept: '' }));
+
+function useReceivers() {
+  const { data = [] } = useQuery({
+    queryKey: ['car-receivers'],
+    queryFn: () => get('/api/car-admin/receivers'),
+    staleTime: 60 * 1000,
+  });
+  return data;
+}
+
+function PersonRow({ row, onChange, receivers, defaultHead = false, label }) {
+  const grp = receivers.find(r => String(r.shift) === String(row.group));
+  const cls = 'w-full min-w-0 border border-earth-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand';
+  const isOther = row.group === 'other';
+  return (
+    <>
+      <select value={row.group} aria-label={`${label} — กลุ่ม`} className={cls}
+        onChange={e => {
+          const g = e.target.value;
+          const r = receivers.find(x => String(x.shift) === g);
+          onChange({
+            group: g,
+            name: g === 'other' ? row.name : (defaultHead && r?.head) || '',
+            dept: g === 'other' ? row.dept : (r?.dept_label || ''),
+          });
+        }}>
+        <option value="">— กลุ่ม —</option>
+        {PERSON_GROUPS.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+      </select>
+      {isOther || !row.group ? (
+        <input value={row.name} disabled={!row.group} placeholder={row.group ? 'พิมพ์ชื่อ-สกุล' : 'เลือกกลุ่มก่อน'}
+          aria-label={`${label} — ชื่อ`} onChange={e => onChange({ ...row, name: e.target.value })}
+          className={`${cls} disabled:bg-earth-card`} />
+      ) : (
+        <select value={row.name} aria-label={`${label} — ชื่อ`} className={cls}
+          onChange={e => onChange({ ...row, name: e.target.value })}>
+          <option value="">{grp?.members.length ? '— เลือกชื่อ —' : 'ไม่มีรายชื่อ — Sync ที่หน้า Config'}</option>
+          {row.name && !grp?.members.some(m => m.name === row.name) && <option value={row.name}>{row.name}</option>}
+          {grp?.members.map(m => <option key={m.name} value={m.name}>{m.name}{m.position ? ` (${m.position})` : ''}</option>)}
+        </select>
+      )}
+      {(() => {
+        const ro = !!row.group && !isOther && row.group !== 'worker';   // ผลัด 1-4 = จาก whitelist; ผู้ปฏิบัติงาน/อื่นๆ แก้ได้
+        return (
+          <input value={row.dept} readOnly={ro} placeholder="ส่วน/กอง" aria-label={`${label} — ส่วน/กอง`}
+            onChange={e => onChange({ ...row, dept: e.target.value })}
+            className={`${cls} ${ro ? 'bg-earth-card text-earth-ink3' : ''}`} />
+        );
+      })()}
+    </>
+  );
+}
+
+// หลายคน + ปุ่ม "+" อยู่ท้ายบรรทัดล่าสุด
+function PersonRows({ label, rows, onChange, receivers }) {
+  const list = rows?.length ? rows : [blankPerson()];
+  const set = (i, v) => onChange(list.map((r, k) => (k === i ? v : r)));
+  return (
+    <div className="space-y-2">
+      <label className="block text-xs font-medium text-earth-ink2">{label}</label>
+      {list.map((row, i) => (
+        <div key={i} className="grid grid-cols-[8.5rem_minmax(0,1.4fr)_minmax(0,1fr)_5rem] gap-2 items-center">
+          <PersonRow row={row} onChange={v => set(i, v)} receivers={receivers} label={`${label} ${i + 1}`} />
+          <div className="flex gap-1">
+            {list.length > 1 && (
+              <button type="button" title="ลบบรรทัดนี้" onClick={() => onChange(list.filter((_, k) => k !== i))}
+                className="w-9 h-9 rounded-lg border border-earth-border text-earth-ink3 hover:text-red-600 hover:border-red-300">−</button>
+            )}
+            {i === list.length - 1 && (
+              <button type="button" title="เพิ่มบรรทัด" onClick={() => onChange([...list, blankPerson()])}
+                className="w-9 h-9 rounded-lg bg-brand text-white hover:bg-sky-700 text-lg leading-none">+</button>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// popup กลางจอ: ผู้รับไม้แรกเปิดใบที่ส่งต่อไปแล้ว
+function ForwardedLockDialog({ holder, forwardedAt, onUnlock, onClose }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={() => !busy && onClose()} />
+      <div role="dialog" aria-modal="true"
+        className="relative w-full max-w-md bg-earth-card rounded-2xl shadow-2xl border border-earth-border overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-4 bg-sky-50 border-b border-sky-100">
+          <span className="w-9 h-9 shrink-0 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-lg">🔒</span>
+          <h3 className="font-semibold text-sky-900">CAR นี้ถูกส่งต่อแล้ว</h3>
+        </div>
+        <div className="px-5 py-4 space-y-3 text-sm text-earth-ink">
+          <p>
+            CAR นี้ถูกส่งมอบให้ <b>{holder.name}</b>{holder.dept ? ` (${holder.dept})` : ''} เป็นผู้ตอบ
+            {forwardedAt ? <> เมื่อวันที่ <b>{String(forwardedAt).slice(0, 16).replace('T', ' ')}</b></> : null}
+          </p>
+          <p className="text-earth-ink2">หากต้องการดำเนินการด้วยตนเอง ให้ทำการปลดล็อก</p>
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-3 bg-earth-DEFAULT border-t border-earth-border">
+          <button type="button" onClick={onClose} disabled={busy} autoFocus
+            className="px-4 py-2 rounded-lg text-sm font-medium border border-earth-border bg-white text-earth-ink hover:bg-earth-card disabled:opacity-50">
+            ดูอย่างเดียว
+          </button>
+          <button type="button" disabled={busy}
+            onClick={async () => { setBusy(true); try { await onUnlock(); } finally { setBusy(false); } }}
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-60 flex items-center gap-2">
+            {busy && <span className="w-3.5 h-3.5 border-2 border-white/60 border-t-white rounded-full animate-spin" />}
+            🔓 ปลดล็อก
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Slide panel ──────────────────────────────────────────────────────────
 
-function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDelete }) {
+function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDelete, onForward, onReclaim }) {
   const code = car.status_code || 10;
   const fd = parseFd(car);
 
@@ -461,20 +588,49 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
   const isG3b = cuGroups.includes('3b') || cu.isAdmin;
   const isObserver = !!cu.isObserver;
 
-  // Section 2 — respondent
+  // ── ผู้ถือใบ / ส่งต่อ (status 15) ──
+  const receivers = useReceivers();
+  const holder = car.assignee_name
+    ? { name: car.assignee_name, dept: car.assignee_dept || '' }
+    : { name: car.receiver_name || '', dept: car.receiver_dept || '' };
+  const forwards = Array.isArray(fd.s2_forwards) ? fd.s2_forwards : [];
+  const lastForward = [...forwards].reverse().find(f => f.type === 'forward');
+  const holderShift = Number(/สคน(\d)กผจ/.exec(holder.dept)?.[1]) || null;
+  // ผู้รับไม้แรกเปิดใบที่ส่งต่อไปแล้ว → popup กลางจอ + ปลดล็อกได้ (Admin ไม่ถูกล็อก)
+  const isFirstReceiverLocked = code === 15 && !cu.isAdmin && !!cu.name && cu.name === car.receiver_name && cu.name !== holder.name;
+  // ตอบ/ส่งต่อได้: Admin · ผู้ถือใบ · กลุ่ม 2 ผลัดเดียวกับผู้ถือ (เหมือนกติกาฝั่ง server canHold)
+  const canAct = !isObserver && (cu.isAdmin || (!isFirstReceiverLocked && ((!!cu.name && cu.name === holder.name)
+    || (cuGroups.includes('2') && (cu.bypass || (!!holderShift && Number(cu.shift) === holderShift))))));
+  const [lockOpen, setLockOpen] = useState(isFirstReceiverLocked);
+  const [fwdOpen, setFwdOpen] = useState(false);
+  const [fwd, setFwd] = useState(blankPerson());
+  const [fwdReason, setFwdReason] = useState('');
+  const [fwdBusy, setFwdBusy] = useState(false);
+
+  // Section 2 — respondent (ผู้เข้าประชุม / ผู้รับผิดชอบ เป็นรายการบุคคล; CAR เก่าแปลงจากข้อความ)
   const [s2, setS2] = useState({
-    s2_meeting_members: fd.s2_meeting_members || '',
+    s2_attendees: Array.isArray(fd.s2_attendees) ? fd.s2_attendees : personsFromText(fd.s2_meeting_members),
     s2_root_cause: fd.s2_root_cause || '',
     s2_correction: fd.s2_correction || '',
     s2_correction_deadline: fd.s2_correction_deadline || '',
-    s2_correction_owner: fd.s2_correction_owner || '',
+    s2_correction_owners: Array.isArray(fd.s2_correction_owners) ? fd.s2_correction_owners : personsFromText(fd.s2_correction_owner),
     s2_prevention: fd.s2_prevention || '',
     s2_prevention_deadline: fd.s2_prevention_deadline || '',
-    s2_prevention_owner: fd.s2_prevention_owner || '',
-    s2_respondent: fd.s2_respondent || (isG2 && cu.name ? cu.name : ''),
-    s2_respondent_pos: fd.s2_respondent_pos || (isG2 && cu.deptLabel ? cu.deptLabel : ''),
-    s2_responded_at: fd.s2_responded_at || new Date().toISOString().slice(0, 10),
+    s2_prevention_owners: Array.isArray(fd.s2_prevention_owners) ? fd.s2_prevention_owners : personsFromText(fd.s2_prevention_owner),
+    s2_respondent: fd.s2_respondent || cu.name || '',
+    s2_respondent_pos: fd.s2_respondent_pos || cu.deptLabel || '',
+    s2_responded_at: fd.s2_responded_at || new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10),
   });
+  // บันทึก: เก็บรายการบุคคล + ข้อความเดิม (ชื่อคั่นด้วย ,) ให้ใบ สบค-08 / CAR เก่าใช้ต่อได้
+  const s2Payload = () => {
+    const clean = rows => (rows || []).filter(p => p.name?.trim()).map(p => ({ ...p, name: p.name.trim(), dept: (p.dept || '').trim() }));
+    const att = clean(s2.s2_attendees), co = clean(s2.s2_correction_owners), po = clean(s2.s2_prevention_owners);
+    return {
+      ...s2,
+      s2_attendees: att, s2_correction_owners: co, s2_prevention_owners: po,
+      s2_meeting_members: namesOf(att), s2_correction_owner: namesOf(co), s2_prevention_owner: namesOf(po),
+    };
+  };
   // Section 2 — approver
   const [s2a, setS2a] = useState({
     s2_approver: fd.s2_approver || (isG3a && cu.name ? cu.name : ''),
@@ -591,55 +747,130 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
           {/* ── Section 2 ── */}
           <SecHeader n="2" title="วิเคราะห์หาสาเหตุ และกำหนดแผนการแก้ไขและป้องกัน" active={code <= 20} />
 
-          {code === 10 ? (
-            <div className="space-y-3 px-1">
-              <Txt label="ผู้เข้าประชุม" name="s2_meeting_members" value={s2.s2_meeting_members}
-                onChange={e => setS2(p => ({ ...p, s2_meeting_members: e.target.value }))} rows={2} />
+          {/* ผู้ถือใบ + ประวัติการส่งต่อ */}
+          {(code === 10 || code === 15 || forwards.length > 0) && (
+            <div className="mx-1 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm space-y-1">
+              {(code === 10 || code === 15) && (
+                <p className="text-sky-900">
+                  ผู้รับ{code === 15 ? 'ปัจจุบัน (ส่งต่อ)' : ''}: <b>{holder.name || '—'}</b>{holder.dept ? ` (${holder.dept})` : ''}
+                  {!canAct && <span className="text-sky-700"> · รอผู้รับตอบ</span>}
+                </p>
+              )}
+              {forwards.length > 0 && (
+                <ul className="text-xs text-sky-800 space-y-0.5">
+                  {forwards.map((f, i) => (
+                    <li key={i}>
+                      {String(f.at || '').slice(0, 16).replace('T', ' ')} ·{' '}
+                      {f.type === 'reclaim'
+                        ? <>🔓 {f.by} ปลดล็อก ยกเลิกการส่งต่อจาก {f.from_name}</>
+                        : <>↪ {f.from_name} ส่งต่อให้ {f.to_name}{f.to_dept ? ` (${f.to_dept})` : ''}{f.reason ? ` — ${f.reason}` : ''}</>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {isFirstReceiverLocked && (
+                <button type="button" onClick={() => setLockOpen(true)}
+                  className="mt-1 px-3 py-1 rounded-lg text-xs font-semibold text-white bg-sky-600 hover:bg-sky-700">🔓 ปลดล็อก</button>
+              )}
+            </div>
+          )}
+
+          {(code === 10 || code === 15) ? (
+            canAct ? (
+            <div className="space-y-4 px-1">
+              <PersonRows label="ผู้เข้าประชุม" rows={s2.s2_attendees} receivers={receivers}
+                onChange={v => setS2(p => ({ ...p, s2_attendees: v }))} />
               <Txt label="2.1 สาเหตุของปัญหา *" name="s2_root_cause" value={s2.s2_root_cause}
                 onChange={e => setS2(p => ({ ...p, s2_root_cause: e.target.value }))} />
               <Txt label="2.2 กำหนดการแก้ไข *" name="s2_correction" value={s2.s2_correction}
                 onChange={e => setS2(p => ({ ...p, s2_correction: e.target.value }))} />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-[12rem_1fr] gap-3 items-start">
                 <Inp label="กำหนดเสร็จวันที่" name="s2_correction_deadline" type="date"
                   value={s2.s2_correction_deadline} onChange={e => setS2(p => ({ ...p, s2_correction_deadline: e.target.value }))} />
-                <Inp label="ผู้รับผิดชอบ" name="s2_correction_owner"
-                  value={s2.s2_correction_owner} onChange={e => setS2(p => ({ ...p, s2_correction_owner: e.target.value }))} />
+                <PersonRows label="ผู้รับผิดชอบ (แก้ไข)" rows={s2.s2_correction_owners} receivers={receivers}
+                  onChange={v => setS2(p => ({ ...p, s2_correction_owners: v }))} />
               </div>
               <Txt label="2.3 กำหนดการป้องกัน" name="s2_prevention" value={s2.s2_prevention}
                 onChange={e => setS2(p => ({ ...p, s2_prevention: e.target.value }))} />
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-[12rem_1fr] gap-3 items-start">
                 <Inp label="กำหนดเสร็จวันที่" name="s2_prevention_deadline" type="date"
                   value={s2.s2_prevention_deadline} onChange={e => setS2(p => ({ ...p, s2_prevention_deadline: e.target.value }))} />
-                <Inp label="ผู้รับผิดชอบ" name="s2_prevention_owner"
-                  value={s2.s2_prevention_owner} onChange={e => setS2(p => ({ ...p, s2_prevention_owner: e.target.value }))} />
+                <PersonRows label="ผู้รับผิดชอบ (ป้องกัน)" rows={s2.s2_prevention_owners} receivers={receivers}
+                  onChange={v => setS2(p => ({ ...p, s2_prevention_owners: v }))} />
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <Inp label="ผู้ตอบ *" name="s2_respondent" value={s2.s2_respondent}
                   onChange={e => setS2(p => ({ ...p, s2_respondent: e.target.value }))}
-                  cls="col-span-2" readOnly={isG2 && !!cu.name} />
+                  cls="col-span-2" readOnly={!!cu.name} />
                 <Inp label="ตำแหน่ง" name="s2_respondent_pos" value={s2.s2_respondent_pos}
                   onChange={e => setS2(p => ({ ...p, s2_respondent_pos: e.target.value }))}
-                  readOnly={isG2 && !!cu.name} />
+                  readOnly={!!cu.name} />
               </div>
+              {cu.name && holder.name && cu.name !== holder.name && (
+                <p className="text-xs text-amber-700 -mt-2">ผู้ตอบไม่ใช่ผู้รับ ({holder.name}) — ระบบบันทึกชื่อคนที่กดบันทึกจริง</p>
+              )}
               <Inp label="วันที่ตอบ" name="s2_responded_at" type="date"
                 value={s2.s2_responded_at} onChange={e => setS2(p => ({ ...p, s2_responded_at: e.target.value }))} />
-              {!isObserver && isG2 && (
-                <SaveBtn onClick={() => onUpdate(car.id, { status_code: 20, form_data: s2 })}
+              {!isObserver && (
+                <SaveBtn onClick={() => onUpdate(car.id, { status_code: 20, form_data: s2Payload() })}
                   disabled={saving || !s2.s2_root_cause || !s2.s2_correction || !s2.s2_respondent}
                   color="bg-orange-500 hover:bg-orange-600">
                   บันทึกคำตอบ → รออนุมัติ
                 </SaveBtn>
               )}
+
+              {/* ส่งต่อให้ผู้อื่นตอบแทน */}
+              {!isObserver && (
+                <div className="rounded-xl border border-dashed border-sky-300 p-3 space-y-2">
+                  {!fwdOpen ? (
+                    <button type="button" onClick={() => setFwdOpen(true)}
+                      className="text-sm font-medium text-sky-700 hover:text-sky-900">↪ ส่งต่อให้ผู้อื่นเป็นผู้ตอบ…</button>
+                  ) : (
+                    <>
+                      <p className="text-xs font-semibold text-sky-800">ส่งต่อให้ (ผู้ก่อปัญหาย่อมเป็นผู้แก้ปัญหา)</p>
+                      <div className="grid grid-cols-[8.5rem_minmax(0,1.4fr)_minmax(0,1fr)] gap-2">
+                        <PersonRow row={fwd} onChange={setFwd} receivers={receivers} defaultHead label="ส่งต่อให้" />
+                      </div>
+                      <input value={fwdReason} onChange={e => setFwdReason(e.target.value)} placeholder="เหตุผล (เช่น เกิดในเวรของผลัด 2)"
+                        className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+                      <div className="flex gap-2 justify-end">
+                        <button type="button" onClick={() => { setFwdOpen(false); setFwd(blankPerson()); setFwdReason(''); }}
+                          className="px-3 py-1.5 rounded-lg text-sm border border-earth-border bg-white">ยกเลิก</button>
+                        <button type="button" disabled={!fwd.name?.trim() || fwd.name === holder.name || fwdBusy}
+                          onClick={async () => {
+                            setFwdBusy(true);
+                            try { await onForward?.(car, { to_name: fwd.name.trim(), to_dept: fwd.dept, to_group: fwd.group, reason: fwdReason.trim() }); }
+                            finally { setFwdBusy(false); }
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-sm font-semibold text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-40">
+                          {fwdBusy ? 'กำลังส่งต่อ…' : 'ยืนยันส่งต่อ'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
+            ) : (
+              <p className="px-1 text-sm text-earth-ink3">
+                {isFirstReceiverLocked ? 'ใบนี้ถูกส่งต่อแล้ว — ดูได้อย่างเดียว (กด "ปลดล็อก" เพื่อดำเนินการเอง)' : 'รอผู้รับตอบ'}
+              </p>
+            )
           ) : (
             <div className="space-y-2 px-1">
+              {(fd.s2_attendees?.length > 0 || fd.s2_meeting_members) && (
+                <Field label="ผู้เข้าประชุม"
+                  value={fd.s2_attendees?.length ? fd.s2_attendees.map(personText).join('\n') : fd.s2_meeting_members} />
+              )}
               {fd.s2_root_cause && <Field label="2.1 สาเหตุของปัญหา" value={fd.s2_root_cause} />}
               {fd.s2_correction && (
                 <>
                   <Field label="2.2 กำหนดการแก้ไข" value={fd.s2_correction} />
                   <div className="flex gap-4 text-xs text-earth-ink3">
                     {fd.s2_correction_deadline && <span>กำหนดเสร็จ: {fmtDate(fd.s2_correction_deadline)}</span>}
-                    {fd.s2_correction_owner && <span>ผู้รับผิดชอบ: {fd.s2_correction_owner}</span>}
+                    {(fd.s2_correction_owners?.length > 0 || fd.s2_correction_owner) && (
+                      <span>ผู้รับผิดชอบ: {fd.s2_correction_owners?.length ? fd.s2_correction_owners.map(personText).join(', ') : fd.s2_correction_owner}</span>
+                    )}
                   </div>
                 </>
               )}
@@ -648,7 +879,9 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
                   <Field label="2.3 กำหนดการป้องกัน" value={fd.s2_prevention} />
                   <div className="flex gap-4 text-xs text-earth-ink3">
                     {fd.s2_prevention_deadline && <span>กำหนดเสร็จ: {fmtDate(fd.s2_prevention_deadline)}</span>}
-                    {fd.s2_prevention_owner && <span>ผู้รับผิดชอบ: {fd.s2_prevention_owner}</span>}
+                    {(fd.s2_prevention_owners?.length > 0 || fd.s2_prevention_owner) && (
+                      <span>ผู้รับผิดชอบ: {fd.s2_prevention_owners?.length ? fd.s2_prevention_owners.map(personText).join(', ') : fd.s2_prevention_owner}</span>
+                    )}
                   </div>
                 </>
               )}
@@ -863,6 +1096,15 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
           <div className="h-4" />
         </div>
       </div>
+
+      {lockOpen && isFirstReceiverLocked && (
+        <ForwardedLockDialog
+          holder={holder}
+          forwardedAt={lastForward?.at}
+          onClose={() => setLockOpen(false)}
+          onUnlock={async () => { await onReclaim?.(car); }}
+        />
+      )}
     </>
   );
 }
@@ -1180,6 +1422,24 @@ export default function CARLog() {
     setForm(newForm());
     setTab('list');
   }
+  // ส่วนที่ 2: ส่งต่อ / ปลดล็อก
+  async function handleForward(car, body) {
+    try {
+      const r = await post(`/api/car/${car.id}/forward`, body);
+      qc.invalidateQueries({ queryKey: ['cars'] });
+      if (r?.car) setSelectedCar(r.car);
+      showToast(`ส่งต่อให้ ${body.to_name} แล้ว`);
+    } catch (e) { showToast(e.message || 'ส่งต่อไม่สำเร็จ', true); }
+  }
+  async function handleReclaim(car) {
+    try {
+      const r = await post(`/api/car/${car.id}/reclaim`, {});
+      qc.invalidateQueries({ queryKey: ['cars'] });
+      if (r?.car) setSelectedCar(r.car);
+      showToast('ปลดล็อกแล้ว — ดำเนินการต่อได้');
+    } catch (e) { showToast(e.message || 'ปลดล็อกไม่สำเร็จ', true); }
+  }
+
   const handleDelete = car => setConfirmBox({ kind: 'delete', car });
   async function doDelete(car) {
     try {
@@ -1588,7 +1848,10 @@ export default function CARLog() {
       {/* Slide panel (outside flow) */}
       {selectedCar && (
         <CarSlidePanel
+          key={`${selectedCar.id}:${selectedCar.status_code}:${selectedCar.assignee_name || ''}`}
           car={selectedCar}
+          onForward={handleForward}
+          onReclaim={handleReclaim}
           carUser={myRole}
           onClose={() => setSelectedCar(null)}
           saving={updateMutation.isPending}

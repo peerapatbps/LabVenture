@@ -84,7 +84,7 @@ async function resolveCarUser(req) {
   // Bypass token: return mock role without DB/AquaDAT lookup
   if (payload.bypass) {
     const roleConfig = BYPASS_ROLE_MAP[payload.role] || BYPASS_ROLE_MAP.scientist;
-    return { shift: null, position: payload.role, ...roleConfig };
+    return { shift: null, position: payload.role, bypass: true, ...roleConfig };
   }
 
   const profile = await fetchUserProfile(token).catch(() => null);
@@ -149,6 +149,15 @@ router.get('/receivers', async (req, res) => {
         head: members.find(m => m.isHead)?.name || null,
         members,
       };
+    });
+    // ผู้ปฏิบัติงาน (ลูกจ้างจาก AquaDAT, ไม่มีผลัด) — ส่วน/กองกลาง กผจ.ฝผม. (แก้ได้ที่ฟอร์ม)
+    const workers = db.all(
+      "SELECT name, position_label FROM car_whitelist WHERE group_code = '2' AND (shift IS NULL OR shift NOT BETWEEN 1 AND 4) ORDER BY name");
+    out.push({
+      shift: 'worker',
+      dept_label: 'กผจ.ฝผม.',
+      head: null,
+      members: workers.map(r => ({ name: r.name, position: r.position_label || '', isHead: false })),
     });
     res.json(out);
   } catch (err) {

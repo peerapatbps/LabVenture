@@ -50,6 +50,32 @@ function mergeFormData(existing, incoming) {
   }
 }
 
+// ── ผู้ถือใบ (ส่วนที่ 2) ─────────────────────────────────────────────────
+// ยังไม่ส่งต่อ → ผู้รับตามข้อ 1.3 · ส่งต่อแล้ว (15) → assignee
+function holderOf(car) {
+  return car.assignee_name
+    ? { name: car.assignee_name, dept: car.assignee_dept || '' }
+    : { name: car.receiver_name || '', dept: car.receiver_dept || '' };
+}
+const shiftOfDept = dept => Number(/สคน(\d)กผจ/.exec(dept || '')?.[1]) || null;
+
+// ทำแทนผู้ถือใบได้ไหม (ตอบ / ส่งต่อ): Admin · ชื่อตรงผู้ถือ · กลุ่ม 2 ผลัดเดียวกับผู้ถือ · bypass operator (โหมดออฟไลน์)
+function canHold(u, car) {
+  if (!u) return false;
+  if (u.isAdmin) return true;
+  const h = holderOf(car);
+  if (h.name && u.name === h.name) return true;
+  // ผู้รับไม้แรกที่ส่งต่อไปแล้ว ต้อง "ปลดล็อก" ก่อน ถึงจะทำเองได้
+  if ((car.status_code || 10) === 15 && car.receiver_name && u.name === car.receiver_name) return false;
+  const groups = u.groups || (u.group ? [u.group] : []);
+  if (!groups.includes('2')) return false;
+  if (u.bypass) return true;
+  const s = shiftOfDept(h.dept);
+  return !!s && Number(u.shift) === s;
+}
+
+function parseFdObj(car) { try { return JSON.parse(car.form_data || '{}'); } catch { return {}; } }
+
 // role filter shared by the list and the printed log
 function roleFilter(cu) {
   const params = [];
@@ -59,9 +85,15 @@ function roleFilter(cu) {
   const conditions = [];
   if (groups.includes('2')) {
     // ผู้รับเป็นชื่อตัวเอง · หน่วยงานเดิม "…สคน. … ผลัด n" · หรือหน่วยงานจาก whitelist "สคน{n}กผจ.ฝผม." (ฟอร์มสร้าง CAR ใหม่)
-    conditions.push(`(receiver_name = ? OR (receiver_dept LIKE ? AND receiver_dept LIKE ?) OR receiver_dept LIKE ?)`);
-    params.push(cu.name, '%สคน.%', `%ผลัด ${cu.shift}%`, cu.shift ? `%สคน${cu.shift}กผจ.%` : '\u0000');
+    // + ผู้รับปัจจุบันหลังส่งต่อ (assignee) และผลัดของผู้รับปัจจุบัน · ผู้รับเดิมยังเห็นเสมอ (receiver_* ไม่ถูกแก้)
+    const shiftLike = cu.shift ? `%สคน${cu.shift}กผจ.%` : '\u0000';
+    conditions.push(`(receiver_name = ? OR (receiver_dept LIKE ? AND receiver_dept LIKE ?) OR receiver_dept LIKE ?
+      OR assignee_name = ? OR assignee_dept LIKE ?)`);
+    params.push(cu.name, '%สคน.%', `%ผลัด ${cu.shift}%`, shiftLike, cu.name, shiftLike);
   }
+  // ใครเคยถือใบแล้วส่งต่อ (ทุกทอด) ยังเห็นใบนั้น
+  conditions.push(`(assignee_name = ? OR form_data LIKE ?)`);
+  params.push(cu.name, `%"from_name":"${cu.name}"%`);
   if (groups.includes('3a')) {
     conditions.push(`(status_code = 20 OR form_data LIKE ?)`);
     params.push(`%"s2_approver":"${cu.name}%`);
@@ -70,11 +102,9 @@ function roleFilter(cu) {
     conditions.push(`(status_code = 50 OR form_data LIKE ?)`);
     params.push(`%"s5_approver":"${cu.name}%`);
   }
-  if (conditions.length === 0) {
-    // Not in whitelist: see only own CARs
-    conditions.push(`(issuer_name = ? OR receiver_name = ?)`);
-    params.push(cu.name, cu.name);
-  }
+  // Not in whitelist (หรือใครก็ตาม): ใบที่ตัวเองออก / เป็นผู้รับ
+  conditions.push(`(issuer_name = ? OR receiver_name = ?)`);
+  params.push(cu.name, cu.name);
   return { where: ` AND (${conditions.join(' OR ')})`, params };
 }
 
@@ -197,6 +227,16 @@ router.patch('/:id', async (req, res) => {
 
   const { status_code, form_data, followup2_deadline, ...rest } = req.body;
 
+  // ตอบส่วนที่ 2 (10/15 → 20): เฉพาะผู้ถือใบปัจจุบัน / คนในผลัดเดียวกัน / Admin
+  // สถานะ 15 → ผู้รับเดิมตอบไม่ได้จนกว่าจะ "ปลดล็อก" (POST /:id/reclaim)
+  if (status_code === 20 && [10, 15].includes(car.status_code || 10)) {
+    const { resolveCarUser } = require('./carAdmin');
+    const u = await resolveCarUser(req).catch(() => null);
+    if (!canHold(u, car)) {
+      return res.status(403).json({ error: `ใบนี้อยู่ที่ ${holderOf(car).name || 'ผู้รับ'} — คุณยังตอบไม่ได้` });
+    }
+  }
+
   const sets = [], params = [];
 
   if (status_code != null) {
@@ -288,6 +328,74 @@ router.post('/:id/resend-line', async (req, res) => {
   } catch (e) {
     res.status(502).json({ error: `ส่ง LINE ไม่สำเร็จ: ${e.message}` });
   }
+});
+
+// ── ส่งต่อ (10/15 → 15) — "ผู้ก่อปัญหาย่อมเป็นผู้แก้ปัญหา" ─────────────────
+// body: { to_name, to_dept, to_group: '1'..'4'|'worker'|'other', reason }
+// ประวัติเก็บใน form_data.s2_forwards[] (type forward | reclaim); deadline ไม่เริ่มนับใหม่
+router.post('/:id/forward', async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid ID' });
+  const { resolveCarUser } = require('./carAdmin');
+  const u = await resolveCarUser(req).catch(() => null);
+  const db = getDb();
+  const car = db.get('SELECT * FROM car_log WHERE id = ?', [id]);
+  if (!car) return res.status(404).json({ error: 'Not found' });
+  if (![10, 15].includes(car.status_code || 10)) return res.status(409).json({ error: 'ส่งต่อได้เฉพาะใบที่ยังไม่ได้ตอบ' });
+  if (!canHold(u, car)) return res.status(403).json({ error: 'เฉพาะผู้รับปัจจุบัน (หรือผลัดเดียวกัน / Admin) ที่ส่งต่อได้' });
+
+  const toName = String(req.body?.to_name || '').trim();
+  const toDept = String(req.body?.to_dept || '').trim();
+  const reason = String(req.body?.reason || '').trim();
+  if (!toName) return res.status(400).json({ error: 'ต้องระบุผู้รับต่อ' });
+  const h = holderOf(car);
+  if (toName === h.name) return res.status(400).json({ error: 'ผู้รับต่อเป็นคนเดียวกับผู้ถือใบปัจจุบัน' });
+
+  const fd = parseFdObj(car);
+  const at = nowTH();
+  fd.s2_forwards = [...(fd.s2_forwards || []), {
+    type: 'forward', from_name: h.name, from_dept: h.dept, to_name: toName, to_dept: toDept,
+    to_group: req.body?.to_group || null, reason, by: u.name, at,
+  }];
+  db.run(`UPDATE car_log SET status_code = 15, assignee_name = ?, assignee_dept = ?, form_data = ? WHERE id = ?`,
+    [toName, toDept || null, JSON.stringify(fd), id]);
+  db.run("INSERT INTO car_steps (car_id, step, updated_at) VALUES (?, '15', datetime('now'))", [id]);
+  persist();
+
+  const updated = db.get('SELECT * FROM car_log WHERE id = ?', [id]);
+  try { await pushCarMessage(updated, 15, `ส่งต่อจาก ${h.name}${reason ? ` — เหตุผล: ${reason}` : ''}`); }
+  catch (e) { console.warn('[CAR] LINE push failed:', e.message); }
+  res.json({ ok: true, car: updated });
+});
+
+// ── ปลดล็อก (15 → 10): ผู้รับไม้แรกยกเลิกการส่งต่อ แล้วดำเนินการเอง ─────────
+router.post('/:id/reclaim', async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid ID' });
+  const { resolveCarUser } = require('./carAdmin');
+  const u = await resolveCarUser(req).catch(() => null);
+  const db = getDb();
+  const car = db.get('SELECT * FROM car_log WHERE id = ?', [id]);
+  if (!car) return res.status(404).json({ error: 'Not found' });
+  if ((car.status_code || 10) !== 15) return res.status(409).json({ error: 'ใบนี้ไม่ได้อยู่ในสถานะส่งต่อ' });
+  if (!u || !(u.isAdmin || (car.receiver_name && u.name === car.receiver_name))) {
+    return res.status(403).json({ error: 'เฉพาะผู้รับไม้แรก (หรือ Admin) ที่ปลดล็อกได้' });
+  }
+  const h = holderOf(car);
+  const fd = parseFdObj(car);
+  fd.s2_forwards = [...(fd.s2_forwards || []), {
+    type: 'reclaim', from_name: h.name, from_dept: h.dept, to_name: car.receiver_name, to_dept: car.receiver_dept,
+    by: u.name, at: nowTH(),
+  }];
+  db.run('UPDATE car_log SET status_code = 10, assignee_name = NULL, assignee_dept = NULL, form_data = ? WHERE id = ?',
+    [JSON.stringify(fd), id]);
+  db.run("INSERT INTO car_steps (car_id, step, updated_at) VALUES (?, 'reclaim', datetime('now'))", [id]);
+  persist();
+
+  const updated = db.get('SELECT * FROM car_log WHERE id = ?', [id]);
+  try { await pushCarMessage(updated, 10, `ผู้รับไม้แรกปลดล็อก ยกเลิกการส่งต่อให้ ${h.name} — ดำเนินการเอง`); }
+  catch (e) { console.warn('[CAR] LINE push failed:', e.message); }
+  res.json({ ok: true, car: updated });
 });
 
 // แก้ข้อมูลส่วนที่ 1 (ไม่เปลี่ยนสถานะ ไม่ส่ง LINE). ผู้ออกไม่ให้แก้ (ล็อกตามผู้ login ตอนออกใบ)

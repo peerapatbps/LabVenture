@@ -7,9 +7,10 @@ const GROUP_ID = process.env.LINE_GROUP_ID;
 
 const { getFindings, formatFinding } = require('./carFindings');
 
-const STATUS_EMOJI = { 10:'🔵', 20:'🟡', 30:'🟠', 40:'🟣', 50:'🟢', 60:'⬜', 70:'🔴' };
+const STATUS_EMOJI = { 10:'🔵', 15:'🔷', 20:'🟡', 30:'🟠', 40:'🟣', 50:'🟢', 60:'⬜', 70:'🔴' };
 const STATUS_LABEL = {
   10: 'ออกใบแล้ว → รอผู้รับตอบ',
+  15: 'ส่งต่อแล้ว → รอผู้รับต่อตอบ',
   20: 'รออนุมัติ → รอ ผอ.กผจ. เห็นชอบ',
   30: 'รอติดตามผล#1',
   40: 'รอติดตามผล#2',
@@ -20,7 +21,8 @@ const STATUS_LABEL = {
 
 // statusCode can be a number (new system) or legacy string
 // Returns true when LINE accepted the push, false when skipped (not configured); throws on failure
-async function pushCarMessage(car, statusCode) {
+// note: บรรทัดเสริมท้ายข้อความ (เช่น "ส่งต่อให้ … — เหตุผล …")
+async function pushCarMessage(car, statusCode, note = null) {
   if (!TOKEN || !GROUP_ID) {
     console.warn('[LINE] TOKEN or GROUP_ID not configured - skipping push');
     return false;
@@ -45,6 +47,10 @@ async function pushCarMessage(car, statusCode) {
     `สิ่งที่พบ: ${car.parameter_name}`,
     ...findingLines,
     `สถานะ: ${label}`,
+    (code === 10 || code === 15) && (car.assignee_name || car.receiver_name)
+      ? `ผู้รับ${car.assignee_name ? 'ปัจจุบัน' : ''}: ${car.assignee_name || car.receiver_name}${(car.assignee_name ? car.assignee_dept : car.receiver_dept) ? ` (${car.assignee_name ? car.assignee_dept : car.receiver_dept})` : ''}`
+      : null,
+    note,
     car.deadline_at ? `Deadline: ${car.deadline_at}` : null,
   ].filter(Boolean).join('\n');
 

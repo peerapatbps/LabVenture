@@ -103,6 +103,9 @@ function initDb() {
     // ค่าที่พบหลายบรรทัด: JSON [{value, direction:'above'|'below', threshold, unit}]
     // (แถวแรกยัง mirror ลง recorded_value/threshold_* เดิม เพื่อ Event Class / Chem Lab / รายงานเก่า)
     findings: 'TEXT',
+    // ผู้รับปัจจุบันเมื่อมีการส่งต่อ (status 15). NULL = ผู้รับตามข้อ 1.3 (receiver_name) ยังถือใบอยู่
+    assignee_name: 'TEXT',
+    assignee_dept: 'TEXT',
   };
   for (const [col, def] of Object.entries(newCarCols)) {
     if (!carCols.includes(col)) db.run(`ALTER TABLE car_log ADD COLUMN ${col} ${def}`);
