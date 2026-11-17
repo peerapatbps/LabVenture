@@ -680,26 +680,6 @@ function MiniChartsSection({ canCar }) {
   const badIndices = Object.keys(badInfoMap).map(Number);
   const hasBad = badIndices.length > 0;
 
-  const [selectedBad, setSelectedBad] = useState(new Set());
-
-  // Clear selection when filter changes or bad set changes
-  React.useEffect(() => { setSelectedBad(new Set()); }, [activeFilter, badIndices.join(',')]);
-
-  function toggleBad(i) {
-    setSelectedBad(prev => {
-      const next = new Set(prev);
-      next.has(i) ? next.delete(i) : next.add(i);
-      return next;
-    });
-  }
-
-  const { data: carTemplates } = useQuery({
-    queryKey: ['car-templates'],
-    queryFn: () => get('/api/scenarios/car-templates'),
-    staleTime: 60000,
-  });
-  const templateText = carTemplates?.car_templates?.[activeFilter] ?? '';
-
   // Format threshold for display
   function fmtThreshold(r) {
     if (!r) return '';
@@ -708,28 +688,68 @@ function MiniChartsSection({ canCar }) {
     if (r.type === 'min')   return `≥ ${r.min}`;
     return '';
   }
+  // ข้อความ 1 บรรทัดของ chart ที่เกิน (ใช้ข้อมูลของ filter ที่เปิดอยู่)
+  function lineFor(i) {
+    const { startSlot, endSlot, latestVal } = badInfoMap[i] ?? {};
+    const title = def.cards[i]?.title ?? `#${i + 1}`;
+    const timeRange = startSlot && endSlot && startSlot !== endSlot ? `${startSlot}–${endSlot}` : startSlot ?? '';
+    const valStr = latestVal != null ? `${latestVal} ${def.unit}` : '';
+    return `${title} - ${timeRange} - ${valStr} (เกณฑ์: ${fmtThreshold(rules[i])})`;
+  }
 
-  // Build message from selected bad cards
+  // chart ที่เลือกออก CAR — เก็บแยกต่อ filter ({ cw_turbid: { 0: 'line', 2: 'line' }, tw_turbid: {...} })
+  // สลับ CW ↔ TW แล้วไม่ล้าง: ข้อความรวมทุกกลุ่มที่เลือกไว้
+  const [picks, setPicks] = useState({});
+  const selectedBad = new Set(Object.keys(picks[activeFilter] || {}).map(Number));
+  const totalPicks = Object.values(picks).reduce((n, g) => n + Object.keys(g).length, 0);
+
+  // ข้อมูลของ filter ที่เปิดอยู่ refresh → อัปเดตบรรทัดที่เลือกไว้ / ตัดอันที่ไม่เกินเกณฑ์แล้วออก
+  React.useEffect(() => {
+    if (isLoading) return;
+    setPicks(prev => {
+      const g = prev[activeFilter];
+      if (!g) return prev;
+      const next = {};
+      for (const k of Object.keys(g)) if (Number(k) in badInfoMap) next[k] = lineFor(Number(k));
+      return { ...prev, [activeFilter]: next };
+    });
+  }, [activeFilter, isLoading, badIndices.join(','), JSON.stringify(badInfoMap)]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  function toggleBad(i) {
+    setPicks(prev => {
+      const g = { ...(prev[activeFilter] || {}) };
+      if (i in g) delete g[i]; else g[i] = lineFor(i);
+      return { ...prev, [activeFilter]: g };
+    });
+  }
+
+  const { data: carTemplates } = useQuery({
+    queryKey: ['car-templates'],
+    queryFn: () => get('/api/scenarios/car-templates'),
+    staleTime: 60000,
+  });
+
+  // ข้อความรวม: ต่อกลุ่ม (เรียงตามปุ่ม filter) = template ของกลุ่ม + บรรทัด chart ที่เลือก
   const [carMsg, setCarMsg] = useState('');
   React.useEffect(() => {
-    const sel = [...selectedBad].sort();
-    if (sel.length === 0) { setCarMsg(''); return; }
-    const lines = sel.map(i => {
-      const { startSlot, endSlot, latestVal } = badInfoMap[i] ?? {};
-      const title = def.cards[i]?.title ?? `#${i + 1}`;
-      const timeRange = startSlot && endSlot && startSlot !== endSlot
-        ? `${startSlot}–${endSlot}` : startSlot ?? '';
-      const valStr = latestVal != null ? `${latestVal} ${def.unit}` : '';
-      const threshold = fmtThreshold(rules[i]);
-      return `${title} - ${timeRange} - ${valStr} (เกณฑ์: ${threshold})`;
-    });
-    setCarMsg(templateText ? `${templateText}\n${lines.join('\n')}` : lines.join('\n'));
-  }, [selectedBad, templateText, activeFilter]);
+    const blocks = MINI_FILTERS.map(f => {
+      const g = picks[f.key] || {};
+      const idx = Object.keys(g).map(Number).sort((a, b) => a - b);
+      if (!idx.length) return null;
+      const tpl = carTemplates?.car_templates?.[f.key] ?? '';
+      return [tpl, ...idx.map(i => g[i])].filter(Boolean).join('\n');
+    }).filter(Boolean);
+    setCarMsg(blocks.join('\n'));
+  }, [JSON.stringify(picks), carTemplates]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const navigate = useNavigate();
 
   function goCreateCAR() {
     navigate('/car', { state: { prefill: { parameter_name: carMsg } } });
+  }
+  // ฟอร์มออก CAR เปล่า (ไม่ผูกกับ chart)
+  function goBlankCAR() {
+    navigate('/car', { state: { prefill: {} } });
   }
 
   function renderCard(i) {
@@ -804,23 +824,36 @@ function MiniChartsSection({ canCar }) {
         )}
       </div>
 
-      {/* CAR prompt — shown only when any card is BAD */}
-      {hasBad && canCar && (
+      {/* CAR prompt — เลือก chart ที่เกินเกณฑ์ได้หลายกลุ่ม (CW / TW …) รวมในข้อความเดียว · Blank = ฟอร์มเปล่า */}
+      {canCar && (
         <div className="flex gap-2 items-start bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
           <textarea
-            value={carMsg || 'เลือก chart ที่ต้องการออก CAR...'}
+            value={carMsg || (hasBad ? 'เลือก chart ที่ต้องการออก CAR...' : 'ไม่มี chart เกินเกณฑ์ — กด Blank เพื่อออก CAR เปล่า')}
             onChange={e => setCarMsg(e.target.value)}
-            rows={selectedBad.size > 1 ? selectedBad.size + 1 : 2}
-            readOnly={selectedBad.size === 0}
-            className={`flex-1 text-xs border border-red-200 rounded-lg px-2.5 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-red-400 bg-earth-DEFAULT ${selectedBad.size === 0 ? 'text-earth-ink3 italic' : ''}`}
+            rows={Math.max(2, Math.min(10, carMsg.split('\n').length))}
+            readOnly={totalPicks === 0}
+            className={`flex-1 text-xs border border-red-200 rounded-lg px-2.5 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-red-400 bg-earth-DEFAULT ${totalPicks === 0 ? 'text-earth-ink3 italic' : ''}`}
           />
-          <button
-            onClick={goCreateCAR}
-            disabled={selectedBad.size === 0}
-            className="shrink-0 px-3 py-1.5 bg-red-500 hover:bg-red-600 disabled:opacity-30 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg transition-colors"
-          >
-            + CAR
-          </button>
+          <div className="shrink-0 flex flex-col gap-1.5 w-16">
+            <button
+              onClick={goCreateCAR}
+              disabled={totalPicks === 0}
+              className="px-3 py-1.5 bg-red-500 hover:bg-red-600 disabled:opacity-30 disabled:cursor-not-allowed text-white text-xs font-bold rounded-lg transition-colors"
+            >
+              + CAR
+            </button>
+            <button
+              onClick={goBlankCAR}
+              title="ออก CAR ใหม่แบบไม่ผูกกับ chart"
+              className="px-3 py-1.5 bg-white hover:bg-red-100 border border-red-300 text-red-600 text-xs font-bold rounded-lg transition-colors"
+            >
+              Blank
+            </button>
+            {totalPicks > 0 && (
+              <button onClick={() => setPicks({})} title="ล้างการเลือกทุกกลุ่ม"
+                className="text-[11px] text-red-500 hover:text-red-700 hover:underline">ล้าง ({totalPicks})</button>
+            )}
+          </div>
         </div>
       )}
     </div>
