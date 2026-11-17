@@ -783,10 +783,7 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
               {/* ฟอร์มส่งต่อ (กางในการ์ดเดียวกัน) */}
               {canAct && fwdOpen && (
                 <div className="mx-4 mb-3 rounded-xl bg-white border border-sky-200 p-3 space-y-3 shadow-sm">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <p className="text-sm font-semibold text-sky-900">↪ ส่งต่อให้ผู้อื่นเป็นผู้ตอบ</p>
-                    <p className="text-[11px] italic text-sky-600">ผู้ก่อปัญหาย่อมเป็นผู้แก้ปัญหา</p>
-                  </div>
+                  <p className="text-sm font-semibold text-sky-900">↪ ส่งต่อให้ผู้อื่นเป็นผู้ตอบ</p>
                   <div className="grid grid-cols-[8.5rem_minmax(0,1.4fr)_minmax(0,1fr)] gap-2">
                     <PersonRow row={fwd} onChange={setFwd} receivers={receivers} defaultHead label="ส่งต่อให้" />
                   </div>
