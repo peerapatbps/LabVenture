@@ -1084,7 +1084,7 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
                     <Txt label="การดำเนินการ" name="s5_action" value={s5.s5_action}
                       onChange={e => setS5(p => ({ ...p, s5_action: e.target.value }))} rows={2} />
                     <div className="grid grid-cols-2 gap-3">
-                      <Inp label="ผู้อนุมัติ (ผอ.ฝ.) *" name="s5_approver" value={s5.s5_approver}
+                      <Inp label="ผู้อนุมัติ (ผอ.ฝผม.) *" name="s5_approver" value={s5.s5_approver}
                         onChange={e => setS5(p => ({ ...p, s5_approver: e.target.value }))}
                         readOnly={isG3b && !!cu.name} />
                       <Inp label="วันที่" name="s5_approved_at" type="date"
@@ -1108,7 +1108,7 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
                     {fd.s5_action && <Field label="การดำเนินการ" value={fd.s5_action} />}
                     {fd.s5_approver && (
                       <p className="text-xs text-earth-ink3">
-                        {fd.s5_approver} (ผอ.ฝ.){fd.s5_approved_at ? ` · ${fmtDate(fd.s5_approved_at)}` : ''}
+                        {fd.s5_approver} (ผอ.ฝผม.){fd.s5_approved_at ? ` · ${fmtDate(fd.s5_approved_at)}` : ''}
                       </p>
                     )}
                   </div>
