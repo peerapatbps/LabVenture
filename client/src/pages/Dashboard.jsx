@@ -747,10 +747,6 @@ function MiniChartsSection({ canCar }) {
   function goCreateCAR() {
     navigate('/car', { state: { prefill: { parameter_name: carMsg } } });
   }
-  // ฟอร์มออก CAR เปล่า (ไม่ผูกกับ chart)
-  function goBlankCAR() {
-    navigate('/car', { state: { prefill: {} } });
-  }
 
   function renderCard(i) {
     const isBad = i in badInfoMap;
@@ -824,11 +820,11 @@ function MiniChartsSection({ canCar }) {
         )}
       </div>
 
-      {/* CAR prompt — เลือก chart ที่เกินเกณฑ์ได้หลายกลุ่ม (CW / TW …) รวมในข้อความเดียว · Blank = ฟอร์มเปล่า */}
-      {canCar && (
+      {/* CAR prompt — เลือก chart ที่เกินเกณฑ์ได้หลายกลุ่ม (CW / TW …) รวมในข้อความเดียว · Blank = ล้าง */}
+      {canCar && (hasBad || totalPicks > 0) && (
         <div className="flex gap-2 items-start bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
           <textarea
-            value={carMsg || (hasBad ? 'เลือก chart ที่ต้องการออก CAR...' : 'ไม่มี chart เกินเกณฑ์ — กด Blank เพื่อออก CAR เปล่า')}
+            value={carMsg || (hasBad ? 'เลือก chart ที่ต้องการออก CAR...' : 'ไม่มี chart เกินเกณฑ์')}
             onChange={e => setCarMsg(e.target.value)}
             rows={Math.max(2, Math.min(10, carMsg.split('\n').length))}
             readOnly={totalPicks === 0}
@@ -842,17 +838,15 @@ function MiniChartsSection({ canCar }) {
             >
               + CAR
             </button>
+            {/* Blank = ล้างข้อความ + การเลือก chart ทุกกลุ่ม (อยู่หน้าเดิม) */}
             <button
-              onClick={goBlankCAR}
-              title="ออก CAR ใหม่แบบไม่ผูกกับ chart"
-              className="px-3 py-1.5 bg-white hover:bg-red-100 border border-red-300 text-red-600 text-xs font-bold rounded-lg transition-colors"
+              onClick={() => { setPicks({}); setCarMsg(''); }}
+              disabled={totalPicks === 0 && !carMsg}
+              title="ล้างข้อความและการเลือก chart ทุกกลุ่ม"
+              className="px-3 py-1.5 bg-white hover:bg-red-100 border border-red-300 text-red-600 text-xs font-bold rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               Blank
             </button>
-            {totalPicks > 0 && (
-              <button onClick={() => setPicks({})} title="ล้างการเลือกทุกกลุ่ม"
-                className="text-[11px] text-red-500 hover:text-red-700 hover:underline">ล้าง ({totalPicks})</button>
-            )}
           </div>
         </div>
       )}
