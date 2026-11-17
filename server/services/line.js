@@ -42,18 +42,18 @@ function summarizeFinding(car) {
   return head.length > 80 ? `${head.slice(0, 78)}…` : head;
 }
 
-// ผู้รับผิดชอบ = ผู้ถือใบปัจจุบัน (ส่งต่อแล้วใช้ assignee) → "ผลัด 4 (สคน4กผจ.ฝผม.)" / ส่วนกอง / ชื่อ
+// ผู้รับผิดชอบ = ผู้ถือใบปัจจุบัน (ส่งต่อแล้วใช้ assignee) → "ผลัด 4" / ส่วนกอง / ชื่อ
 function responsibleText(car) {
   const dept = car.assignee_name ? car.assignee_dept : car.receiver_dept;
   const name = car.assignee_name || car.receiver_name;
   const shift = /สคน(\d)กผจ/.exec(dept || '')?.[1];
-  if (shift) return `ผลัด ${shift} (${dept})`;
+  if (shift) return `ผลัด ${shift}`;
   return dept || name || null;
 }
 
 // 🔴 [CAR #70] HA 03/2570
 // CW Turbid #1, #2, #3 และ #4 เกินเกณฑ์
-// ผู้รับผิดชอบ: ผลัด 4 (สคน4กผจ.ฝผม.)
+// ผู้รับผิดชอบ: ผลัด 4
 // สถานะ: ตีกลับ ต้องออกใบใหม่
 // [note — เช่น ส่งต่อ / ประเด็นเข้าที่ประชุม]
 function buildCarMessage(car, code, note = null) {
