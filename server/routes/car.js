@@ -62,11 +62,15 @@ const shiftOfDept = dept => Number(/สคน(\d)กผจ/.exec(dept || '')?.[1
 // ทำแทนผู้ถือใบได้ไหม (ตอบ / ส่งต่อ): Admin · ชื่อตรงผู้ถือ · กลุ่ม 2 ผลัดเดียวกับผู้ถือ · bypass operator (โหมดออฟไลน์)
 function canHold(u, car) {
   if (!u) return false;
-  if (u.isAdmin) return true;
   const h = holderOf(car);
   if (h.name && u.name === h.name) return true;
-  // ผู้รับไม้แรกที่ส่งต่อไปแล้ว ต้อง "ปลดล็อก" ก่อน ถึงจะทำเองได้
-  if ((car.status_code || 10) === 15 && car.receiver_name && u.name === car.receiver_name) return false;
+  // คนที่ส่งต่อใบนี้ไปแล้ว (ผู้รับไม้แรก + ทุกทอด) ถูกล็อก แม้เป็น Admin — ผู้รับไม้แรกต้อง "ปลดล็อก" ก่อน
+  if ((car.status_code || 10) === 15 && u.name) {
+    const fwds = parseFdObj(car).s2_forwards || [];
+    const forwardedBy = new Set([car.receiver_name, ...fwds.filter(f => f.type === 'forward').map(f => f.from_name)]);
+    if (forwardedBy.has(u.name)) return false;
+  }
+  if (u.isAdmin) return true;
   const groups = u.groups || (u.group ? [u.group] : []);
   if (!groups.includes('2')) return false;
   if (u.bypass) return true;

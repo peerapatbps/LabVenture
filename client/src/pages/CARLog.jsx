@@ -576,7 +576,7 @@ function ForwardedLockDialog({ holder, forwardedAt, onUnlock, onClose }) {
 
 // ─── Slide panel ──────────────────────────────────────────────────────────
 
-function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDelete, onForward, onReclaim }) {
+function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDelete, onForward, onReclaim, justForwarded = false }) {
   const code = car.status_code || 10;
   const fd = parseFd(car);
 
@@ -596,12 +596,16 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
   const forwards = Array.isArray(fd.s2_forwards) ? fd.s2_forwards : [];
   const lastForward = [...forwards].reverse().find(f => f.type === 'forward');
   const holderShift = Number(/สคน(\d)กผจ/.exec(holder.dept)?.[1]) || null;
-  // ผู้รับไม้แรกเปิดใบที่ส่งต่อไปแล้ว → popup กลางจอ + ปลดล็อกได้ (Admin ไม่ถูกล็อก)
-  const isFirstReceiverLocked = code === 15 && !cu.isAdmin && !!cu.name && cu.name === car.receiver_name && cu.name !== holder.name;
+  // คนที่ส่งต่อใบนี้ไปแล้ว (ผู้รับไม้แรก + ทุกทอด) ถูกล็อก — แม้เป็น Admin — จนกว่าจะปลดล็อก
+  const forwardedBy = new Set([car.receiver_name, ...forwards.filter(f => f.type === 'forward').map(f => f.from_name)].filter(Boolean));
+  const isChainLocked = code === 15 && !!cu.name && forwardedBy.has(cu.name) && cu.name !== holder.name;
+  // ผู้รับไม้แรก → popup กลางจอ + ปลดล็อกได้
+  const isFirstReceiverLocked = isChainLocked && cu.name === car.receiver_name;
   // ตอบ/ส่งต่อได้: Admin · ผู้ถือใบ · กลุ่ม 2 ผลัดเดียวกับผู้ถือ (เหมือนกติกาฝั่ง server canHold)
-  const canAct = !isObserver && (cu.isAdmin || (!isFirstReceiverLocked && ((!!cu.name && cu.name === holder.name)
-    || (cuGroups.includes('2') && (cu.bypass || (!!holderShift && Number(cu.shift) === holderShift))))));
-  const [lockOpen, setLockOpen] = useState(isFirstReceiverLocked);
+  const canAct = !isObserver && !isChainLocked && (cu.isAdmin || (!!cu.name && cu.name === holder.name)
+    || (cuGroups.includes('2') && (cu.bypass || (!!holderShift && Number(cu.shift) === holderShift))));
+  // popup ขึ้นตอนเปิดใบ — ไม่ขึ้นทันทีหลังเพิ่งกดส่งต่อเอง (มี toast บอกแล้ว)
+  const [lockOpen, setLockOpen] = useState(isFirstReceiverLocked && !justForwarded);
   const [fwdOpen, setFwdOpen] = useState(false);
   const [fwd, setFwd] = useState(blankPerson());
   const [fwdReason, setFwdReason] = useState('');
@@ -872,7 +876,8 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
             </div>
             ) : (
               <p className="px-1 text-sm text-earth-ink3">
-                {isFirstReceiverLocked ? 'ใบนี้ถูกส่งต่อแล้ว — ดูได้อย่างเดียว (กด "ปลดล็อก" เพื่อดำเนินการเอง)' : 'รอผู้รับตอบ'}
+                {isFirstReceiverLocked ? 'ใบนี้ถูกส่งต่อแล้ว — ดูได้อย่างเดียว (กด "ปลดล็อก" เพื่อดำเนินการเอง)'
+                  : isChainLocked ? `คุณส่งต่อใบนี้ให้ ${holder.name} แล้ว — ดูได้อย่างเดียว` : 'รอผู้รับตอบ'}
               </p>
             )
           ) : (
@@ -1444,10 +1449,12 @@ export default function CARLog() {
     setTab('list');
   }
   // ส่วนที่ 2: ส่งต่อ / ปลดล็อก
+  const [justForwardedId, setJustForwardedId] = useState(null);   // ใบที่เพิ่งกดส่งต่อใน panel นี้ → ไม่เด้ง popup ล็อกซ้ำ
   async function handleForward(car, body) {
     try {
       const r = await post(`/api/car/${car.id}/forward`, body);
       qc.invalidateQueries({ queryKey: ['cars'] });
+      setJustForwardedId(car.id);
       if (r?.car) setSelectedCar(r.car);
       showToast(`ส่งต่อให้ ${body.to_name} แล้ว`);
     } catch (e) { showToast(e.message || 'ส่งต่อไม่สำเร็จ', true); }
@@ -1878,8 +1885,9 @@ export default function CARLog() {
           car={selectedCar}
           onForward={handleForward}
           onReclaim={handleReclaim}
+          justForwarded={justForwardedId === selectedCar.id}
           carUser={myRole}
-          onClose={() => setSelectedCar(null)}
+          onClose={() => { setSelectedCar(null); setJustForwardedId(null); }}
           saving={updateMutation.isPending}
           onUpdate={(id, data) => updateMutation.mutate({ id, ...data })}
           onEdit={startEdit}
