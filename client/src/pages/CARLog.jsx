@@ -1030,14 +1030,17 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
                         <div className="grid grid-cols-2 gap-3">
                           <Inp label="กำหนดติดตามครั้งที่ 2 *" name="s4_check2_deadline" type="date"
                             value={s4a.s4_check2_deadline} onChange={e => setS4a(p => ({ ...p, s4_check2_deadline: e.target.value }))} />
-                          <Inp label="ผู้รับผิดชอบ" name="s4_check2_owner"
-                            value={s4a.s4_check2_owner} onChange={e => setS4a(p => ({ ...p, s4_check2_owner: e.target.value }))} />
+                          {/* ผู้รับผิดชอบติดตามครั้งที่ 2 = ผู้ติดตามครั้งที่ 1 (อัตโนมัติ) */}
+                          <Inp label="ผู้รับผิดชอบ" name="s4_check2_owner" value={s4a.s4_check1_by} readOnly />
                         </div>
                       </div>
                     )}
                     {!isObserver && isG1 && (
                       <SaveBtn
-                        onClick={() => onUpdate(car.id, { status_code: c1Next, form_data: s4a })}
+                        onClick={() => onUpdate(car.id, {
+                          status_code: c1Next,
+                          form_data: { ...s4a, s4_check2_owner: c1Next === 40 ? s4a.s4_check1_by : '' },
+                        })}
                         disabled={saving || !s4a.s4_check1_result || !s4a.s4_check1_by || !s4a.s4_check1_items.length
                           || (c1Next === 40 && !s4a.s4_check2_deadline)}
                         color={c1Next === 50 ? 'bg-teal-600 hover:bg-teal-700' : 'bg-purple-600 hover:bg-purple-700'}>
