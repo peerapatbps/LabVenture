@@ -616,8 +616,9 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
   const cuGroups = cu.groups || (cu.group ? [cu.group] : []);
   const isG1 = cuGroups.includes('1') || cu.isAdmin;
   const isG2 = cuGroups.includes('2') || cu.isAdmin;
-  const isG3a = cuGroups.includes('3a') || cu.isAdmin;
-  const isG3b = cuGroups.includes('3b') || cu.isAdmin;
+  // อนุมัติ (20) = กลุ่ม 3A เท่านั้น · พิจารณาปิด (50) = กลุ่ม 3B เท่านั้น — Admin ทำแทนไม่ได้
+  const isG3a = cuGroups.includes('3a');
+  const isG3b = cuGroups.includes('3b');
   const isObserver = !!cu.isObserver;
 
   // ── ผู้ถือใบ / ส่งต่อ (status 15) ──

@@ -231,6 +231,19 @@ router.patch('/:id', async (req, res) => {
 
   const { status_code, form_data, followup2_deadline, ...rest } = req.body;
 
+  // อนุมัติ (20 → 30) = กลุ่ม 3A เท่านั้น · พิจารณาปิด/ตีกลับ (50 → 60/70) = กลุ่ม 3B เท่านั้น (Admin ทำแทนไม่ได้)
+  const from = car.status_code || 10;
+  const needGroup = from === 20 && status_code === 30 ? '3a'
+    : from === 50 && (status_code === 60 || status_code === 70) ? '3b' : null;
+  if (needGroup) {
+    const { resolveCarUser } = require('./carAdmin');
+    const u = await resolveCarUser(req).catch(() => null);
+    const groups = u?.groups || (u?.group ? [u.group] : []);
+    if (!groups.includes(needGroup)) {
+      return res.status(403).json({ error: needGroup === '3a' ? 'อนุมัติได้เฉพาะกลุ่ม 3A (ผอ.กผจ.)' : 'พิจารณาปิดได้เฉพาะกลุ่ม 3B (ผอ.ฝผม.)' });
+    }
+  }
+
   // ตอบส่วนที่ 2 (10/15 → 20): เฉพาะผู้ถือใบปัจจุบัน / คนในผลัดเดียวกัน / Admin
   // สถานะ 15 → ผู้รับเดิมตอบไม่ได้จนกว่าจะ "ปลดล็อก" (POST /:id/reclaim)
   if (status_code === 20 && [10, 15].includes(car.status_code || 10)) {
