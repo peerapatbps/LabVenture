@@ -5,6 +5,7 @@ const { pushCarMessage } = require('../services/line');
 const { fetchUserProfile } = require('../services/aquadat');
 const { createCar, nextCarNumber } = require('../services/carCreate');
 const { isSuperadminIdentity } = require('../services/actor');
+const { normalizeFindings } = require('../services/carFindings');
 
 // ── attachCarUser middleware ───────────────────────────────────────────────
 async function attachCarUser(req, res, next) {
@@ -57,8 +58,9 @@ function roleFilter(cu) {
   if (!cu || cu.isAdmin || groups.includes('1')) return { where: '', params };
   const conditions = [];
   if (groups.includes('2')) {
-    conditions.push(`(receiver_name = ? OR (receiver_dept LIKE ? AND receiver_dept LIKE ?))`);
-    params.push(cu.name, '%สคน.%', `%ผลัด ${cu.shift}%`);
+    // ผู้รับเป็นชื่อตัวเอง · หน่วยงานเดิม "…สคน. … ผลัด n" · หรือหน่วยงานจาก whitelist "สคน{n}กผจ.ฝผม." (ฟอร์มสร้าง CAR ใหม่)
+    conditions.push(`(receiver_name = ? OR (receiver_dept LIKE ? AND receiver_dept LIKE ?) OR receiver_dept LIKE ?)`);
+    params.push(cu.name, '%สคน.%', `%ผลัด ${cu.shift}%`, cu.shift ? `%สคน${cu.shift}กผจ.%` : '\u0000');
   }
   if (groups.includes('3a')) {
     conditions.push(`(status_code = 20 OR form_data LIKE ?)`);
@@ -251,6 +253,95 @@ router.patch('/:id', async (req, res) => {
 
   persist();
   res.json({ ok: true, car: updated });
+});
+
+// ── Admin: แก้ส่วนที่ 1 / ลบ CAR ───────────────────────────────────────────
+// ใช้ resolveCarUser ของ carAdmin (รองรับ bypass superadmin) — attachCarUser ด้านบนไม่รู้จัก bypass
+async function requireCarAdmin(req, res, next) {
+  try {
+    const { resolveCarUser } = require('./carAdmin');
+    const u = await resolveCarUser(req);
+    if (!u?.isAdmin) return res.status(403).json({ error: 'เฉพาะ Admin เท่านั้น' });
+    req.carAdminUser = u;
+    next();
+  } catch (e) { res.status(500).json({ error: e.message }); }
+}
+
+// ส่ง LINE ซ้ำ (ข้อความตามสถานะปัจจุบัน) — ผู้ใช้ที่ login แล้ว (ไม่ใช่ผู้สังเกตการณ์)
+router.post('/:id/resend-line', async (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid ID' });
+  try {
+    const { resolveCarUser } = require('./carAdmin');
+    const u = await resolveCarUser(req);
+    if (!u || u.isObserver) return res.status(403).json({ error: 'ไม่มีสิทธิ์ส่ง LINE' });
+    const db = getDb();
+    const car = db.get('SELECT * FROM car_log WHERE id = ?', [id]);
+    if (!car) return res.status(404).json({ error: 'Not found' });
+    const sent = await pushCarMessage(car, car.status_code || 10);
+    if (!sent) return res.status(503).json({ error: 'ยังไม่ได้ตั้งค่า LINE (token / group) ที่ server' });
+    const at = nowTH();
+    db.run('UPDATE car_log SET line_sent_at = ? WHERE id = ?', [at, id]);
+    persist();
+    console.log(`[CAR] LINE re-sent for #${id} (${car.car_number || car.unique_key}) by ${u.name}`);
+    res.json({ ok: true, line_sent_at: at });
+  } catch (e) {
+    res.status(502).json({ error: `ส่ง LINE ไม่สำเร็จ: ${e.message}` });
+  }
+});
+
+// แก้ข้อมูลส่วนที่ 1 (ไม่เปลี่ยนสถานะ ไม่ส่ง LINE). ผู้ออกไม่ให้แก้ (ล็อกตามผู้ login ตอนออกใบ)
+router.put('/:id/section1', requireCarAdmin, (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid ID' });
+  const db = getDb();
+  const car = db.get('SELECT * FROM car_log WHERE id = ?', [id]);
+  if (!car) return res.status(404).json({ error: 'Not found' });
+
+  const b = req.body || {};
+  if (!b.parameter_name || !b.record_datetime) return res.status(400).json({ error: 'ต้องมีเรื่องที่พบ และวันที่-เวลาที่พบ' });
+  const type = b.car_type || car.car_type || 'CAR';
+  const carNumber = String(b.car_number ?? '').trim() || null;
+  if (carNumber && db.get('SELECT id FROM car_log WHERE car_number = ? AND car_type = ? AND id <> ?', [carNumber, type, id])) {
+    return res.status(409).json({ error: `เลข ${type} ${carNumber} ถูกใช้แล้ว` });
+  }
+  const findings = normalizeFindings(b.findings);
+  const f0 = findings[0] || null;
+
+  db.run(
+    `UPDATE car_log SET car_number = ?, car_type = ?, system_type = ?, issue_type = ?, parameter_name = ?,
+       record_datetime = ?, receiver_name = ?, receiver_dept = ?,
+       findings = ?, recorded_value = ?, threshold_value = ?, threshold_direction = ?
+     WHERE id = ?`,
+    [carNumber, type, b.system_type || null, b.issue_type || null, b.parameter_name,
+     b.record_datetime, b.receiver_name || null, b.receiver_dept || null,
+     findings.length ? JSON.stringify(findings) : null, f0?.value ?? null, f0?.threshold ?? null, f0?.direction ?? null,
+     id]
+  );
+  db.run("INSERT INTO car_steps (car_id, step, updated_at) VALUES (?, 'edited', datetime('now'))", [id]);
+  console.log(`[CAR] section 1 of #${id} (${carNumber || car.unique_key}) edited by ${req.carAdminUser.name}`);
+  persist();
+  res.json({ ok: true, car: db.get('SELECT * FROM car_log WHERE id = ?', [id]) });
+});
+
+// ลบ CAR ถาวร (+ ประวัติ car_steps). เหตุการณ์แจ้งเตือนที่ผูกอยู่ → กลับเป็น pending ให้ออกใหม่ได้
+router.delete('/:id', requireCarAdmin, (req, res) => {
+  const id = parseInt(req.params.id);
+  if (isNaN(id)) return res.status(400).json({ error: 'Invalid ID' });
+  const db = getDb();
+  const car = db.get('SELECT * FROM car_log WHERE id = ?', [id]);
+  if (!car) return res.status(404).json({ error: 'Not found' });
+  db.run('DELETE FROM car_steps WHERE car_id = ?', [id]);
+  db.run('DELETE FROM car_log WHERE id = ?', [id]);
+  let occ = 0;
+  try {
+    occ = db.get('SELECT COUNT(*) AS n FROM event_occurrences WHERE car_key = ?', [car.unique_key]).n;
+    db.run("UPDATE event_occurrences SET car_status = 'pending', car_key = NULL, car_note = ? WHERE car_key = ?",
+      [`CAR ${car.car_number || car.unique_key} ถูกลบ`, car.unique_key]);
+  } catch { /* ตาราง event_occurrences อาจยังไม่มีในบาง DB */ }
+  console.log(`[CAR] #${id} (${car.car_number || car.unique_key}) deleted by ${req.carAdminUser.name}`);
+  persist();
+  res.json({ ok: true, deleted: id, event_occurrences_reset: occ });
 });
 
 // Get single by numeric ID

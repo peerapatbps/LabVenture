@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const JSZip = require('jszip');
 const { fiscalYearBE } = require('./carCreate');
+const { getFindings, formatFinding } = require('./carFindings');
 
 const TEMPLATE_DIR = path.join(__dirname, '..', 'templates');
 const CAR_FORM = 'F-MS-QSHE-สบค-08 Rev02.xlsx';
@@ -145,10 +146,9 @@ const idx = (v, list) => { const i = list.indexOf(v); return i < 0 ? null : i; }
 function findingText(car) {
   // ≥/≤ have no glyph in the form's Thai fonts (Excel falls back to an oversized one)
   let t = String(car.parameter_name || '').replace(/\s*≥\s*/g, ' ไม่ต่ำกว่า ').replace(/\s*≤\s*/g, ' ไม่เกิน ');
-  if (car.recorded_value != null) {
-    const dir = car.threshold_direction === 'below' ? 'ไม่ต่ำกว่า' : 'ไม่เกิน';
-    t += ` — ค่าที่พบ ${car.recorded_value}${car.threshold_value != null ? ` (เกณฑ์ ${dir} ${car.threshold_value})` : ''}`;
-  }
+  const findings = getFindings(car);
+  if (findings.length === 1) t += ` — ค่าที่พบ ${formatFinding(findings[0], 'thai')}`;
+  else if (findings.length > 1) t += ` — ค่าที่พบ ${findings.map((f, i) => `${i + 1}) ${formatFinding(f, 'thai')}`).join(' ; ')}`;
   return t;
 }
 

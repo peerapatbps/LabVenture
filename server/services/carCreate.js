@@ -2,6 +2,7 @@
 const { getDb, persist, nowTH } = require('./db');
 const { pushCarMessage } = require('./line');
 const { v4: uuidv4 } = require('uuid');
+const { normalizeFindings } = require('./carFindings');
 
 function addWorkingDays(dateStr, days) {
   const d = new Date(dateStr);
@@ -44,6 +45,15 @@ async function createCar(fields, issuer = {}) {
     record_datetime, notes,
   } = fields;
 
+  // ค่าที่พบหลายบรรทัด (findings[]) — ถ้า caller เก่า (Event Class / Chem Lab) ส่งแค่ค่าเดียว ก็ห่อเป็น 1 บรรทัด
+  let findings = normalizeFindings(fields.findings);
+  if (!findings.length) {
+    findings = normalizeFindings([{
+      value: recorded_value, direction: threshold_direction, threshold: threshold_value, unit: fields.unit,
+    }]);
+  }
+  const f0 = findings[0] || null;   // mirror แถวแรกลงคอลัมน์เดิม
+
   // number + insert run with no await in between → no other request can take the same number
   const type = car_type || 'CAR';
   let car_number = String(fields.car_number || '').trim() || null;
@@ -61,15 +71,16 @@ async function createCar(fields, issuer = {}) {
        parameter_name, issuer_name, issuer_dept, receiver_name, receiver_dept,
        configparam_id, plant_id, station_code,
        recorded_value, threshold_value, threshold_direction, scenario_id,
-       record_datetime, deadline_at, notes, status_code)
-     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,10)`,
+       record_datetime, deadline_at, notes, findings, status_code)
+     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,10)`,
     [
       unique_key, car_number, type, system_type || null, issue_type || null,
       parameter_name, issuer.name || issuer_name || null, issuer.dept || issuer_dept || null,
       receiver_name || null, receiver_dept || null,
       configparam_id || null, plant_id || null, station_code || null,
-      recorded_value || null, threshold_value || null, threshold_direction || null, scenario_id || null,
+      f0?.value ?? null, f0?.threshold ?? null, f0 ? f0.direction : (threshold_direction || null), scenario_id || null,
       record_datetime, deadline_at, notes || null,
+      findings.length ? JSON.stringify(findings) : null,
     ]
   );
 

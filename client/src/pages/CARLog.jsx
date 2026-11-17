@@ -1,8 +1,9 @@
 ﻿import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { get, post, patch, del, BASE } from '../api.js';
+import { get, post, put, patch, del, BASE } from '../api.js';
 import { CAR_PREFIXES } from '../config/carPrefixes.js';
+import { CAR_UNITS, CAR_UNIT_OTHER } from '../config/carUnits.js';
 
 // ─── Status system ─────────────────────────────────────────────────────────
 
@@ -204,7 +205,18 @@ function MiniCalendar({ year, month, events, selectedDate, onDateClick }) {
 
 // ─── Car card ─────────────────────────────────────────────────────────────
 
-function CarCard({ car, onClick }) {
+// โลโก้ LINE (ฟองคำพูดสีขาวบนพื้นเขียว)
+function LineIcon({ className = 'w-4 h-4' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <rect width="24" height="24" rx="5.5" fill="#06C755" />
+      <path fill="#fff" d="M12 4.6c-4.3 0-7.8 2.8-7.8 6.3 0 3.1 2.8 5.7 6.5 6.2.3.1.6.2.7.4.1.2.1.5 0 .7l-.1.7c0 .2-.2.8.7.4.9-.4 4.8-2.8 6.5-4.8 1.2-1.3 1.7-2.6 1.7-4 0-3.1-3.5-5.9-8.2-5.9z" />
+      <path fill="#06C755" d="M7.3 12.9h1.6c.2 0 .3-.1.3-.3s-.1-.3-.3-.3H7.7V9.5c0-.2-.1-.3-.3-.3s-.3.1-.3.3v3.1c0 .2.1.3.2.3zm2.6-3.4c-.2 0-.3.1-.3.3v3.1c0 .2.1.3.3.3s.3-.1.3-.3V9.8c0-.2-.1-.3-.3-.3zm3.8 0c-.2 0-.3.1-.3.3v1.9l-1.6-2.1c-.1-.1-.2-.1-.3-.1-.2 0-.3.1-.3.3v3.1c0 .2.1.3.3.3s.3-.1.3-.3v-1.9l1.6 2.1c.1.1.2.1.3.1.2 0 .3-.1.3-.3V9.8c0-.2-.1-.3-.3-.3zm2.5 1.1c.2 0 .3-.1.3-.3s-.1-.3-.3-.3h-1.6c-.2 0-.3.1-.3.3v3.1c0 .2.1.3.3.3h1.6c.2 0 .3-.1.3-.3s-.1-.3-.3-.3h-1.3v-.6h1.3c.2 0 .3-.1.3-.3s-.1-.3-.3-.3h-1.3v-.6h1.3z" />
+    </svg>
+  );
+}
+
+function CarCard({ car, onClick, onResendLine, onCopyUrl }) {
   const code = car.status_code || 10;
   const st = STATUS[code] || STATUS[10];
   const overdue = isOverdue(car.deadline_at, code);
@@ -236,7 +248,22 @@ function CarCard({ car, onClick }) {
       {/* Row 3: progress · ใบ CAR (สบค-08) files — clicks here must not open the slide panel */}
       <div className="flex items-end justify-between gap-2">
         <ProgressStages car={car} />
-        <span onClick={e => e.stopPropagation()}>
+        <span onClick={e => e.stopPropagation()} className="flex items-center gap-1.5">
+          {onResendLine && (
+            <button type="button" onClick={() => onResendLine(car)} title="ส่ง LINE ซ้ำ (re-send)"
+              className="w-7 h-7 flex items-center justify-center rounded-lg border border-earth-border bg-white hover:bg-green-50 hover:border-green-300">
+              <LineIcon />
+            </button>
+          )}
+          {onCopyUrl && (
+            <button type="button" onClick={() => onCopyUrl(car)} title="คัดลอก URL ของ CAR นี้"
+              className="w-7 h-7 flex items-center justify-center rounded-lg border border-earth-border bg-white text-earth-ink2 hover:bg-earth-card">
+              <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
+                <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
+              </svg>
+            </button>
+          )}
           <FileButtons url={fmt => carFormUrl(car.id, fmt)} />
         </span>
       </div>
@@ -244,9 +271,112 @@ function CarCard({ car, onClick }) {
   );
 }
 
+// คัดลอกข้อความ — navigator.clipboard ใช้ได้เฉพาะ https/localhost; เครื่อง deploy เป็น http → fallback execCommand
+async function copyText(text) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return true; }
+  } catch { /* fall back */ }
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch { ok = false; }
+  document.body.removeChild(ta);
+  return ok;
+}
+
+// dialog ยืนยันการส่ง LINE ซ้ำ / ลบ CAR — แสดงสรุปใบ CAR ให้เห็นก่อนกด
+function CarConfirmDialog({ kind, car, onConfirm, onCancel }) {
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape' && !busy) onCancel(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [busy, onCancel]);
+
+  const isLine = kind === 'line';
+  const code = car.status_code || 10;
+  const st = STATUS[code] || STATUS[10];
+  const run = async () => { setBusy(true); try { await onConfirm(); } finally { setBusy(false); } };
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={() => !busy && onCancel()} />
+      <div role="dialog" aria-modal="true"
+        className="relative w-full max-w-md bg-earth-card rounded-2xl shadow-2xl border border-earth-border overflow-hidden">
+        {/* header */}
+        <div className={`flex items-center gap-3 px-5 py-4 border-b ${isLine ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
+          {isLine
+            ? <LineIcon className="w-9 h-9 shrink-0" />
+            : <span className="w-9 h-9 shrink-0 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-lg">🗑</span>}
+          <div>
+            <h3 className={`font-semibold ${isLine ? 'text-green-900' : 'text-red-900'}`}>
+              {isLine ? 'ส่งแจ้งเตือน LINE ซ้ำ' : 'ลบ CAR ถาวร'}
+            </h3>
+            <p className={`text-xs ${isLine ? 'text-green-700' : 'text-red-700'}`}>
+              {isLine ? 'ข้อความตามสถานะปัจจุบันจะถูกส่งเข้ากลุ่ม LINE' : 'ลบทั้งใบและประวัติสถานะ — กู้คืนไม่ได้'}
+            </p>
+          </div>
+        </div>
+
+        {/* CAR summary */}
+        <div className="px-5 py-4 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-semibold text-earth-ink">{car.car_number || '(ยังไม่ระบุเลข)'}</span>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${st.color}`}>{st.label}</span>
+          </div>
+          {car.parameter_name && <p className="text-sm text-earth-ink line-clamp-2">{car.parameter_name}</p>}
+          <div className="text-xs text-earth-ink3 space-y-0.5">
+            {car.receiver_name && <p>ผู้รับ: {car.receiver_name}{car.receiver_dept ? ` (${car.receiver_dept})` : ''}</p>}
+            <p>ออกใบ: {fmtDate(car.issued_at)}{car.line_sent_at ? ` · ส่ง LINE ล่าสุด: ${String(car.line_sent_at).slice(0, 16).replace('T', ' ')}` : ''}</p>
+          </div>
+        </div>
+
+        {/* actions */}
+        <div className="flex justify-end gap-2 px-5 py-3 bg-earth-DEFAULT border-t border-earth-border">
+          {/* ลบ: โฟกัสที่ "ยกเลิก" กัน Enter แล้วลบโดยไม่ตั้งใจ */}
+          <button type="button" onClick={onCancel} disabled={busy} autoFocus={!isLine}
+            className="px-4 py-2 rounded-lg text-sm font-medium border border-earth-border bg-white text-earth-ink hover:bg-earth-card disabled:opacity-50">
+            ยกเลิก
+          </button>
+          <button type="button" onClick={run} disabled={busy} autoFocus={isLine}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-60 flex items-center gap-2
+              ${isLine ? 'bg-[#06C755] hover:bg-[#05b14c]' : 'bg-red-600 hover:bg-red-700'}`}>
+            {busy && <span className="w-3.5 h-3.5 border-2 border-white/60 border-t-white rounded-full animate-spin" />}
+            {busy ? (isLine ? 'กำลังส่ง…' : 'กำลังลบ…') : (isLine ? 'ส่ง LINE' : 'ลบถาวร')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ป้ายข้อความกลางจอ แสดง ~2 วินาทีแล้วค่อย ๆ จางหาย
+function CenterToast({ toast }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    if (!toast) return;
+    setVisible(true);
+    const t = setTimeout(() => setVisible(false), 2000);
+    return () => clearTimeout(t);
+  }, [toast]);
+  if (!toast) return null;
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none">
+      <div className={`px-5 py-3 rounded-xl shadow-2xl text-sm font-medium text-white transition-opacity duration-500
+        ${toast.error ? 'bg-red-600' : 'bg-gray-900/90'} ${visible ? 'opacity-100' : 'opacity-0'}`}>
+        {toast.text}
+      </div>
+    </div>
+  );
+}
+
 // ─── Bucket ───────────────────────────────────────────────────────────────
 
-function Bucket({ title, cars, onSelect, badge }) {
+function Bucket({ title, cars, onSelect, badge, onResendLine, onCopyUrl }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
@@ -255,7 +385,7 @@ function Bucket({ title, cars, onSelect, badge }) {
       </div>
       {cars.length === 0
         ? <div className="text-center py-3 text-earth-ink3 text-sm border border-dashed border-earth-border rounded-xl">— ไม่มีรายการ —</div>
-        : <div className="space-y-2">{cars.map(c => <CarCard key={c.id} car={c} onClick={() => onSelect(c)} />)}</div>
+        : <div className="space-y-2">{cars.map(c => <CarCard key={c.id} car={c} onClick={() => onSelect(c)} onResendLine={onResendLine} onCopyUrl={onCopyUrl} />)}</div>
       }
     </div>
   );
@@ -319,7 +449,7 @@ function SaveBtn({ onClick, disabled, color = 'bg-brand hover:bg-sky-700', child
 
 // ─── Slide panel ──────────────────────────────────────────────────────────
 
-function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
+function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDelete }) {
   const code = car.status_code || 10;
   const fd = parseFd(car);
 
@@ -382,7 +512,18 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
     return () => { document.body.style.overflow = ''; };
   }, []);
 
-  const direction = car.threshold_direction === 'above' ? '≤' : '≥';
+  // ค่าที่พบหลายบรรทัด (car.findings JSON) — CAR เก่าที่ไม่มี findings ใช้ค่าเดี่ยวเดิม
+  const findings = (() => {
+    try { const a = JSON.parse(car.findings || 'null'); if (Array.isArray(a) && a.length) return a; } catch { /* ignore */ }
+    return car.recorded_value != null
+      ? [{ value: car.recorded_value, direction: car.threshold_direction === 'below' ? 'below' : 'above', threshold: car.threshold_value, unit: '' }]
+      : [];
+  })();
+  const fmtFinding = f => {
+    const u = f.unit ? ` ${f.unit}` : '';
+    const dir = f.direction === 'below' ? '≥' : '≤';
+    return `${f.value ?? '—'}${f.value != null ? u : ''}${f.threshold != null ? ` (เกณฑ์: ${dir} ${f.threshold}${u})` : ''}`;
+  };
 
   return (
     <>
@@ -403,6 +544,18 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
           <div className="ml-auto mr-3 flex items-center gap-2">
             <span className="text-xs text-earth-ink3">ใบ {car.car_type || 'CAR'} (สบค-08)</span>
             <FileButtons url={fmt => carFormUrl(car.id, fmt)} />
+            {cu.isAdmin && !isObserver && (
+              <>
+                <button onClick={() => onEdit?.(car)} title="แก้ไขส่วนที่ 1"
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium border border-earth-border bg-white text-earth-ink hover:bg-earth-DEFAULT">
+                  ✎ แก้ไข
+                </button>
+                <button onClick={() => onDelete?.(car)} title="ลบ CAR ถาวร"
+                  className="px-2.5 py-1 rounded-lg text-xs font-medium border border-red-200 bg-red-50 text-red-600 hover:bg-red-100">
+                  🗑 ลบ
+                </button>
+              </>
+            )}
           </div>
           <button onClick={onClose} className="text-earth-ink3 hover:text-earth-ink text-xl leading-none px-2">✕</button>
         </div>
@@ -425,10 +578,10 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
             <Field label="ประเภท" value={`${car.car_type || 'CAR'}${car.system_type ? ` · ${car.system_type}` : ''}`} />
             <Field label="ประเภทปัญหา" value={car.issue_type} />
             <div className="col-span-2"><Field label="1.1 เรื่องที่พบ" value={car.parameter_name} /></div>
-            {car.recorded_value != null && (
+            {findings.length > 0 && (
               <div className="col-span-2">
                 <Field label="ค่าที่พบ"
-                  value={`${car.recorded_value}${car.threshold_value ? ` (เกณฑ์: ${direction} ${car.threshold_value})` : ''}`} />
+                  value={findings.length === 1 ? fmtFinding(findings[0]) : findings.map((f, i) => `${i + 1}) ${fmtFinding(f)}`).join('\n')} />
               </div>
             )}
             <Field label="1.2 ผู้ออก" value={`${car.issuer_name || '—'}${car.issuer_dept ? ` (${car.issuer_dept})` : ''}`} />
@@ -716,14 +869,82 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser }) {
 
 // ─── Create form ──────────────────────────────────────────────────────────
 
+// dropdown หน่วย; "อื่นๆ" → ช่องพิมพ์เอง (หน่วยที่ไม่อยู่ในลิสต์จาก prefill ก็เข้าโหมดนี้อัตโนมัติ)
+function UnitSelect({ value, onChange, label }) {
+  const custom = !!value && !CAR_UNITS.includes(value);
+  const [other, setOther] = useState(custom);
+  if (other || custom) {
+    return (
+      <div className="flex gap-1">
+        <input value={value} onChange={e => onChange(e.target.value)} placeholder="พิมพ์หน่วย" aria-label={label}
+          className="w-full min-w-0 border border-earth-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+        <button type="button" onClick={() => { setOther(false); onChange(''); }} title="กลับไปเลือกจากรายการ"
+          className="px-2 rounded-lg border border-earth-border text-earth-ink3 hover:text-earth-ink text-xs">▾</button>
+      </div>
+    );
+  }
+  return (
+    <select value={value} aria-label={label}
+      onChange={e => { if (e.target.value === CAR_UNIT_OTHER) { setOther(true); onChange(''); } else onChange(e.target.value); }}
+      className="w-full border border-earth-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+      <option value="">—</option>
+      {CAR_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+      <option value={CAR_UNIT_OTHER}>อื่นๆ…</option>
+    </select>
+  );
+}
+
 
 const INIT = {
   car_type: 'CAR', system_type: '', issue_type: '',
   car_prefix: '', car_number: '', parameter_name: '',
   issuer_name: '', issuer_dept: '', receiver_name: '', receiver_dept: '',
-  recorded_value: '', threshold_value: '', threshold_direction: 'above',
-  record_datetime: new Date().toISOString().slice(0, 16),
+  findings: [{ value: '', direction: 'above', threshold: '', unit: '' }],   // ค่าที่พบ — หลายบรรทัดได้
+  receiver_shift: '',                                                       // ผลัด 1-4 → เลือกผู้รับ/หน่วยงานอัตโนมัติ
+  record_datetime: '',   // ใส่ตอนสร้างฟอร์มด้วย nowTHLocal() (เวลาไทย ณ ตอนเปิดฟอร์ม ไม่ใช่ตอนโหลดไฟล์)
 };
+
+// เวลาไทย (GMT+7) รูปแบบ datetime-local "YYYY-MM-DDTHH:mm" — ไม่พึ่ง timezone/ปฏิทิน (พ.ศ.) ของเครื่อง
+const nowTHLocal = () => new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 16);
+const newForm = () => ({ ...INIT, findings: [blankFinding()], record_datetime: nowTHLocal() });
+
+// CAR ที่มีอยู่ → ฟอร์มส่วนที่ 1 (โหมดแก้ไข)
+function formFromCar(car) {
+  let rows = null;
+  try { const a = JSON.parse(car.findings || 'null'); if (Array.isArray(a) && a.length) rows = a; } catch { /* ignore */ }
+  if (!rows && car.recorded_value != null) {
+    rows = [{ value: car.recorded_value, direction: car.threshold_direction === 'below' ? 'below' : 'above', threshold: car.threshold_value, unit: '' }];
+  }
+  const shift = /สคน(\d)กผจ/.exec(car.receiver_dept || '')?.[1] || '';
+  return {
+    ...INIT,
+    car_type: car.car_type || 'CAR', system_type: car.system_type || '', issue_type: car.issue_type || '',
+    car_prefix: '', car_number: car.car_number || '', parameter_name: car.parameter_name || '',
+    issuer_name: car.issuer_name || '', issuer_dept: car.issuer_dept || '',
+    receiver_name: car.receiver_name || '', receiver_dept: car.receiver_dept || '', receiver_shift: shift,
+    findings: (rows || [blankFinding()]).map(r => ({
+      value: r.value ?? '', direction: r.direction === 'below' ? 'below' : 'above', threshold: r.threshold ?? '', unit: r.unit || '',
+    })),
+    record_datetime: String(car.record_datetime || '').replace(' ', 'T').slice(0, 16),
+  };
+}
+
+const UNIT_ALIAS = { degC: '°C', 'uS/cm': 'µS/cm' };   // ชื่อหน่วยใน params.json → ที่แสดงใน dropdown
+const blankFinding = () => ({ value: '', direction: 'above', threshold: '', unit: '' });
+
+// prefill จาก Event Class / Chem Lab ส่งมาเป็นค่าเดี่ยว (recorded_value/threshold_*) → แปลงเป็นบรรทัดแรกของ findings
+function initialForm(prefill) {
+  if (!prefill) return newForm();
+  const { recorded_value, threshold_value, threshold_direction, unit, findings, ...rest } = prefill;
+  let rows = Array.isArray(findings) && findings.length ? findings : null;
+  if (!rows && (recorded_value != null || threshold_value != null)) {
+    rows = [{
+      value: recorded_value ?? '', direction: threshold_direction === 'below' ? 'below' : 'above',
+      threshold: threshold_value ?? '', unit: UNIT_ALIAS[unit] || unit || '',
+    }];
+  }
+  return { ...newForm(), ...rest, ...(rows ? { findings: rows } : {}) };
+}
 
 // ─── Group labels ─────────────────────────────────────────────────────────
 const GROUP_LABEL = { '1': 'นักวิทยาศาสตร์', '2': 'Operator', '3a': 'ผอ.กผจ.', '3b': 'ผอ.ฝผม.' };
@@ -888,7 +1109,7 @@ export default function CARLog() {
 
   const [tab, setTab] = useState(prefill ? 'create' : 'list');
   const [selectedCar, setSelectedCar] = useState(null);
-  const [form, setForm] = useState(prefill ? { ...INIT, ...prefill } : INIT);
+  const [form, setForm] = useState(() => initialForm(prefill));
   const [filterDate, setFilterDate] = useState(null);
   const [showAdmin, setShowAdmin] = useState(false);
   const qc = useQueryClient();
@@ -927,15 +1148,76 @@ export default function CARLog() {
     }
   }, [myRole?.name, myRole?.deptLabel]);
 
+  // ── ปุ่มบนการ์ด: ส่ง LINE ซ้ำ / คัดลอก URL ──
+  const [toast, setToast] = useState(null);           // { text, error?, id } — id ใหม่ทุกครั้งให้แสดงซ้ำได้
+  const showToast = (text, error = false) => setToast({ text, error, id: Date.now() });
+  async function handleCopyUrl(car) {
+    const url = `${window.location.origin}${BASE}/car?key=${encodeURIComponent(car.unique_key)}`;
+    showToast((await copyText(url)) ? 'คัดลอก URL แล้ว' : 'คัดลอกไม่สำเร็จ', false);
+  }
+  // dialog ยืนยัน (แทน confirm() ของเบราว์เซอร์): { kind: 'line' | 'delete', car }
+  const [confirmBox, setConfirmBox] = useState(null);
+  const handleResendLine = car => setConfirmBox({ kind: 'line', car });
+  async function doResendLine(car) {
+    try {
+      await post(`/api/car/${car.id}/resend-line`, {});
+      showToast('ส่ง LINE แล้ว');
+      qc.invalidateQueries({ queryKey: ['cars'] });
+    } catch (e) {
+      showToast(e.message || 'ส่ง LINE ไม่สำเร็จ', true);
+    }
+  }
+
+  const [editingId, setEditingId] = useState(null);   // โหมดแก้ไขส่วนที่ 1 (admin) — ใช้ฟอร์มเดียวกับสร้าง
+  function startEdit(car) {
+    setForm(formFromCar(car));
+    setEditingId(car.id);
+    setSelectedCar(null);
+    setTab('create');
+  }
+  function cancelEdit() {
+    setEditingId(null);
+    setForm(newForm());
+    setTab('list');
+  }
+  const handleDelete = car => setConfirmBox({ kind: 'delete', car });
+  async function doDelete(car) {
+    try {
+      await del(`/api/car/${car.id}`);
+      setSelectedCar(null);
+      qc.invalidateQueries({ queryKey: ['cars'] });
+      qc.invalidateQueries({ queryKey: ['car-next-number'] });
+      qc.invalidateQueries({ queryKey: ['eventclass'] });
+      showToast(`ลบ ${car.car_number || 'CAR'} แล้ว`);
+    } catch (e) { showToast(`ลบไม่สำเร็จ: ${e.message}`, true); }
+  }
+
   const createMutation = useMutation({
-    mutationFn: () => post('/api/car', {
-      ...form,
-      recorded_value: form.recorded_value ? parseFloat(form.recorded_value) : null,
-      threshold_value: form.threshold_value ? parseFloat(form.threshold_value) : null,
-    }),
+    mutationFn: () => {
+      const { receiver_shift, findings, ...rest } = form;
+      return (editingId ? (body => put(`/api/car/${editingId}/section1`, body)) : (body => post('/api/car', body)))({
+        ...rest,
+        // ทิ้งบรรทัดที่ว่างทั้งค่าและเกณฑ์; server mirror บรรทัดแรกลง recorded_value/threshold_* ให้เอง
+        findings: findings
+          .filter(r => r.value !== '' || r.threshold !== '')
+          .map(r => ({
+            value: r.value === '' ? null : parseFloat(r.value),
+            direction: r.direction,
+            threshold: r.threshold === '' ? null : parseFloat(r.threshold),
+            unit: r.unit,
+          })),
+      });
+    },
     onSuccess: async (result) => {
       qc.invalidateQueries({ queryKey: ['cars'] });
       qc.invalidateQueries({ queryKey: ['car-next-number'] });
+      if (editingId) {
+        setEditingId(null);
+        setForm(newForm());
+        setTab('list');
+        if (result?.car) setSelectedCar(result.car);
+        return;
+      }
       if (chemLabCase) {
         try {
           await post(`/api/chem-lab/cases/${chemLabCase.id}/car`, { car_key: result.unique_key });
@@ -957,7 +1239,7 @@ export default function CARLog() {
         }
       }
       setTab('list');
-      setForm(INIT);
+      setForm(newForm());
     },
   });
 
@@ -970,6 +1252,31 @@ export default function CARLog() {
   });
 
   function setF(e) { setForm(f => ({ ...f, [e.target.name]: e.target.value })); }
+
+  // ── ค่าที่พบหลายบรรทัด ──
+  const setFinding = (i, patchObj) =>
+    setForm(f => ({ ...f, findings: f.findings.map((r, k) => (k === i ? { ...r, ...patchObj } : r)) }));
+  const addFinding = () => setForm(f => ({ ...f, findings: [...f.findings, blankFinding()] }));
+  const removeFinding = i =>
+    setForm(f => ({ ...f, findings: f.findings.length > 1 ? f.findings.filter((_, k) => k !== i) : [blankFinding()] }));
+
+  // ── ผู้รับ: ผลัด 1-4 → ส่วน/กอง (จาก whitelist) + ผู้รับ default = หัวหน้าส่วน (เปลี่ยนได้) ──
+  const { data: receivers = [] } = useQuery({
+    queryKey: ['car-receivers'],
+    queryFn: () => get('/api/car-admin/receivers'),
+    staleTime: 60 * 1000,
+    enabled: tab === 'create',
+  });
+  const recvShift = receivers.find(r => String(r.shift) === String(form.receiver_shift));
+  function pickShift(shift) {
+    const r = receivers.find(x => String(x.shift) === String(shift));
+    setForm(f => ({
+      ...f,
+      receiver_shift: shift,
+      receiver_name: r?.head || '',
+      receiver_dept: r?.dept_label || '',
+    }));
+  }
 
   const sorted = arr => [...arr].sort((a, b) => new Date(b.issued_at) - new Date(a.issued_at));
 
@@ -1031,12 +1338,12 @@ export default function CARLog() {
           )}
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setTab('list')}
+          <button onClick={() => (editingId ? cancelEdit() : setTab('list'))}
             className={`px-4 py-2 rounded-lg text-sm font-medium touch-target ${tab === 'list' ? 'bg-brand text-white' : 'bg-earth-card text-earth-ink'}`}>
             รายการ
           </button>
           {(!myRole?.group || (myRole.groups || [myRole.group]).includes('1') || myRole.isAdmin) && (
-            <button onClick={() => setTab('create')}
+            <button onClick={() => { if (editingId) { setEditingId(null); setForm(newForm()); } setTab('create'); }}
               className={`px-4 py-2 rounded-lg text-sm font-medium touch-target ${tab === 'create' ? 'bg-brand text-white' : 'bg-earth-card text-earth-ink'}`}>
               + สร้าง CAR
             </button>
@@ -1059,9 +1366,12 @@ export default function CARLog() {
             : (
               <div className="space-y-6">
                 <LogExport cars={cars} />
-                <Bucket title="กำลังดำเนินการ" cars={inProgress} onSelect={setSelectedCar} badge={inProgress.length} />
-                <Bucket title="ตีกลับ" cars={rejected} onSelect={setSelectedCar} badge={rejected.length} />
-                <Bucket title="ปิดแล้ว" cars={closed} onSelect={setSelectedCar} badge={closed.length} />
+                <Bucket title="กำลังดำเนินการ" cars={inProgress} onSelect={setSelectedCar} badge={inProgress.length}
+                  onResendLine={myRole?.isObserver ? null : handleResendLine} onCopyUrl={handleCopyUrl} />
+                <Bucket title="ตีกลับ" cars={rejected} onSelect={setSelectedCar} badge={rejected.length}
+                  onResendLine={myRole?.isObserver ? null : handleResendLine} onCopyUrl={handleCopyUrl} />
+                <Bucket title="ปิดแล้ว" cars={closed} onSelect={setSelectedCar} badge={closed.length}
+                  onResendLine={myRole?.isObserver ? null : handleResendLine} onCopyUrl={handleCopyUrl} />
               </div>
             )
           }
@@ -1079,6 +1389,11 @@ export default function CARLog() {
           {chemLabCase && (
             <p className="text-sm font-semibold text-amber-800 bg-amber-100 border border-amber-300 rounded-lg px-3 py-2">
               🚩 ออก CAR จากเคสชดเชย #{chemLabCase.id} (ห้องปฏิบัติการเคมี) — ระบบกรอกเรื่องที่พบ/ค่า/เกณฑ์ให้แล้ว ตรวจสอบ แล้วกรอกเลข CAR และผู้รับ ก่อนกดออกใบ
+            </p>
+          )}
+          {editingId && (
+            <p className="text-sm font-semibold text-sky-800 bg-sky-50 border border-sky-200 rounded-lg px-3 py-2">
+              ✎ กำลังแก้ไขส่วนที่ 1 ของ {form.car_number || `CAR #${editingId}`} — ไม่เปลี่ยนสถานะ และไม่ส่ง LINE
             </p>
           )}
           <h2 className="font-semibold text-earth-ink">ส่วนที่ 1 — รายละเอียดสิ่งที่ไม่เป็นไปตามข้อกำหนด</h2>
@@ -1146,19 +1461,45 @@ export default function CARLog() {
                 className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
             </div>
 
-            <Inp label="ค่าที่พบ" name="recorded_value" type="number" value={form.recorded_value} onChange={setF} />
-
-            <div>
-              <label className="block text-xs font-medium text-earth-ink2 mb-1">เกณฑ์</label>
-              <div className="flex gap-2">
-                <select name="threshold_direction" value={form.threshold_direction} onChange={setF}
-                  className="border border-earth-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
-                  <option value="above">เกิน (≤)</option>
-                  <option value="below">ต่ำกว่า (≥)</option>
-                </select>
-                <input type="number" step="any" name="threshold_value" value={form.threshold_value} onChange={setF}
-                  className="flex-1 border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+            {/* ค่าที่พบ + เกณฑ์ + หน่วย — เพิ่มบรรทัดได้ ปุ่ม + อยู่ท้ายบรรทัดล่าสุดเสมอ */}
+            <div className="col-span-2 space-y-2">
+              <div className="grid grid-cols-[1fr_minmax(0,1.6fr)_7rem_5.5rem] gap-2 text-xs font-medium text-earth-ink2">
+                <span>ค่าที่พบ</span><span>เกณฑ์</span><span>หน่วย</span><span />
               </div>
+              {form.findings.map((row, i) => {
+                const last = i === form.findings.length - 1;
+                return (
+                  <div key={i} className="grid grid-cols-[1fr_minmax(0,1.6fr)_7rem_5.5rem] gap-2 items-start">
+                    <input type="number" step="any" value={row.value}
+                      onChange={e => setFinding(i, { value: e.target.value })}
+                      aria-label={`ค่าที่พบ บรรทัด ${i + 1}`}
+                      className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+                    <div className="flex gap-2">
+                      <select value={row.direction} onChange={e => setFinding(i, { direction: e.target.value })}
+                        aria-label={`เงื่อนไข บรรทัด ${i + 1}`}
+                        className="border border-earth-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                        <option value="above">เกิน (≤)</option>
+                        <option value="below">ต่ำกว่า (≥)</option>
+                      </select>
+                      <input type="number" step="any" value={row.threshold}
+                        onChange={e => setFinding(i, { threshold: e.target.value })}
+                        aria-label={`เกณฑ์ บรรทัด ${i + 1}`}
+                        className="flex-1 min-w-0 border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand" />
+                    </div>
+                    <UnitSelect value={row.unit} onChange={u => setFinding(i, { unit: u })} label={`หน่วย บรรทัด ${i + 1}`} />
+                    <div className="flex gap-1 pt-0.5">
+                      {form.findings.length > 1 && (
+                        <button type="button" onClick={() => removeFinding(i)} title="ลบบรรทัดนี้"
+                          className="w-9 h-9 rounded-lg border border-earth-border text-earth-ink3 hover:text-red-600 hover:border-red-300">−</button>
+                      )}
+                      {last && (
+                        <button type="button" onClick={addFinding} title="เพิ่มบรรทัดค่าที่พบ"
+                          className="w-9 h-9 rounded-lg bg-brand text-white hover:bg-sky-700 text-lg leading-none">+</button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             <div className="col-span-2">
@@ -1169,19 +1510,51 @@ export default function CARLog() {
 
             <Inp label="1.2 ผู้ออก *" name="issuer_name" value={form.issuer_name} onChange={setF} readOnly={!!myRole?.name} />
             <Inp label="ส่วน/กอง" name="issuer_dept" value={form.issuer_dept} onChange={setF} readOnly={!!myRole?.name} />
-            <Inp label="1.3 ผู้รับ *" name="receiver_name" value={form.receiver_name} onChange={setF} />
-            <Inp label="ส่วน/กอง" name="receiver_dept" value={form.receiver_dept} onChange={setF} />
+            {/* 1.3 ผู้รับ: เลือกผลัด → ส่วน/กอง (จาก whitelist) + ผู้รับ default = หัวหน้าส่วน (เปลี่ยนได้) */}
+            <div className="col-span-2 grid grid-cols-[7rem_1fr_1fr] gap-4">
+              <div>
+                <label className="block text-xs font-medium text-earth-ink2 mb-1">ผลัดผู้รับ *</label>
+                <select value={form.receiver_shift} onChange={e => pickShift(e.target.value)}
+                  className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+                  <option value="">—</option>
+                  {[1, 2, 3, 4].map(s => <option key={s} value={s}>ผลัด {s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-earth-ink2 mb-1">1.3 ผู้รับ *</label>
+                <select value={form.receiver_name} name="receiver_name" onChange={setF} disabled={!recvShift}
+                  className="w-full border border-earth-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand disabled:bg-earth-card disabled:text-earth-ink3">
+                  {!recvShift && <option value="">เลือกผลัดก่อน</option>}
+                  {recvShift && !recvShift.members.length && <option value="">ผลัดนี้ยังไม่มีรายชื่อ — Sync ที่หน้า Config</option>}
+                  {recvShift && form.receiver_name && !recvShift.members.some(m => m.name === form.receiver_name) && (
+                    <option value={form.receiver_name}>{form.receiver_name} (เดิม)</option>
+                  )}
+                  {recvShift?.members.map(m => (
+                    <option key={m.name} value={m.name}>{m.name}{m.position ? ` (${m.position})` : ''}</option>
+                  ))}
+                </select>
+              </div>
+              <Inp label="ส่วน/กอง" name="receiver_dept" value={form.receiver_dept} onChange={setF} readOnly={!!recvShift} />
+            </div>
           </div>
 
           {createMutation.isError && (
             <p className="text-sm text-red-600">เกิดข้อผิดพลาด: {createMutation.error?.message}</p>
           )}
           {linkError && <p className="text-sm text-red-600">{linkError}</p>}
-          <button onClick={() => createMutation.mutate()}
-            disabled={createMutation.isPending || !form.parameter_name || !form.record_datetime}
-            className="w-full bg-brand hover:bg-sky-700 disabled:opacity-40 text-white font-semibold py-3 rounded-xl touch-target transition-colors">
-            {createMutation.isPending ? 'กำลังสร้าง...' : 'ออกใบ CAR และส่ง LINE'}
-          </button>
+          <div className="flex gap-3">
+            {editingId && (
+              <button onClick={cancelEdit} disabled={createMutation.isPending}
+                className="px-6 bg-earth-card hover:bg-earth-border text-earth-ink font-semibold py-3 rounded-xl touch-target border border-earth-border">
+                ยกเลิก
+              </button>
+            )}
+            <button onClick={() => createMutation.mutate()}
+              disabled={createMutation.isPending || !form.parameter_name || !form.record_datetime}
+              className="flex-1 bg-brand hover:bg-sky-700 disabled:opacity-40 text-white font-semibold py-3 rounded-xl touch-target transition-colors">
+              {createMutation.isPending ? 'กำลังบันทึก...' : editingId ? 'บันทึกการแก้ไข' : 'ออกใบ CAR และส่ง LINE'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -1197,6 +1570,21 @@ export default function CARLog() {
         </div>
       </div>
 
+      <CenterToast key={toast?.id} toast={toast} />
+
+      {confirmBox && (
+        <CarConfirmDialog
+          kind={confirmBox.kind}
+          car={confirmBox.car}
+          onCancel={() => setConfirmBox(null)}
+          onConfirm={async () => {
+            const { kind, car } = confirmBox;
+            if (kind === 'line') await doResendLine(car); else await doDelete(car);
+            setConfirmBox(null);
+          }}
+        />
+      )}
+
       {/* Slide panel (outside flow) */}
       {selectedCar && (
         <CarSlidePanel
@@ -1205,6 +1593,8 @@ export default function CARLog() {
           onClose={() => setSelectedCar(null)}
           saving={updateMutation.isPending}
           onUpdate={(id, data) => updateMutation.mutate({ id, ...data })}
+          onEdit={startEdit}
+          onDelete={handleDelete}
         />
       )}
 

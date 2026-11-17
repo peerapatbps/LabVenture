@@ -5,6 +5,8 @@ const LINE_API = 'https://api.line.me/v2/bot/message/push';
 const TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 const GROUP_ID = process.env.LINE_GROUP_ID;
 
+const { getFindings, formatFinding } = require('./carFindings');
+
 const STATUS_EMOJI = { 10:'🔵', 20:'🟡', 30:'🟠', 40:'🟣', 50:'🟢', 60:'⬜', 70:'🔴' };
 const STATUS_LABEL = {
   10: 'ออกใบแล้ว → รอผู้รับตอบ',
@@ -31,14 +33,17 @@ async function pushCarMessage(car, statusCode) {
   const emoji = STATUS_EMOJI[code] || '🔵';
   const label = STATUS_LABEL[code] || String(code);
 
-  // criterion symbol, same as CARLog.jsx: alert 'above' ⇒ เกณฑ์ ≤ X, 'below' ⇒ เกณฑ์ ≥ X
-  const direction = car.threshold_direction === 'above' ? '≤' : '≥';
+  // criterion symbol, same as CARLog.jsx: alert 'above' ⇒ เกณฑ์ ≤ X, 'below' ⇒ เกณฑ์ ≥ X (หลายบรรทัดได้)
+  const findings = getFindings(car);
+  const findingLines = findings.length === 1
+    ? [`ค่าที่พบ: ${formatFinding(findings[0])}`]
+    : findings.length > 1
+      ? ['ค่าที่พบ:', ...findings.map((f, i) => `  ${i + 1}) ${formatFinding(f)}`)]
+      : [];
   const lines = [
     `${emoji} [${car.car_type || 'CAR'} #${code}] ${car.car_number || '(ยังไม่มีเลข)'}`,
     `สิ่งที่พบ: ${car.parameter_name}`,
-    car.recorded_value != null
-      ? `ค่าที่พบ: ${car.recorded_value}${car.threshold_value ? ` (เกณฑ์: ${direction} ${car.threshold_value})` : ''}`
-      : null,
+    ...findingLines,
     `สถานะ: ${label}`,
     car.deadline_at ? `Deadline: ${car.deadline_at}` : null,
   ].filter(Boolean).join('\n');
