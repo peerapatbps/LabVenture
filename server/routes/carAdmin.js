@@ -129,6 +129,33 @@ router.get('/my-role', async (req, res) => {
   }
 });
 
+// ── GET /api/car-admin/receivers ───────────────────────────────────────────
+// ตัวเลือก "ผู้รับ" ของฟอร์มออก CAR: ผลัด 1-4 → หน่วยงาน (dept_label ใน whitelist เช่น สคน1กผจ.ฝผม.)
+// + รายชื่อผู้ปฏิบัติงานของผลัด + หัวหน้าส่วน (default). ไม่ต้องเป็น admin แต่ต้อง login
+router.get('/receivers', async (req, res) => {
+  try {
+    const user = await resolveCarUser(req);
+    if (!user) return res.status(401).json({ error: 'Login required' });
+    const db = getDb();
+    const out = [1, 2, 3, 4].map(shift => {
+      const rows = db.all(
+        "SELECT name, position_label, dept_label FROM car_whitelist WHERE group_code = '2' AND shift = ? ORDER BY name", [shift]);
+      const isHead = r => /หัวหน้าส่วน/.test(r.position_label || '');
+      const members = [...rows.filter(isHead), ...rows.filter(r => !isHead(r))]
+        .map(r => ({ name: r.name, position: r.position_label || '', isHead: isHead(r) }));
+      return {
+        shift,
+        dept_label: rows.find(r => r.dept_label)?.dept_label || `สคน${shift}กผจ.ฝผม.`,
+        head: members.find(m => m.isHead)?.name || null,
+        members,
+      };
+    });
+    res.json(out);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── GET /api/car-admin/whitelist ───────────────────────────────────────────
 router.get('/whitelist', requireAdmin, (req, res) => {
   const db = getDb();
@@ -215,3 +242,4 @@ router.post('/search-emp', requireAdmin, async (req, res) => {
 });
 
 module.exports = router;
+module.exports.resolveCarUser = resolveCarUser;   // ใช้ตรวจสิทธิ์ admin ใน routes/car.js (รองรับ bypass token)

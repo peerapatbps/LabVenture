@@ -100,6 +100,9 @@ function initDb() {
     correction_deadline: 'TEXT',
     prevention_deadline: 'TEXT',
     followup2_deadline: 'TEXT',
+    // ค่าที่พบหลายบรรทัด: JSON [{value, direction:'above'|'below', threshold, unit}]
+    // (แถวแรกยัง mirror ลง recorded_value/threshold_* เดิม เพื่อ Event Class / Chem Lab / รายงานเก่า)
+    findings: 'TEXT',
   };
   for (const [col, def] of Object.entries(newCarCols)) {
     if (!carCols.includes(col)) db.run(`ALTER TABLE car_log ADD COLUMN ${col} ${def}`);
@@ -170,6 +173,10 @@ function initDb() {
   const wlCols = db.all('PRAGMA table_info(car_whitelist)').map(c => c.name);
   if (!wlCols.includes('position_label')) {
     db.run('ALTER TABLE car_whitelist ADD COLUMN position_label TEXT');
+  }
+  // Migration: รหัสผู้ใช้งาน AquaDAT (user_name) ของผู้ปฏิบัติงานที่ sync จาก AquaDAT
+  if (!wlCols.includes('user_code')) {
+    db.run('ALTER TABLE car_whitelist ADD COLUMN user_code TEXT');
   }
 
   // Migration: add chemical_type + stage columns to chem_history

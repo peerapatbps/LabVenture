@@ -176,6 +176,59 @@ async function fetchUserProfile(token) {
   }
 }
 
+// ── Service token (ไม่ผูกกับผู้ใช้ที่ login) ──────────────────────────────
+// port จาก AquadatFast.cs → LoginToAPI/TryLogin (Uroboros) เฉพาะส่วน login ปกติ
+// อ่าน user/pass จาก env AQUADAT_SVC_USER / AQUADAT_SVC_PASS เท่านั้น
+// ❌ ไม่ port loop เดา password 11111111..99999999 ของฝั่ง C# (ไม่ควรเดารหัสผ่านระบบภายนอก)
+let _svcToken = null; // { token, exp }
+
+function jwtExp(token) {
+  try {
+    const p = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+    return p.exp || 0;
+  } catch { return 0; }
+}
+
+async function getServiceToken({ force = false } = {}) {
+  const user = process.env.AQUADAT_SVC_USER;
+  const pass = process.env.AQUADAT_SVC_PASS;
+  if (!user || !pass) throw new Error('ยังไม่ได้ตั้ง AQUADAT_SVC_USER / AQUADAT_SVC_PASS ใน server/.env');
+  const now = Date.now() / 1000;
+  if (!force && _svcToken && (!_svcToken.exp || _svcToken.exp - 60 > now)) return _svcToken.token;
+  // ลำดับเดียวกับ /api/auth/login: REST Enroll ก่อน แล้ว fallback GraphQL logIn
+  let token;
+  try { token = await restLogin(user, pass); }
+  catch { token = await graphqlLogin(user, pass); }
+  _svcToken = { token, exp: jwtExp(token) };
+  return token;
+}
+
+// รายชื่อผู้ใช้ AquaDAT ของโรงงาน (ใช้เติมกลุ่ม 2 Operator ที่ไม่มีใน EHR)
+// ไม่ขอ user_pwd / user_profile มาเลย (ไม่จำเป็น และไม่ควรลากรหัสผ่านมา)
+async function fetchAuthenUsers(token, { plant_id = 2 } = {}) {
+  const query = `{
+    get_adm01_authen_user(user_id: 0, user_name: "", first_name: "", last_name: "", plant_id: ${Number(plant_id)}, role_id: 0, user_group_id: 0, user_status: "") {
+      user_id title_name first_name last_name user_name position_name
+      plant_id plant_name_th role_id role_name
+      user_effective_date user_expire_date user_status record_status user_type_text
+      usergrouplist { user_group_id user_group_name plant_id record_status }
+      authen_user { authen_id station_id station_name_th authen_start_date authen_finish_date authen_status record_status }
+    }
+  }`;
+  const res = await fetch(GRAPHQL_URL, {
+    method: 'POST',
+    // ทดสอบ 17 พ.ย.: endpoint นี้ตอบได้แม้ไม่มี Authorization → token เป็น optional (ส่งไปถ้ามี เผื่อ AquaDAT ปิดช่องนี้ภายหลัง)
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify({ operationName: null, variables: {}, query }),
+    timeout: 30000,
+  });
+  const text = await res.text();
+  let data; try { data = JSON.parse(text); } catch { data = null; }
+  if (!res.ok || !data) throw new Error(`GraphQL get_adm01_authen_user failed: ${res.status} ${text.slice(0, 200)}`);
+  if (data.errors) throw new Error(data.errors[0]?.message || 'GraphQL get_adm01_authen_user error');
+  return data.data?.get_adm01_authen_user || [];
+}
+
 // Write a remark to AquaDAT via GraphQL mutation
 async function writeRemark(token, { plant_id = 2, station_id = 20, trans_remark_date, trans_type = '', description }) {
   const payload = {
@@ -204,4 +257,4 @@ async function writeRemark(token, { plant_id = 2, station_id = 20, trans_remark_
   return data.data?.update_transaction_remark;
 }
 
-module.exports = { restLogin, graphqlLogin, readData, writeData, readRemarks, writeRemark, fetchUserProfile, setForceFail, getForceFail };
+module.exports = { restLogin, graphqlLogin, readData, writeData, readRemarks, writeRemark, fetchUserProfile, getServiceToken, fetchAuthenUsers, setForceFail, getForceFail };

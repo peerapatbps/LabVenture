@@ -583,6 +583,7 @@ function WhitelistTab() {
 
   const g1 = whitelist.filter(e => e.group_code === '1');
   const g2s = [1, 2, 3, 4].map(s => whitelist.filter(e => e.group_code === '2' && e.shift === s));
+  const g2n = whitelist.filter(e => e.group_code === '2' && !(e.shift >= 1 && e.shift <= 4));   // ยังไม่กำหนดผลัด (เช่น ลูกจ้างจาก AquaDAT)
   const g3a = whitelist.filter(e => e.group_code === '3a');
   const g3b = whitelist.filter(e => e.group_code === '3b');
 
@@ -590,7 +591,8 @@ function WhitelistTab() {
     setSyncing(true); setSyncMsg('');
     try {
       const r = await post('/api/car-admin/sync', {});
-      setSyncMsg(`✅ Sync สำเร็จ: ${r.synced} รายชื่อ${r.errors?.length ? ` (${r.errors.length} org ล้มเหลว)` : ''}`);
+      const bad = (r.errors || []).map(x => x.orgCode === 'aquadat' ? `AquaDAT: ${x.error}` : `org ${x.orgCode}`);
+      setSyncMsg(`${bad.length ? '⚠️' : '✅'} Sync: ${r.synced} รายชื่อ (ผู้ปฏิบัติงานจาก AquaDAT ${r.aquadat ?? 0} · กลุ่ม 3 ${r.group3 ?? 0})${bad.length ? ` — ล้มเหลว: ${bad.join(', ')}` : ''}`);
       qc.invalidateQueries({ queryKey: ['whitelist'] });
     } catch (e) { setSyncMsg(`❌ ${e.message}`); }
     finally { setSyncing(false); }
@@ -609,8 +611,8 @@ function WhitelistTab() {
       <div className="bg-earth-DEFAULT rounded-xl p-5 shadow-sm border border-earth-border">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h2 className="font-semibold text-earth-ink">Sync จาก EHR (กลุ่ม 1 + 2)</h2>
-            <p className="text-xs text-earth-ink2 mt-0.5">ดึงรายชื่อพนักงานล่าสุดจาก ehr.mwa.co.th</p>
+            <h2 className="font-semibold text-earth-ink">Sync จาก EHR + AquaDAT (กลุ่ม 1 + 2 + 3)</h2>
+            <p className="text-xs text-earth-ink2 mt-0.5">พนักงานและผู้บริหาร (ผอ.กอง กผจ. / ผอ.ฝ่าย ฝผม.) จาก ehr.mwa.co.th · ผู้ปฏิบัติงาน (ลูกจ้าง) จาก AquaDAT</p>
           </div>
           <button onClick={handleSync} disabled={syncing || !canAction}
             className="px-4 py-2 bg-brand hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg">
@@ -672,6 +674,31 @@ function WhitelistTab() {
               </div>
             );
           })}
+
+          {/* ผู้ปฏิบัติงาน (ลูกจ้างจาก AquaDAT — ไม่มีผลัด) ต่อจากผลัด 4 */}
+          <div className="bg-earth-DEFAULT rounded-xl border border-earth-border shadow-sm overflow-hidden">
+            <div className="bg-teal-50 px-4 py-3 border-b border-teal-100">
+              <h3 className="font-semibold text-teal-900">ผู้ปฏิบัติงาน</h3>
+              <p className="text-xs text-teal-700 mt-0.5">ลูกจ้างจาก AquaDAT (ไม่มีข้อมูลผลัด) · {g2n.length} คน</p>
+            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-earth-card text-xs text-earth-ink2">
+                  <th className="px-3 py-2 text-left">ชื่อ-สกุล</th>
+                  <th className="px-3 py-2 text-left">รหัสผู้ใช้งาน</th>
+                </tr>
+              </thead>
+              <tbody>
+                {g2n.map(e => (
+                  <tr key={e.id} className="border-b border-earth-border hover:bg-earth-DEFAULT">
+                    <td className="px-3 py-2 text-sm font-medium text-earth-ink">{e.name}</td>
+                    <td className="px-3 py-2 text-xs text-earth-ink2 font-mono">{e.user_code || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {g2n.length === 0 && <p className="text-center py-3 text-earth-ink3 text-sm">ยังไม่มีรายชื่อ — กด Sync</p>}
+          </div>
         </div>
       </div>
 
