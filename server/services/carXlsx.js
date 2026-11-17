@@ -201,20 +201,25 @@ async function buildCarForm(car) {
   if (fd.s4_check1_by) s.dots('B31', [fd.s4_check1_by, fd.s4_check1_by_pos]);
 
   // ส่วนที่ 4
-  const kinds = [fd.s2_correction ? 0 : null, fd.s2_prevention ? 1 : null];
+  // ☑ การแก้ไข / ☑ ป้องกัน ตามที่เลือกในแต่ละครั้ง (CAR เก่าที่ไม่มีการเลือก → ตามแผนที่มีในส่วนที่ 2)
+  const legacyKinds = [fd.s2_correction ? 0 : null, fd.s2_prevention ? 1 : null];
+  const kindsOf = items => (Array.isArray(items)
+    ? [items.includes('correction') ? 0 : null, items.includes('prevention') ? 1 : null]
+    : legacyKinds);
   const result = r => (r === 'pass' ? 0 : r === 'fail' ? 1 : null);
   if (fd.s4_check1_result) {
-    s.tick('C33', kinds);
+    s.tick('C33', kindsOf(fd.s4_check1_items));
     s.tick('I33', [result(fd.s4_check1_result)]);
     spread(fd.s4_check1_notes, 75, 2).forEach((l, i) => s.text(`B${35 + i}`, l));
     s.gaps('B37', [fd.s4_check1_by, fd.s4_check1_by_pos, ...dmy(fd.s4_check1_date)]);
   }
-  if (fd.s4_check1_result === 'fail') {
-    s.append('H35', fd.s4_check2_deadline && longDate(fd.s4_check2_deadline));
+  // กำหนดติดตามครั้งที่ 2: ไม่ผ่าน หรือผ่านบางส่วน (เช่น แก้ไขผ่าน รอตรวจป้องกัน)
+  if (fd.s4_check1_result && fd.s4_check2_deadline) {
+    s.append('H35', longDate(fd.s4_check2_deadline));
     s.append('H36', fd.s4_check2_owner);
   }
   if (fd.s4_check2_result) {
-    s.tick('C38', kinds);
+    s.tick('C38', kindsOf(fd.s4_check2_items));
     s.tick('I38', [result(fd.s4_check2_result)]);
     spread(fd.s4_check2_notes, 105, 2).forEach((l, i) => s.text(`B${40 + i}`, l));
     s.gaps('B42', [fd.s4_check2_by, fd.s4_check2_by_pos, ...dmy(fd.s4_check2_date)]);

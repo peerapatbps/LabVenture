@@ -13,6 +13,7 @@ const STATUS = {
   20: { label: 'รออนุมัติ',    color: 'bg-orange-100 text-orange-700 border-orange-200' },
   30: { label: 'รอติดตาม#1', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
   40: { label: 'รอติดตาม#2', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+  45: { label: 'นำเข้าที่ประชุม', color: 'bg-red-50 text-red-700 border-red-200' },
   50: { label: 'แก้ไขแล้ว',   color: 'bg-teal-100 text-teal-700 border-teal-200' },
   60: { label: 'ปิด',         color: 'bg-green-100 text-green-700 border-green-200' },
   70: { label: 'ตีกลับ',      color: 'bg-red-100 text-red-700 border-red-200' },
@@ -84,7 +85,7 @@ function parseFd(car) {
 
 function ProgressStages({ car }) {
   const raw = car.status_code || 10;
-  const code = raw === 15 ? 10 : raw;   // 15 (ส่งต่อ) ยังอยู่ขั้นที่ 1
+  const code = raw === 15 ? 10 : raw === 45 ? 40 : raw;   // 15 (ส่งต่อ) = ขั้น 1 · 45 (นำเข้าที่ประชุม) = ขั้น 4
   const stages = [10, 20, 30, 40, 50];
 
   return (
@@ -574,6 +575,32 @@ function ForwardedLockDialog({ holder, forwardedAt, onUnlock, onClose }) {
   );
 }
 
+// ─── ส่วนที่ 4: เลือกว่าติดตาม [การแก้ไข] / [การป้องกัน] ───────────────────
+const FOLLOW_ITEMS = [['correction', 'การแก้ไข'], ['prevention', 'การป้องกัน']];
+const itemsText = items => (items || []).map(k => FOLLOW_ITEMS.find(([v]) => v === k)?.[1]).filter(Boolean).join(' / ');
+
+function FollowItemsPick({ value, onChange, applicable, done = [] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+      <span className="text-sm text-earth-ink2">ติดตามผล:</span>
+      {FOLLOW_ITEMS.map(([k, label]) => {
+        const na = !applicable.includes(k);
+        const isDone = done.includes(k);
+        return (
+          <label key={k} className={`flex items-center gap-2 text-sm ${na || isDone ? 'text-earth-ink3' : 'cursor-pointer text-earth-ink'}`}>
+            <input type="checkbox" className="accent-brand w-4 h-4" disabled={na || isDone}
+              checked={value.includes(k)}
+              onChange={e => onChange(e.target.checked ? [...value, k] : value.filter(x => x !== k))} />
+            {label}
+            {na && <span className="text-[11px]">(ไม่มีแผน)</span>}
+            {isDone && <span className="text-[11px] text-green-700">(ผ่านแล้วครั้งที่ 1)</span>}
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Slide panel ──────────────────────────────────────────────────────────
 
 function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDelete, onForward, onReclaim, justForwarded = false }) {
@@ -640,8 +667,14 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
     s2_approver: fd.s2_approver || (isG3a && cu.name ? cu.name : ''),
     s2_approved_at: fd.s2_approved_at || new Date().toISOString().slice(0, 10),
   });
+  // Section 4 — สิ่งที่ต้องติดตาม: การแก้ไข (เสมอ) + การป้องกัน (ถ้ามีแผน 2.3)
+  // ปิดได้เมื่อทุกข้อ "ผ่าน" ภายใน 2 ครั้ง ไม่งั้น → 45 นำเข้าที่ประชุม (ตาม PM)
+  const applicable = ['correction', ...(String(fd.s2_prevention || '').trim() ? ['prevention'] : [])];
+  const passed1 = fd.s4_check1_result === 'pass' ? (fd.s4_check1_items || applicable) : [];
+  const remainingAfter1 = applicable.filter(k => !passed1.includes(k));
   // Section 4 — check 1
   const [s4a, setS4a] = useState({
+    s4_check1_items: fd.s4_check1_items || applicable,
     s4_check1_result: fd.s4_check1_result || '',
     s4_check1_notes: fd.s4_check1_notes || '',
     s4_check1_date: fd.s4_check1_date || new Date().toISOString().slice(0, 10),
@@ -650,14 +683,26 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
     s4_check2_deadline: fd.s4_check2_deadline || '',
     s4_check2_owner: fd.s4_check2_owner || '',
   });
-  // Section 4 — check 2
+  // Section 4 — check 2 (ค่าเริ่มต้น = ข้อที่ยังไม่ผ่านจากครั้งที่ 1)
   const [s4b, setS4b] = useState({
+    s4_check2_items: fd.s4_check2_items || remainingAfter1,
     s4_check2_result: fd.s4_check2_result || '',
     s4_check2_notes: fd.s4_check2_notes || '',
     s4_check2_date: fd.s4_check2_date || new Date().toISOString().slice(0, 10),
     s4_check2_by: fd.s4_check2_by || (isG1 && cu.name ? cu.name : ''),
     s4_check2_by_pos: fd.s4_check2_by_pos || (isG1 && cu.deptLabel ? cu.deptLabel : ''),
   });
+  // Section 4 — นำเข้าที่ประชุม (45)
+  const [s4m, setS4m] = useState({
+    s4_meeting_notes: fd.s4_meeting_notes || '',
+    s4_meeting_date: fd.s4_meeting_date || new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10),
+  });
+  // ผลของการบันทึกแต่ละครั้ง → สถานะถัดไป
+  const c1Pass = s4a.s4_check1_result === 'pass' ? s4a.s4_check1_items : [];
+  const c1Remaining = applicable.filter(k => !c1Pass.includes(k));
+  const c1Next = s4a.s4_check1_result ? (c1Remaining.length === 0 ? 50 : 40) : null;
+  const c2Covered = s4b.s4_check2_result === 'pass' ? s4b.s4_check2_items : [];
+  const c2Next = s4b.s4_check2_result ? (remainingAfter1.every(k => c2Covered.includes(k)) ? 50 : 45) : null;
   // Section 5
   const [s5, setS5] = useState({
     s5_decision: fd.s5_decision || '',
@@ -946,12 +991,14 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
           {/* ── Section 4 ── */}
           {code >= 30 && (
             <>
-              <SecHeader n="4" title="ติดตามผลการแก้ไข / ป้องกัน" active={code === 30 || code === 40} />
+              <SecHeader n="4" title="ติดตามผลการแก้ไข / ป้องกัน" active={code === 30 || code === 40 || code === 45} />
               <div className="px-1 space-y-3">
                 <p className="text-xs font-semibold text-earth-ink2">ติดตามผล ครั้งที่ 1</p>
 
                 {code === 30 ? (
                   <>
+                    <FollowItemsPick value={s4a.s4_check1_items} applicable={applicable}
+                      onChange={v => setS4a(p => ({ ...p, s4_check1_items: v }))} />
                     <div className="flex flex-wrap gap-4">
                       {[['pass','✅ เป็นไปตามที่กำหนด'], ['fail','❌ ไม่เป็นไปตามที่กำหนด']].map(([v, lbl]) => (
                         <label key={v} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -973,24 +1020,29 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
                     </div>
                     <Inp label="วันที่ตรวจ" name="s4_check1_date" type="date"
                       value={s4a.s4_check1_date} onChange={e => setS4a(p => ({ ...p, s4_check1_date: e.target.value }))} />
-                    {s4a.s4_check1_result === 'fail' && (
-                      <div className="grid grid-cols-2 gap-3 bg-purple-50 border border-purple-100 rounded-xl p-3">
-                        <Inp label="กำหนดติดตามครั้งที่ 2 *" name="s4_check2_deadline" type="date"
-                          value={s4a.s4_check2_deadline} onChange={e => setS4a(p => ({ ...p, s4_check2_deadline: e.target.value }))} />
-                        <Inp label="ผู้รับผิดชอบ" name="s4_check2_owner"
-                          value={s4a.s4_check2_owner} onChange={e => setS4a(p => ({ ...p, s4_check2_owner: e.target.value }))} />
+                    {c1Next === 40 && (
+                      <div className="space-y-2 bg-purple-50 border border-purple-100 rounded-xl p-3">
+                        <p className="text-xs text-purple-800">
+                          {s4a.s4_check1_result === 'pass'
+                            ? <>ยังเหลือ <b>{itemsText(c1Remaining)}</b> ที่ต้องติดตามในครั้งที่ 2</>
+                            : <>ไม่ผ่าน — ต้องติดตามครั้งที่ 2 (ถ้าครั้งที่ 2 ยังปิดไม่ได้ ต้องนำเข้าที่ประชุม)</>}
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <Inp label="กำหนดติดตามครั้งที่ 2 *" name="s4_check2_deadline" type="date"
+                            value={s4a.s4_check2_deadline} onChange={e => setS4a(p => ({ ...p, s4_check2_deadline: e.target.value }))} />
+                          <Inp label="ผู้รับผิดชอบ" name="s4_check2_owner"
+                            value={s4a.s4_check2_owner} onChange={e => setS4a(p => ({ ...p, s4_check2_owner: e.target.value }))} />
+                        </div>
                       </div>
                     )}
                     {!isObserver && isG1 && (
                       <SaveBtn
-                        onClick={() => onUpdate(car.id, {
-                          status_code: s4a.s4_check1_result === 'pass' ? 50 : 40,
-                          form_data: s4a,
-                        })}
-                        disabled={saving || !s4a.s4_check1_result || !s4a.s4_check1_by
-                          || (s4a.s4_check1_result === 'fail' && !s4a.s4_check2_deadline)}
-                        color={s4a.s4_check1_result === 'pass' ? 'bg-teal-600 hover:bg-teal-700' : 'bg-purple-600 hover:bg-purple-700'}>
-                        {s4a.s4_check1_result === 'pass' ? 'บันทึกผลผ่าน → แก้ไขแล้ว'
+                        onClick={() => onUpdate(car.id, { status_code: c1Next, form_data: s4a })}
+                        disabled={saving || !s4a.s4_check1_result || !s4a.s4_check1_by || !s4a.s4_check1_items.length
+                          || (c1Next === 40 && !s4a.s4_check2_deadline)}
+                        color={c1Next === 50 ? 'bg-teal-600 hover:bg-teal-700' : 'bg-purple-600 hover:bg-purple-700'}>
+                        {c1Next === 50 ? 'บันทึกผลผ่านครบ → แก้ไขแล้ว'
+                          : s4a.s4_check1_result === 'pass' ? `บันทึกผ่าน (${itemsText(c1Pass)}) → รอติดตาม#2`
                           : s4a.s4_check1_result === 'fail' ? 'บันทึกผลไม่ผ่าน → รอติดตาม#2'
                           : 'บันทึกผลติดตาม#1'}
                       </SaveBtn>
@@ -998,6 +1050,7 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
                   </>
                 ) : (
                   <div className="space-y-1">
+                    {fd.s4_check1_items?.length > 0 && <p className="text-xs text-earth-ink2">ติดตาม: {itemsText(fd.s4_check1_items)}</p>}
                     <p className={`text-sm font-medium ${fd.s4_check1_result === 'pass' ? 'text-green-700' : 'text-red-700'}`}>
                       {fd.s4_check1_result === 'pass' ? '✅ เป็นไปตามที่กำหนด' : '❌ ไม่เป็นไปตามที่กำหนด'}
                     </p>
@@ -1016,6 +1069,8 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
 
                     {code === 40 ? (
                       <>
+                        <FollowItemsPick value={s4b.s4_check2_items} applicable={applicable} done={passed1}
+                          onChange={v => setS4b(p => ({ ...p, s4_check2_items: v }))} />
                         <div className="flex flex-wrap gap-4">
                           {[['pass','✅ เป็นไปตามที่กำหนด'], ['fail','❌ ไม่เป็นไปตามที่กำหนด']].map(([v, lbl]) => (
                             <label key={v} className="flex items-center gap-2 text-sm cursor-pointer">
@@ -1037,17 +1092,25 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
                         </div>
                         <Inp label="วันที่ตรวจ" name="s4_check2_date" type="date"
                           value={s4b.s4_check2_date} onChange={e => setS4b(p => ({ ...p, s4_check2_date: e.target.value }))} />
+                        {c2Next === 45 && (
+                          <p className="text-xs text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                            ⚠ ปิดไม่ได้ภายใน 2 ครั้ง{s4b.s4_check2_result === 'pass' ? ` (ยังไม่ครอบคลุม ${itemsText(remainingAfter1.filter(k => !c2Covered.includes(k)))})` : ''} — ตาม PM ต้องนำเข้าที่ประชุม
+                          </p>
+                        )}
                         {!isObserver && isG1 && (
                           <SaveBtn
-                            onClick={() => onUpdate(car.id, { status_code: 50, form_data: s4b })}
-                            disabled={saving || !s4b.s4_check2_result || !s4b.s4_check2_by || s4b.s4_check2_result !== 'pass'}
-                            color="bg-teal-600 hover:bg-teal-700">
-                            บันทึกผลผ่าน → แก้ไขแล้ว
+                            onClick={() => onUpdate(car.id, { status_code: c2Next, form_data: s4b })}
+                            disabled={saving || !s4b.s4_check2_result || !s4b.s4_check2_by || !s4b.s4_check2_items.length}
+                            color={c2Next === 45 ? 'bg-red-600 hover:bg-red-700' : 'bg-teal-600 hover:bg-teal-700'}>
+                            {c2Next === 50 ? 'บันทึกผลผ่าน → แก้ไขแล้ว'
+                              : c2Next === 45 ? 'บันทึกผล → นำเข้าที่ประชุม'
+                              : 'บันทึกผลติดตาม#2'}
                           </SaveBtn>
                         )}
                       </>
                     ) : (
                       <div className="space-y-1">
+                        {fd.s4_check2_items?.length > 0 && <p className="text-xs text-earth-ink2">ติดตาม: {itemsText(fd.s4_check2_items)}</p>}
                         <p className={`text-sm font-medium ${fd.s4_check2_result === 'pass' ? 'text-green-700' : 'text-red-700'}`}>
                           {fd.s4_check2_result === 'pass' ? '✅ เป็นไปตามที่กำหนด' : '❌ ไม่เป็นไปตามที่กำหนด'}
                         </p>
@@ -1058,6 +1121,32 @@ function CarSlidePanel({ car, onClose, onUpdate, saving, carUser, onEdit, onDele
                       </div>
                     )}
                   </>
+                )}
+
+                {/* นำเข้าที่ประชุม — ปิดไม่ได้ภายใน 2 ครั้ง (ตาม PM) */}
+                {(code === 45 || fd.s4_meeting_notes) && (
+                  <div className="rounded-xl border border-red-200 bg-red-50 p-3 space-y-3 mt-2">
+                    <p className="text-sm font-semibold text-red-800">🗣 นำเข้าที่ประชุม — ติดตาม 2 ครั้งแล้วยังปิดไม่ได้</p>
+                    {code === 45 ? (
+                      <>
+                        <Txt label="มติ / ผลการประชุม *" name="s4_meeting_notes" value={s4m.s4_meeting_notes}
+                          onChange={e => setS4m(p => ({ ...p, s4_meeting_notes: e.target.value }))} rows={3} />
+                        <Inp label="วันที่ประชุม" name="s4_meeting_date" type="date" cls="max-w-[14rem]"
+                          value={s4m.s4_meeting_date} onChange={e => setS4m(p => ({ ...p, s4_meeting_date: e.target.value }))} />
+                        {!isObserver && isG1 && (
+                          <SaveBtn onClick={() => onUpdate(car.id, { status_code: 50, form_data: s4m })}
+                            disabled={saving || !s4m.s4_meeting_notes.trim()} color="bg-red-600 hover:bg-red-700">
+                            บันทึกมติที่ประชุม → ส่ง ผอ.ฝผม. พิจารณา
+                          </SaveBtn>
+                        )}
+                      </>
+                    ) : (
+                      <div className="space-y-1">
+                        <Field label="มติ / ผลการประชุม" value={fd.s4_meeting_notes} />
+                        {fd.s4_meeting_date && <p className="text-xs text-red-700">ประชุมวันที่ {fmtDate(fd.s4_meeting_date)}</p>}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </>
