@@ -1462,9 +1462,16 @@ function AdminPanel({ onClose }) {
 export default function CARLog() {
   const location = useLocation();
   const navigate = useNavigate();
-  const prefill = location.state?.prefill;
-  const chemLabCase = location.state?.chemLabCase; // { id } — CAR issued from a chem-lab compensation case
-  const eventOccurrence = location.state?.eventOccurrence; // { id, event_class_id } — CAR issued from an alarm (Event Class)
+  // ค่าที่ส่งมากับการเปิดหน้า (Dashboard / Event Class / Chem Lab → "ออก CAR") — อ่านครั้งเดียวเก็บใน state
+  // แล้วล้าง history state ทิ้ง: ไม่งั้น reload (Ctrl+Shift+R) เบราว์เซอร์คืน state เดิม → เปิดฟอร์มสร้าง CAR ซ้ำทุกครั้ง
+  const [{ prefill, chemLabCase, eventOccurrence }] = useState(() => ({
+    prefill: location.state?.prefill,
+    chemLabCase: location.state?.chemLabCase,          // { id } — CAR issued from a chem-lab compensation case
+    eventOccurrence: location.state?.eventOccurrence,  // { id, event_class_id } — CAR issued from an alarm (Event Class)
+  }));
+  useEffect(() => {
+    if (location.state) navigate(location.pathname + location.search, { replace: true, state: null });
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   const [linkError, setLinkError] = useState(null);
 
   const [tab, setTab] = useState(prefill ? 'create' : 'list');
