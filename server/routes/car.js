@@ -409,7 +409,12 @@ router.put('/:id/section1', requireCarAdmin, (req, res) => {
   const b = req.body || {};
   if (!b.parameter_name || !b.record_datetime) return res.status(400).json({ error: 'ต้องมีเรื่องที่พบ และวันที่-เวลาที่พบ' });
   const type = b.car_type || car.car_type || 'CAR';
-  const carNumber = String(b.car_number ?? '').trim() || null;
+  let carNumber = String(b.car_number ?? '').trim() || null;
+  // เลือกรหัส (HA/EA/…) แล้วเว้นเลขว่าง → ออกเลขอัตโนมัติเหมือนตอนสร้าง
+  if (!carNumber && b.car_prefix) {
+    try { carNumber = nextCarNumber(db, b.car_prefix, type); }
+    catch (e) { return res.status(e.status || 400).json({ error: e.message }); }
+  }
   if (carNumber && db.get('SELECT id FROM car_log WHERE car_number = ? AND car_type = ? AND id <> ?', [carNumber, type, id])) {
     return res.status(409).json({ error: `เลข ${type} ${carNumber} ถูกใช้แล้ว` });
   }

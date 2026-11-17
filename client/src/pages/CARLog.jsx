@@ -1183,7 +1183,9 @@ function formFromCar(car) {
   return {
     ...INIT,
     car_type: car.car_type || 'CAR', system_type: car.system_type || '', issue_type: car.issue_type || '',
-    car_prefix: '', car_number: car.car_number || '', parameter_name: car.parameter_name || '',
+    // เลขรูปแบบอัตโนมัติ (เช่น "CQ 01/2570") → ให้ dropdown แสดงรหัสเดิม; รูปแบบอื่น = "กรอกเอง"
+    car_prefix: CAR_PREFIXES.find(([p]) => new RegExp(`^${p} \\d+/\\d{4}$`).test(car.car_number || ''))?.[0] || '',
+    car_number: car.car_number || '', parameter_name: car.parameter_name || '',
     issuer_name: car.issuer_name || '', issuer_dept: car.issuer_dept || '',
     receiver_name: car.receiver_name || '', receiver_dept: car.receiver_dept || '', receiver_shift: shift,
     findings: (rows || [blankFinding()]).map(r => ({
@@ -1707,7 +1709,12 @@ export default function CARLog() {
             <div>
               <label className="block text-xs font-medium text-earth-ink2 mb-1">เลข {form.car_type}</label>
               <div className="flex gap-2">
-                <select name="car_prefix" value={form.car_prefix} onChange={setF}
+                <select name="car_prefix" value={form.car_prefix}
+                  onChange={e => {
+                    const p = e.target.value;
+                    // เลือกรหัสใหม่ → ล้างเลขเดิมที่ไม่ใช่รหัสนี้ ให้ระบบออกเลขอัตโนมัติ (สำคัญตอนแก้ไข: เลขเดิมค้างอยู่ในช่อง)
+                    setForm(f => ({ ...f, car_prefix: p, car_number: p && !String(f.car_number).startsWith(`${p} `) ? '' : f.car_number }));
+                  }}
                   className="w-24 shrink-0 border border-earth-border rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
                   <option value="">กรอกเอง</option>
                   {CAR_PREFIXES.map(([p, d]) => <option key={p} value={p} title={d}>{p}</option>)}
